@@ -2,6 +2,7 @@ import { Link, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
+import { Database } from '../components/database.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import { useApps } from '../use-apps.ts'
 
@@ -132,6 +133,8 @@ export function ProjectScreen() {
           <PartPanel key={part.script} project={project} part={part} app={appOf(part)} />
         ))}
       </ul>
+
+      <Database project={project} />
     </main>
   )
 }

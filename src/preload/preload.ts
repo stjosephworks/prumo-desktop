@@ -25,6 +25,19 @@ const bridge: Bridge = {
       }
     },
   },
+  database: {
+    state: (project) => ipcRenderer.invoke(CHANNELS.databaseState, project),
+    create: (project, name) => ipcRenderer.invoke(CHANNELS.databaseCreate, project, name),
+    startDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStart, project),
+    stopDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStop, project),
+    onLog: (listener) => {
+      const handler = (_event: unknown, chunk: string) => listener(chunk)
+      ipcRenderer.on(CHANNELS.databaseLog, handler)
+      return () => {
+        ipcRenderer.off(CHANNELS.databaseLog, handler)
+      }
+    },
+  },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),

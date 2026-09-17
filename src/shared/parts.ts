@@ -23,6 +23,18 @@ export function partsFor(project: Project): Part[] {
   }))
 }
 
+/**
+ * Where the API sits, which is where its `docker-compose.yml`, its `.env` and its `db:migrate` script live:
+ * the project itself when it is alone, `apps/api` in a workspace. Undefined when the project has no API.
+ */
+export function apiDirectory(project: Project): string | undefined {
+  const config = project.config
+
+  if (config === undefined || !config.types.includes('api')) return undefined
+
+  return config.architecture === 'alone' ? project.path : `${project.path}/apps/api`
+}
+
 /** The id the process layer gives an app, so a screen can find its state without starting anything. */
 export function partId(project: Project, part: Part): string {
   return `${project.path}#${part.script}`

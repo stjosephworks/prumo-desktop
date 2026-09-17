@@ -2,8 +2,10 @@
 
 import type { BrowserWindow } from 'electron'
 import { dialog, ipcMain, shell } from 'electron'
+import type { Project } from '../shared/ipc.ts'
 import { CHANNELS, type Environment, type NewProject, type StartApp } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
+import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
 
@@ -51,6 +53,19 @@ export function register({ apps, projects, windows, environment, cli }: Wiring):
       onLog: (chunk) => send(CHANNELS.projectsCreateLog, chunk),
     }),
   )
+  ipcMain.handle(CHANNELS.databaseState, async (_event, project: Project) => ({
+    database: await databaseState(project, { cli: cli() }),
+    docker: await dockerState(project),
+  }))
+  ipcMain.handle(CHANNELS.databaseCreate, (_event, project: Project, name: string) =>
+    createDatabase(project, name, {
+      cli: cli(),
+      onLog: (chunk) => send(CHANNELS.databaseLog, chunk),
+    }),
+  )
+  ipcMain.handle(CHANNELS.databaseStart, (_event, project: Project) => startDocker(project))
+  ipcMain.handle(CHANNELS.databaseStop, (_event, project: Project) => stopDocker(project))
+
   ipcMain.handle(CHANNELS.list, () => apps.list())
   ipcMain.handle(CHANNELS.start, (_event, app: StartApp) => apps.start(app))
   ipcMain.handle(CHANNELS.stop, (_event, id: string) => apps.stop(id))

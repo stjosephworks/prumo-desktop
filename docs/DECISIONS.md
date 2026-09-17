@@ -645,3 +645,33 @@ project that renames its root scripts stops matching, and a new app type has to 
 down as a need on the Prumo side.
 
 **Affects:** `src/shared/parts.ts`, `src/renderer/routes/project.tsx`, `src/renderer/components/terminal.tsx`
+
+---
+
+## 2026-09-17: The database part is built, and its state comes from `prumo db` and Docker
+
+**Decision:** a project with an API shows a database part.
+- **Whether a database exists** comes from `prumo db --check --json`: `database_missing` while the API's
+  `DATABASE_URL` is `MISSING`, `ok` once it is not. The Desktop never reads `.env`.
+- **"Create database"** asks only for a name, suggesting the project's own name with hyphens turned into
+  underscores, and runs `prumo db --name <name> --json`, which creates the container's database and migrates it.
+  The CLI's log streams while it runs, and its message is shown on failure.
+- **Docker** comes from `docker compose ps --all --format json` in the API's folder, with `docker --version` and
+  `docker info` telling **not installed** from **not running**, each with its own message. Start and stop are
+  `docker compose up -d --wait` and `docker compose stop`.
+- **Migrate** is a button that runs the project's own `pnpm db:migrate` **through the process layer**, so it gets a
+  terminal panel like any app and never runs by itself.
+
+**Options considered:**
+- Migration's output: A) the process layer, with a terminal panel; B) a plain child process with a text log.
+- Docker's state: A) `docker compose ps`; B) remembering what the Desktop started.
+
+**Reasoning:** A and A. One mechanism for anything that runs, and a state that comes from Docker recognises a
+container started in a terminal, or one left running after the Desktop quit.
+
+**What it costs:** the Desktop derives where the API sits (`apps/api`, or the project itself when alone) in
+`src/shared/parts.ts`, which is the same copied layout knowledge the parts rule carries. The suggested database
+name is a guess; `prumo db` is what judges it. The database tests create a project and a container, so they take
+about half a minute and are skipped when Docker is not running.
+
+**Affects:** `src/main/database.ts`, `src/shared/parts.ts`, `src/renderer/components/database.tsx`

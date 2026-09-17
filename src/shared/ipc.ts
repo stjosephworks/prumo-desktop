@@ -48,6 +48,20 @@ export type CreateResult =
   | { ok: true; project: Project }
   | { ok: false; code: string; message: string }
 
+/** Whether the project has a database to create, and whether it already has one. */
+export type DatabaseState =
+  | { part: false }
+  | { part: true; created: boolean; error?: { code: string; message: string } }
+
+/** What Docker says about the project's own compose service. `missing` and `stopped` are told apart. */
+export type DockerState =
+  | { part: false }
+  | {
+      part: true
+      docker: 'missing' | 'stopped' | 'running'
+      services: { name: string; state: string }[]
+    }
+
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
 export type AppState = 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -78,6 +92,18 @@ export type Bridge = {
     chooseParent: () => Promise<string | undefined>
     onCreateLog: (listener: (chunk: string) => void) => () => void
   }
+  database: {
+    state: (project: Project) => Promise<{ database: DatabaseState; docker: DockerState }>
+    /** Runs `prumo db --name <name>`: it creates the database in Docker and migrates it. */
+    create: (
+      project: Project,
+      name: string,
+    ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
+    startDocker: (project: Project) => Promise<boolean>
+    stopDocker: (project: Project) => Promise<boolean>
+    /** The log of `prumo db`, while it runs. */
+    onLog: (listener: (chunk: string) => void) => () => void
+  }
   apps: {
     list: () => Promise<RunningApp[]>
     start: (app: StartApp) => Promise<RunningApp>
@@ -100,6 +126,11 @@ export const CHANNELS = {
   projectsCreate: 'prumo:projects:create',
   projectsChooseParent: 'prumo:projects:choose-parent',
   projectsCreateLog: 'prumo:projects:create-log',
+  databaseState: 'prumo:database:state',
+  databaseCreate: 'prumo:database:create',
+  databaseStart: 'prumo:database:start',
+  databaseStop: 'prumo:database:stop',
+  databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',
