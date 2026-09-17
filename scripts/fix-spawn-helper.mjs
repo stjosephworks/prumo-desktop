@@ -1,4 +1,5 @@
-// node-pty 1.1.0 ships its prebuilt spawn-helper without the executable bit, and every install resets it.
+// node-pty 1.1.0 ships its prebuilt spawn-helper without the executable bit, and every install resets it,
+// `pnpm add` included, which does not run this package's postinstall: `pnpm prepare-run` calls it as well.
 // Without this, opening a pseudo terminal fails with `posix_spawnp failed`. The packaged app is fixed in
 // forge.config.js, which does the same to its own copy.
 import { chmodSync, existsSync, readdirSync } from 'node:fs'

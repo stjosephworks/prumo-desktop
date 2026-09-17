@@ -675,3 +675,45 @@ name is a guess; `prumo db` is what judges it. The database tests create a proje
 about half a minute and are skipped when Docker is not running.
 
 **Affects:** `src/main/database.ts`, `src/shared/parts.ts`, `src/renderer/components/database.tsx`
+
+---
+
+## 2026-09-17: The knowledge base is read inside the app, and every path is checked against `.prumo/`
+
+**Decision:** a project's `.prumo/` is read only, entered through `INDEX.md`. Links between documents navigate
+inside the app, links to `http` and `https` open in the browser, and "Open in editor" hands the file to the system.
+Every read resolves the path and **refuses anything that leaves `.prumo/`**, because what is asked for comes from
+links inside markdown the Desktop did not write.
+
+**Options considered:**
+- Markdown: A) `react-markdown` with GFM; B) rendering it by hand.
+- Paths: A) resolve and check containment; B) trust the link.
+
+**Reasoning:** A and A. The knowledge base uses tables and code blocks, so GFM is not optional. A link is input
+like any other: `../../.ssh/id_rsa` is a valid relative path, and only a containment check stops it.
+
+**What it costs:** two more dependencies, and a stylesheet for prose the rest of the app does not use. There is no
+search, by the earlier decision, so finding a word means opening the document in the editor.
+
+**Affects:** `src/main/docs.ts`, `src/renderer/routes/docs.tsx`, `src/renderer/index.css`
+
+---
+
+## 2026-09-17: What the smoke check taught about testing a packaged app
+
+**Decision:** `pnpm smoke` now creates a project, starts it, reads its knowledge base and stops it, all through the
+packaged app. Three rules came out of building it, and they apply to anything that reads a terminal or a port:
+- **Read the port from what the app printed**, never from a constant: 5173 was taken by a Forge dev server, and Vite
+  moved to 5174, which made an assertion about 5173 meaningless.
+- **Strip ANSI escapes before matching**: a coloured buffer arrives as `localhost:<escape>5173`, so even a plain
+  substring match fails.
+- **Read the project before deleting it**: the check read `.prumo/INDEX.md` after its own cleanup, and the failure
+  looked like a bug in the reader.
+
+**Reasoning:** each of these produced a red check that pointed at the wrong place. Writing them down keeps the next
+person from chasing the same ghost.
+
+**What it costs:** the smoke check takes about a minute and leaves nothing behind, but it depends on the machine
+having Node, pnpm and a free port for the dev server it starts.
+
+**Affects:** `scripts/smoke.mjs`

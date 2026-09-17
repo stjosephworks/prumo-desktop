@@ -120,7 +120,7 @@ try {
   const listed = await evaluate(socket, 'window.prumo.projects.list()', 4)
 
   // Running an app for real: a pseudo terminal in the packaged app, a port taken, and the port freed on stop.
-  const run = { ready: false, portWhileRunning: false, portAfterStop: true }
+  const run = { ready: false, port: 0, portWhileRunning: false, portAfterStop: true }
 
   if (created?.ok) {
     const id = `${created.project.path}#dev`
@@ -140,20 +140,39 @@ try {
       // `localhost:<escape>5173`. Anything matched against it has to be stripped first.
       const plain =
         typeof buffer === 'string' ? buffer.replaceAll(/\u001b\[[0-9;?]*[a-zA-Z]/g, '') : ''
-      run.ready = /localhost:\d+/.test(plain)
+      // The port comes from what the dev server printed: 5173 may already be taken, and Vite then moves on.
+      run.port = Number(plain.match(/localhost:(\d+)/)?.[1])
+      run.ready = Number.isInteger(run.port)
       if (!run.ready) await sleep(1000)
     }
 
-    run.portWhileRunning = portHeld(5173)
+    run.portWhileRunning = run.ready && portHeld(run.port)
     await evaluate(socket, `window.prumo.apps.stop(${JSON.stringify(id)})`, 7)
     await sleep(1500)
-    run.portAfterStop = portHeld(5173)
+    run.portAfterStop = run.ready && portHeld(run.port)
     run.state = await evaluate(
       socket,
       `(async () => (await window.prumo.apps.list()).find((one) => one.id === ${JSON.stringify(id)}))()`,
       8,
     )
   }
+
+  // The knowledge base, read through the same bridge the screen uses, and the refusal that guards it.
+  // Read while the project still exists: everything below deletes it.
+  const docs = created?.ok
+    ? {
+        index: await evaluate(
+          socket,
+          `window.prumo.docs.read(${JSON.stringify(created.project.path)})`,
+          9,
+        ),
+        outside: await evaluate(
+          socket,
+          `window.prumo.docs.read(${JSON.stringify(created.project.path)}, '../package.json')`,
+          10,
+        ),
+      }
+    : {}
 
   if (created?.ok) {
     await evaluate(
@@ -175,13 +194,27 @@ try {
     failures.push('the created project did not reach the list')
   }
   if (!run.ready) failures.push('the app never reported a dev server in its terminal')
-  if (!run.portWhileRunning) failures.push('nothing was listening on 5173 while the app ran')
-  if (run.portAfterStop) failures.push('port 5173 was still held after stopping the app')
+  if (!run.portWhileRunning) failures.push(`nothing was listening on ${run.port} while the app ran`)
+  if (run.portAfterStop) failures.push(`port ${run.port} was still held after stopping the app`)
+  if (!docs.index?.ok || !docs.index.text.includes('#'))
+    failures.push('.prumo/INDEX.md was not read')
+  if (docs.outside?.ok !== false) failures.push('a document outside .prumo/ was readable')
   if (!text.includes('Projects')) failures.push('the window rendered nothing')
 
   console.log(
     JSON.stringify(
-      { environment, projects, created, run, screen: text.split('\n').filter(Boolean) },
+      {
+        environment,
+        projects,
+        created,
+        run,
+        docs: {
+          index: docs.index?.ok,
+          indexProblem: docs.index?.message,
+          outside: docs.outside?.ok,
+        },
+        screen: text.split('\n').filter(Boolean),
+      },
       null,
       2,
     ),

@@ -92,6 +92,17 @@ export type Bridge = {
     chooseParent: () => Promise<string | undefined>
     onCreateLog: (listener: (chunk: string) => void) => () => void
   }
+  docs: {
+    /** Reads one document of a project's `.prumo/`; `INDEX.md` when none is given. */
+    read: (
+      project: string,
+      document?: string,
+    ) => Promise<{ ok: true; text: string } | { ok: false; message: string }>
+    /** Opens the document in whatever the system uses for markdown, usually the editor. */
+    openInEditor: (project: string, document: string) => Promise<void>
+    /** Opens a link that leaves the knowledge base in the browser, not inside the app. */
+    openExternal: (url: string) => Promise<void>
+  }
   database: {
     state: (project: Project) => Promise<{ database: DatabaseState; docker: DockerState }>
     /** Runs `prumo db --name <name>`: it creates the database in Docker and migrates it. */
@@ -126,6 +137,9 @@ export const CHANNELS = {
   projectsCreate: 'prumo:projects:create',
   projectsChooseParent: 'prumo:projects:choose-parent',
   projectsCreateLog: 'prumo:projects:create-log',
+  docsRead: 'prumo:docs:read',
+  docsOpenInEditor: 'prumo:docs:open-in-editor',
+  docsOpenExternal: 'prumo:docs:open-external',
   databaseState: 'prumo:database:state',
   databaseCreate: 'prumo:database:create',
   databaseStart: 'prumo:database:start',

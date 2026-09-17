@@ -5,6 +5,7 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router'
+import { Docs } from './routes/docs.tsx'
 import { Environment } from './routes/environment.tsx'
 import { NewProject } from './routes/new-project.tsx'
 import { ProjectScreen } from './routes/project.tsx'
@@ -16,6 +17,15 @@ const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: Projects }),
   createRoute({ getParentRoute: () => root, path: '/environment', component: Environment }),
   createRoute({ getParentRoute: () => root, path: '/new', component: NewProject }),
+  createRoute({
+    getParentRoute: () => root,
+    path: '/docs',
+    component: Docs,
+    validateSearch: (search: Record<string, unknown>) => ({
+      path: String(search.path ?? ''),
+      doc: String(search.doc ?? 'INDEX.md'),
+    }),
+  }),
   createRoute({
     getParentRoute: () => root,
     path: '/project',

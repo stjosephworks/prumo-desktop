@@ -6,6 +6,7 @@ import type { Project } from '../shared/ipc.ts'
 import { CHANNELS, type Environment, type NewProject, type StartApp } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
 import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
+import { documentPath, readDocument } from './docs.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
 
@@ -53,6 +54,21 @@ export function register({ apps, projects, windows, environment, cli }: Wiring):
       onLog: (chunk) => send(CHANNELS.projectsCreateLog, chunk),
     }),
   )
+  ipcMain.handle(CHANNELS.docsRead, async (_event, project: string, document?: string) => {
+    try {
+      return { ok: true as const, text: await readDocument(project, document) }
+    } catch (problem) {
+      return { ok: false as const, message: (problem as Error).message }
+    }
+  })
+  ipcMain.handle(CHANNELS.docsOpenInEditor, (_event, project: string, document: string) =>
+    shell.openPath(documentPath(project, document)),
+  )
+  ipcMain.handle(CHANNELS.docsOpenExternal, (_event, url: string) => {
+    // Only the web goes to the browser; anything else would be a way to open arbitrary files.
+    if (/^https?:\/\//.test(url)) shell.openExternal(url)
+  })
+
   ipcMain.handle(CHANNELS.databaseState, async (_event, project: Project) => ({
     database: await databaseState(project, { cli: cli() }),
     docker: await dockerState(project),

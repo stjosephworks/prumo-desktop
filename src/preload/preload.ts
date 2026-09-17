@@ -25,6 +25,12 @@ const bridge: Bridge = {
       }
     },
   },
+  docs: {
+    read: (project, document) => ipcRenderer.invoke(CHANNELS.docsRead, project, document),
+    openInEditor: (project, document) =>
+      ipcRenderer.invoke(CHANNELS.docsOpenInEditor, project, document),
+    openExternal: (url) => ipcRenderer.invoke(CHANNELS.docsOpenExternal, url),
+  },
   database: {
     state: (project) => ipcRenderer.invoke(CHANNELS.databaseState, project),
     create: (project, name) => ipcRenderer.invoke(CHANNELS.databaseCreate, project, name),

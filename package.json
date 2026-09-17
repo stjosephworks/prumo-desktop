@@ -9,12 +9,12 @@
   "license": "MIT",
   "scripts": {
     "postinstall": "node scripts/fix-spawn-helper.mjs",
-    "embed-cli": "node scripts/embed-cli.mjs",
-    "start": "pnpm embed-cli && electron-forge start",
-    "package": "pnpm embed-cli && electron-forge package",
+    "prepare-run": "node scripts/fix-spawn-helper.mjs && node scripts/embed-cli.mjs",
+    "start": "pnpm prepare-run && electron-forge start",
+    "package": "pnpm prepare-run && electron-forge package",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
-    "test": "pnpm embed-cli && vitest run",
+    "test": "pnpm prepare-run && vitest run",
     "smoke": "pnpm package && node scripts/smoke.mjs"
   },
   "packageManager": "pnpm@12.3.4",
@@ -44,6 +44,8 @@
     "node-pty": "1.1.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
     "tailwindcss": "4.3.3"
   }
 }
