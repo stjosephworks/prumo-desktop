@@ -9,8 +9,8 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 
 ## Status
 
-**No application code yet.** A throwaway spike, on the `spike` branch, proved the risky parts on macOS. This
-repository holds the decisions:
+**The foundation runs; the features are not built.** A throwaway spike, on the `spike` branch, proved the risky
+parts on macOS first. This repository holds the decisions:
 
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every approved decision, with the options considered, the reasoning and
   what it costs.
@@ -19,12 +19,23 @@ repository holds the decisions:
 ## Build order
 
 1. ~~**Spike, before any interface.**~~ Done on 2026-09-17, every proof passed; see `docs/DECISIONS.md`.
-2. **Foundation.** The environment layer (`PATH`, `prumo doctor`) and the process layer (start, stop the whole tree,
-   state, terminal buffer, stopping everything on quit).
+2. ~~**Foundation.**~~ Done on 2026-09-17: the environment layer (`PATH`, `prumo doctor`), the process layer (start,
+   stop the whole tree, state, terminal buffer, stopping everything on quit), the IPC contract and a first screen.
 3. **Features, one at a time:** project list, creating a project, running apps, the database, reading `.prumo/`.
 4. **First signed and notarised build**, well before the public release.
 
 Version 0.0.1 targets macOS only. Every technology choice must also work on Windows and Linux.
+
+## Working on it
+
+```sh
+pnpm install     # also embeds the pinned CLI and fixes node-pty's spawn-helper
+pnpm start       # development
+pnpm test        # real processes and the embedded CLI, no mocks
+pnpm lint        # biome
+pnpm typecheck
+pnpm smoke       # packages the app and checks it with the PATH an app opened from Finder gets
+```
 
 ## Requirements (for users)
 

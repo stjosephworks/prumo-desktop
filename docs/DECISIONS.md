@@ -556,4 +556,16 @@ either. A packaged build is still checked by opening it through Finder, as the s
 **What it costs:** tests that start processes and run the CLI are slower than unit tests and depend on the machine
 (Node, pnpm, ports). If the interface ever needs its own package, the layout has to change.
 
-**Affects:** the repository layout, `src/**`, `forge.config.js`, `biome.jsonc`, `vitest.config.ts`
+**Found while building it, on 2026-09-17:**
+- **Forge builds the main process as CommonJS**, where `import.meta.dirname` is undefined: the packaged app failed
+  to find its preload and its HTML. It uses `__dirname`.
+- Forge names each bundle after its entry file, so `src/main/index.ts` and `src/preload/index.ts` would both be
+  `index.js`. The entries are `main.ts` and `preload.ts`.
+- **Every `pnpm install` resets `spawn-helper`'s executable bit**, so a `postinstall` script restores it, as
+  `forge.config.js` does for the packaged copy.
+- `pnpm smoke` was added for what unit tests cannot see: it starts the **packaged** app with the environment an app
+  opened from Finder gets (`PATH=/usr/bin:/bin:/usr/sbin:/sbin`), and asks the renderer, over the remote debugging
+  protocol, what the bridge returned and what the window shows. No code exists in the app for its sake.
+
+**Affects:** the repository layout, `src/**`, `forge.config.js`, `biome.jsonc`, `vitest.config.ts`,
+`scripts/smoke.mjs`

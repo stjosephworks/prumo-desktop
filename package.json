@@ -1,0 +1,49 @@
+{
+  "name": "prumo-desktop",
+  "productName": "Prumo Desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Desktop app for Prumo: create, follow and run Prumo projects",
+  "main": ".vite/build/main.js",
+  "author": "Leonardo Freitas",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node scripts/fix-spawn-helper.mjs",
+    "embed-cli": "node scripts/embed-cli.mjs",
+    "start": "pnpm embed-cli && electron-forge start",
+    "package": "pnpm embed-cli && electron-forge package",
+    "lint": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm embed-cli && vitest run",
+    "smoke": "pnpm package && node scripts/smoke.mjs"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22.17.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/plugin-vite": "7.11.2",
+    "@types/node": "24.13.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "44.4.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.0",
+    "vitest": "4.1.11"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-router": "1.170.36",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
+    "fix-path": "5.0.0",
+    "node-pty": "1.1.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwindcss": "4.3.3"
+  }
+}

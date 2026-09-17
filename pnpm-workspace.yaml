@@ -1,0 +1,8 @@
+# Electron Forge packages node_modules as npm lays them out; pnpm's symlinked store breaks that.
+nodeLinker: hoisted
+# @electron/rebuild (used by Forge) depends on @electron/node-gyp straight from a git repository.
+blockExoticSubdeps: false
+# electron downloads its binary; node-pty picks a prebuild or compiles.
+allowBuilds:
+  electron: true
+  node-pty: true

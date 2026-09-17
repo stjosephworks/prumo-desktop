@@ -1,4 +1,10 @@
 node_modules
 out
 .vite
+resources
+spike/node_modules
+spike/out
+spike/.vite
+spike/resources
 .DS_Store
+/spike/
