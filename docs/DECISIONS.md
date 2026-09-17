@@ -717,3 +717,30 @@ person from chasing the same ghost.
 having Node, pnpm and a free port for the dev server it starts.
 
 **Affects:** `scripts/smoke.mjs`
+
+---
+
+## 2026-09-17: Opening a web app's address, and the phone simulators, without copying what the tools do
+
+**Decision:**
+- **web and site** show an "Open …" button while they run, taking the address from **what the app itself printed**
+  in its terminal, stripped of colour escapes. The last address wins, so a dev server that moved port still opens
+  the right one. It goes to the browser through `openExternal`, which accepts `http` and `https` and nothing else.
+- **mobile** shows "iOS simulator" and "Android emulator" while it runs, and they **press Expo's own keys**, `i`
+  and `a`, by writing them into the pseudo terminal.
+
+**Options considered:**
+- The address: A) read it from the app's output; B) keep each template's port in the Desktop; C) no button.
+- The simulators: A) press Expo's shortcuts; B) run `xcrun simctl` and `emulator` ourselves.
+
+**Reasoning:** A and A. B for the address is the port copy that was rejected when the run model was decided, and a
+team that changes a port would break it. B for the simulators would rebuild what Expo already does, including
+choosing a device and installing Expo Go, and would work only when Expo's own path does.
+
+**What it costs:** the button appears only after the app has announced itself, which is a second or two after it
+starts, and never for an app that prints no address. Pressing a key is Expo's contract, not the CLI's: if Expo
+changes its shortcuts, these buttons stop working, and nothing in the Desktop will say so. Whether the simulator
+opens at all is Expo's business, and its answer appears in the terminal panel like any other output.
+
+**Affects:** `src/shared/urls.ts`, `src/renderer/routes/project.tsx`, `src/renderer/use-app-output.ts`, the IPC
+contract

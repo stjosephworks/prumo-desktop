@@ -120,7 +120,13 @@ try {
   const listed = await evaluate(socket, 'window.prumo.projects.list()', 4)
 
   // Running an app for real: a pseudo terminal in the packaged app, a port taken, and the port freed on stop.
-  const run = { ready: false, port: 0, portWhileRunning: false, portAfterStop: true }
+  const run = {
+    ready: false,
+    port: 0,
+    portWhileRunning: false,
+    portAfterStop: true,
+    screenHasUrl: false,
+  }
 
   if (created?.ok) {
     const id = `${created.project.path}#dev`
@@ -147,6 +153,19 @@ try {
     }
 
     run.portWhileRunning = run.ready && portHeld(run.port)
+
+    // The project screen, with the app running: the address button comes from what the app printed.
+    await evaluate(
+      socket,
+      `window.location.hash = '#/project?path=' + encodeURIComponent(${JSON.stringify(created.project.path)})`,
+      11,
+    )
+    for (let attempt = 0; attempt < 20 && !run.screenHasUrl; attempt++) {
+      const screen = await evaluate(socket, 'document.body.innerText', 200 + attempt)
+      run.screenHasUrl = typeof screen === 'string' && screen.includes(`Open localhost:${run.port}`)
+      if (!run.screenHasUrl) await sleep(500)
+    }
+
     await evaluate(socket, `window.prumo.apps.stop(${JSON.stringify(id)})`, 7)
     await sleep(1500)
     run.portAfterStop = run.ready && portHeld(run.port)
@@ -196,6 +215,7 @@ try {
   if (!run.ready) failures.push('the app never reported a dev server in its terminal')
   if (!run.portWhileRunning) failures.push(`nothing was listening on ${run.port} while the app ran`)
   if (run.portAfterStop) failures.push(`port ${run.port} was still held after stopping the app`)
+  if (!run.screenHasUrl) failures.push('the project screen offered no address to open')
   if (!docs.index?.ok || !docs.index.text.includes('#'))
     failures.push('.prumo/INDEX.md was not read')
   if (docs.outside?.ok !== false) failures.push('a document outside .prumo/ was readable')

@@ -79,6 +79,8 @@ export type StartApp = { project: string; script: string; cols?: number; rows?: 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
+  /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
+  openExternal: (url: string) => Promise<void>
   projects: {
     list: () => Promise<Project[]>
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
@@ -100,8 +102,6 @@ export type Bridge = {
     ) => Promise<{ ok: true; text: string } | { ok: false; message: string }>
     /** Opens the document in whatever the system uses for markdown, usually the editor. */
     openInEditor: (project: string, document: string) => Promise<void>
-    /** Opens a link that leaves the knowledge base in the browser, not inside the app. */
-    openExternal: (url: string) => Promise<void>
   }
   database: {
     state: (project: Project) => Promise<{ database: DatabaseState; docker: DockerState }>
@@ -139,7 +139,7 @@ export const CHANNELS = {
   projectsCreateLog: 'prumo:projects:create-log',
   docsRead: 'prumo:docs:read',
   docsOpenInEditor: 'prumo:docs:open-in-editor',
-  docsOpenExternal: 'prumo:docs:open-external',
+  openExternal: 'prumo:open-external',
   databaseState: 'prumo:database:state',
   databaseCreate: 'prumo:database:create',
   databaseStart: 'prumo:database:start',

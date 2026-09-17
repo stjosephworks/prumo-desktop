@@ -10,6 +10,7 @@ import {
 
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
+  openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
   projects: {
     list: () => ipcRenderer.invoke(CHANNELS.projectsList),
     add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),
@@ -29,7 +30,6 @@ const bridge: Bridge = {
     read: (project, document) => ipcRenderer.invoke(CHANNELS.docsRead, project, document),
     openInEditor: (project, document) =>
       ipcRenderer.invoke(CHANNELS.docsOpenInEditor, project, document),
-    openExternal: (url) => ipcRenderer.invoke(CHANNELS.docsOpenExternal, url),
   },
   database: {
     state: (project) => ipcRenderer.invoke(CHANNELS.databaseState, project),

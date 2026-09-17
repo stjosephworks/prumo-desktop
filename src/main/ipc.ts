@@ -64,7 +64,7 @@ export function register({ apps, projects, windows, environment, cli }: Wiring):
   ipcMain.handle(CHANNELS.docsOpenInEditor, (_event, project: string, document: string) =>
     shell.openPath(documentPath(project, document)),
   )
-  ipcMain.handle(CHANNELS.docsOpenExternal, (_event, url: string) => {
+  ipcMain.handle(CHANNELS.openExternal, (_event, url: string) => {
     // Only the web goes to the browser; anything else would be a way to open arbitrary files.
     if (/^https?:\/\//.test(url)) shell.openExternal(url)
   })

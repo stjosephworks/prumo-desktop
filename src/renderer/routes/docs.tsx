@@ -83,7 +83,7 @@ export function Docs() {
                     <button
                       type="button"
                       className="text-blue-700 underline"
-                      onClick={() => window.prumo.docs.openExternal(target)}
+                      onClick={() => window.prumo.openExternal(target)}
                     >
                       {children}
                     </button>

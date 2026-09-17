@@ -2,8 +2,10 @@ import { Link, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
+import { browserUrl } from '../../shared/urls.ts'
 import { Database } from '../components/database.tsx'
 import { Terminal } from '../components/terminal.tsx'
+import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
 
 const STATE_LABEL: Record<RunningApp['state'], string> = {
@@ -20,10 +22,15 @@ const STATE_COLOUR: Record<RunningApp['state'], string> = {
   failed: 'bg-red-500',
 }
 
+const ACTION = 'rounded-md border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50'
+
 function PartPanel({ project, part, app }: { project: Project; part: Part; app?: RunningApp }) {
   const id = partId(project, part)
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
+  // Only the apps that serve a page are watched for an address; mobile answers on a phone, not in a browser.
+  const output = useAppOutput(id, busy && (part.type === 'web' || part.type === 'site'))
+  const url = browserUrl(output)
 
   return (
     <li className="py-5">
@@ -36,17 +43,49 @@ function PartPanel({ project, part, app }: { project: Project; part: Part; app?:
             {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            busy
-              ? window.prumo.apps.stop(id)
-              : window.prumo.apps.start({ project: project.path, script: part.script })
-          }
-          className="rounded-md border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50"
-        >
-          {busy ? 'Stop' : 'Start'}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* The address comes from what the app printed, so a dev server that moved port still opens. */}
+          {url !== undefined && (
+            <button type="button" onClick={() => window.prumo.openExternal(url)} className={ACTION}>
+              Open {url.replace(/^https?:\/\//, '')}
+            </button>
+          )}
+
+          {/*
+            Expo opens the simulators itself, through its own keyboard shortcuts, which only work while it runs.
+            The Desktop presses the key instead of copying what Expo does behind it.
+          */}
+          {part.type === 'mobile' && busy && (
+            <>
+              <button
+                type="button"
+                onClick={() => window.prumo.apps.write(id, 'i')}
+                className={ACTION}
+              >
+                iOS simulator
+              </button>
+              <button
+                type="button"
+                onClick={() => window.prumo.apps.write(id, 'a')}
+                className={ACTION}
+              >
+                Android emulator
+              </button>
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              busy
+                ? window.prumo.apps.stop(id)
+                : window.prumo.apps.start({ project: project.path, script: part.script })
+            }
+            className={ACTION}
+          >
+            {busy ? 'Stop' : 'Start'}
+          </button>
+        </div>
       </div>
 
       {/* The panel exists once an app has run: its log is worth reading after a failure too. */}
