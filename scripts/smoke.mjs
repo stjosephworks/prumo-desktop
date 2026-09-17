@@ -4,6 +4,7 @@
 //
 // It starts the app with the environment an app opened from Finder receives (launchd's PATH, nothing else),
 // then asks the renderer itself what the bridge returned and what the window shows. The app is closed at the end.
+// Anything that needs a native dialog, such as adding a folder, is not reachable from here on purpose.
 import { spawn } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -75,11 +76,12 @@ try {
   })
 
   const environment = await evaluate(socket, 'window.prumo.environment()', 1)
+  const projects = await evaluate(socket, 'window.prumo.projects.list()', 2)
   // Waits for the screen to have rendered the report rather than its loading state.
   let text = ''
-  for (let attempt = 0; attempt < 20 && !text.includes('Node'); attempt++) {
+  for (let attempt = 0; attempt < 20 && !text.includes('Projects'); attempt++) {
     text = await evaluate(socket, 'document.body.innerText', 10 + attempt)
-    if (!text.includes('Node')) await sleep(250)
+    if (!text.includes('Projects')) await sleep(250)
   }
 
   const failures = []
@@ -87,9 +89,12 @@ try {
   if (!Array.isArray(environment?.checks) || environment.checks.length === 0) {
     failures.push('`prumo doctor` returned no checks')
   }
-  if (!text.includes('Prumo Desktop')) failures.push('the window rendered nothing')
+  if (!Array.isArray(projects)) failures.push('the projects bridge answered nothing')
+  if (!text.includes('Projects')) failures.push('the window rendered nothing')
 
-  console.log(JSON.stringify({ environment, screen: text.split('\n').filter(Boolean) }, null, 2))
+  console.log(
+    JSON.stringify({ environment, projects, screen: text.split('\n').filter(Boolean) }, null, 2),
+  )
 
   if (failures.length > 0) {
     console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}`)

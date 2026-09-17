@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Environment as Report } from '../../shared/ipc.ts'
 
@@ -19,10 +20,11 @@ export function Environment() {
 
   return (
     <main className="mx-auto max-w-2xl px-8 py-16">
-      <h1 className="text-2xl font-semibold">Prumo Desktop</h1>
-      <p className="mt-1 text-sm text-neutral-500">
-        Foundation only: the environment and process layers exist, the features do not yet.
-      </p>
+      <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
+        ← Projects
+      </Link>
+      <h1 className="mt-4 text-2xl font-semibold">This machine</h1>
+      <p className="mt-1 text-sm text-neutral-500">Every check comes from `prumo doctor`.</p>
 
       <section className="mt-8">
         {report === undefined && <p className="text-sm text-neutral-500">Checking…</p>}

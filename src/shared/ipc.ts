@@ -15,6 +15,21 @@ export type Environment =
   // Without Node nothing runs, `prumo doctor` included, so there are no checks to show.
   | { ready: false; node: undefined; checks: [] }
 
+/** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
+export type ProjectConfig = {
+  types: ('api' | 'web' | 'mobile' | 'site')[]
+  architecture: 'alone' | 'monorepo'
+  multiTenant: boolean
+}
+
+/** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
+export type Project = {
+  path: string
+  name: string
+  found: boolean
+  config?: ProjectConfig
+}
+
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
 export type AppState = 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -32,6 +47,14 @@ export type StartApp = { project: string; script: string; cols?: number; rows?: 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
+  projects: {
+    list: () => Promise<Project[]>
+    /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
+    add: () => Promise<Project | undefined>
+    remove: (path: string) => Promise<void>
+    /** Opens the project in Finder, the editor or a terminal. */
+    reveal: (path: string) => Promise<void>
+  }
   apps: {
     list: () => Promise<RunningApp[]>
     start: (app: StartApp) => Promise<RunningApp>
@@ -47,6 +70,10 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  projectsList: 'prumo:projects:list',
+  projectsAdd: 'prumo:projects:add',
+  projectsRemove: 'prumo:projects:remove',
+  projectsReveal: 'prumo:projects:reveal',
   list: 'prumo:apps:list',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',

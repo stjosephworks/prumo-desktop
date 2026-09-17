@@ -5,6 +5,7 @@ import { doctor } from './cli.ts'
 import { applyShellPath, findNode } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
+import { Projects } from './projects.ts'
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
 declare const MAIN_WINDOW_VITE_NAME: string
@@ -16,6 +17,8 @@ const here = __dirname
 applyShellPath()
 
 const apps = new Apps()
+// The list of projects the user keeps, beside the app's own data: nothing of it belongs in a project.
+const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
 
 /**
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
@@ -54,6 +57,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   register({
     apps,
+    projects,
     windows: () => BrowserWindow.getAllWindows(),
     environment: async () => {
       const node = await findNode()

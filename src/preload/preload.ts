@@ -4,6 +4,12 @@ import { type Bridge, CHANNELS, type RunningApp, type StartApp } from '../shared
 
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
+  projects: {
+    list: () => ipcRenderer.invoke(CHANNELS.projectsList),
+    add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),
+    remove: (path: string) => ipcRenderer.invoke(CHANNELS.projectsRemove, path),
+    reveal: (path: string) => ipcRenderer.invoke(CHANNELS.projectsReveal, path),
+  },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),

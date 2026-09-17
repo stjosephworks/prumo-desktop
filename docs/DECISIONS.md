@@ -569,3 +569,25 @@ either. A packaged build is still checked by opening it through Finder, as the s
 
 **Affects:** the repository layout, `src/**`, `forge.config.js`, `biome.jsonc`, `vitest.config.ts`,
 `scripts/smoke.mjs`
+
+---
+
+## 2026-09-17: The project list stores paths only, and reads every project from disk
+
+**Decision:** the list lives in `projects.json` inside the app's own data folder, and it holds **paths and nothing
+else**. Everything shown about a project (its name, its `types`, its architecture, its tenancy) is read from that
+project's `.prumo/config.json` each time the list is asked. A project whose folder or config cannot be read is shown
+as **"not found"** and stays in the list until the user removes it. "Add folder" opens the system picker and refuses
+a folder without `.prumo/config.json`, with the message coming from the main process.
+
+**Options considered:**
+- What is stored: A) paths only; B) a copy of each project's configuration, refreshed when it changes.
+- Where: A) the app's data folder; B) a file inside each project.
+
+**Reasoning:** A and A. A copy would go stale the moment someone runs `prumo` in a terminal, and the file is small
+enough to re-read. A file inside a project would put the Desktop's own state in a repository the team owns.
+
+**What it costs:** the list reads from disk on every refresh, so a project on a slow or disconnected volume makes
+the list wait. A project moved to another folder looks like a new one.
+
+**Affects:** `src/main/projects.ts`, `src/renderer/routes/projects.tsx`, the IPC contract

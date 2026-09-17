@@ -1,18 +1,34 @@
 // Every channel the renderer can reach, in one place. The names and shapes come from the shared contract.
 
 import type { BrowserWindow } from 'electron'
-import { ipcMain } from 'electron'
+import { dialog, ipcMain, shell } from 'electron'
 import { CHANNELS, type Environment, type StartApp } from '../shared/ipc.ts'
 import type { Apps } from './processes.ts'
+import type { Projects } from './projects.ts'
 
 type Wiring = {
   apps: Apps
+  projects: Projects
   windows: () => BrowserWindow[]
   environment: () => Promise<Environment>
 }
 
-export function register({ apps, windows, environment }: Wiring): void {
+export function register({ apps, projects, windows, environment }: Wiring): void {
   ipcMain.handle(CHANNELS.environment, () => environment())
+
+  ipcMain.handle(CHANNELS.projectsList, () => projects.list())
+  ipcMain.handle(CHANNELS.projectsAdd, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      message: 'Choose a folder that holds a .prumo/config.json',
+    })
+    const [chosen] = filePaths
+
+    // The CLI owns what a project is; the Desktop only checks for the file that says so.
+    return canceled || chosen === undefined ? undefined : projects.add(chosen)
+  })
+  ipcMain.handle(CHANNELS.projectsRemove, (_event, path: string) => projects.remove(path))
+  ipcMain.handle(CHANNELS.projectsReveal, (_event, path: string) => shell.openPath(path))
   ipcMain.handle(CHANNELS.list, () => apps.list())
   ipcMain.handle(CHANNELS.start, (_event, app: StartApp) => apps.start(app))
   ipcMain.handle(CHANNELS.stop, (_event, id: string) => apps.stop(id))
