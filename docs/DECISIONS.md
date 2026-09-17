@@ -520,3 +520,40 @@ packaged with Electron Forge and opened **through Finder**, and passed every pro
   run as plain Node and exit silently.
 
 **Affects:** `forge.config.js`, the build, CI, testing a packaged build
+
+---
+
+## 2026-09-17: One application at the repository root, split by process, with a single IPC contract
+
+**Decision:** one Electron application at the repository root, not a workspace. The code is split by Electron
+process:
+- `src/main`: the environment layer (`PATH`, `prumo doctor`), the process layer (pseudo terminals, process groups)
+  and every call to the embedded CLI.
+- `src/preload`: the bridge, and nothing else.
+- `src/renderer`: the interface, following Prumo's `web` template.
+- `src/shared`: **one file holding the IPC contract**, imported by all three. The renderer never touches Node
+  directly: no `nodeIntegration`, `contextIsolation` on, everything through the preload bridge.
+
+Tooling follows Prumo: Biome with the same configuration, Vitest, TypeScript strict.
+
+**From the spike, kept:** `forge.config.js` (the `node-pty` copy, `asar.unpack` and the `spawn-helper` permission),
+`scripts/embed-cli.mjs`, and the shape of starting and stopping a process group. Everything else is rewritten with
+tests.
+
+**Options considered:**
+- Layout: A) one app at the root; B) a workspace (`apps/desktop`, `packages/*`) like a generated Prumo project.
+- Reuse: A) keep the build configuration and rewrite the rest; B) grow the spike into the app.
+- IPC types: A) one shared file; B) types declared on each side.
+
+**Reasoning:** A, A and A. There is one artefact, so a workspace would add manifests and a build graph for nothing.
+The spike's code answers questions and has no tests, but its build configuration is exactly the knowledge worth
+keeping. One shared file makes a change in the contract a type error on both sides.
+
+**Tests:** the process layer is tested with **real processes** (start a server, stop the group, check the port is
+free) and the CLI layer against the **embedded CLI itself** (`version`, `doctor`, an invalid name), never mocks of
+either. A packaged build is still checked by opening it through Finder, as the spike did.
+
+**What it costs:** tests that start processes and run the CLI are slower than unit tests and depend on the machine
+(Node, pnpm, ports). If the interface ever needs its own package, the layout has to change.
+
+**Affects:** the repository layout, `src/**`, `forge.config.js`, `biome.jsonc`, `vitest.config.ts`
