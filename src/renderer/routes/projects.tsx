@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
-import type { Project } from '../../shared/ipc.ts'
+import type { Project, RunningApp } from '../../shared/ipc.ts'
+import { partId, partsFor } from '../../shared/parts.ts'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
+import { useApps } from '../use-apps.ts'
 
 /** What a project is, in one line: its shape, from its own `.prumo/config.json`. */
 function Shape({ project }: { project: Project }) {
@@ -28,9 +30,30 @@ function Shape({ project }: { project: Project }) {
   )
 }
 
+/** The summary a project shows in the list, counted from the apps the Desktop started. */
+function Running({ project, apps }: { project: Project; apps: RunningApp[] }) {
+  const parts = partsFor(project)
+
+  if (parts.length === 0) return null
+
+  const running = parts.filter((part) => {
+    const state = apps.find((one) => one.id === partId(project, part))?.state
+    return state === 'running' || state === 'starting'
+  })
+
+  if (running.length === 0) return null
+
+  return (
+    <p className="mt-1 text-xs text-emerald-600">
+      {running.length} of {parts.length} running
+    </p>
+  )
+}
+
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>()
   const [error, setError] = useState<string>()
+  const apps = useApps()
 
   const refresh = useCallback(() => {
     window.prumo.projects.list().then(setProjects)
@@ -85,7 +108,13 @@ export function Projects() {
           <li key={project.path} className="flex items-start justify-between gap-4 py-4">
             <div className="min-w-0">
               <p className="flex items-center gap-2 font-medium">
-                {project.name}
+                {project.found ? (
+                  <Link to="/project" search={{ path: project.path }} className="hover:underline">
+                    {project.name}
+                  </Link>
+                ) : (
+                  project.name
+                )}
                 {!project.found && (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
                     not found
@@ -94,6 +123,7 @@ export function Projects() {
               </p>
               <p className="truncate text-xs text-neutral-500">{project.path}</p>
               <Shape project={project} />
+              <Running project={project} apps={apps} />
             </div>
             <div className="flex shrink-0 gap-3 text-sm">
               {project.found && (

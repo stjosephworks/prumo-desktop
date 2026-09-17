@@ -617,3 +617,31 @@ and `pnpm smoke` create real projects and install them, so both are as slow as p
 cold store.
 
 **Affects:** `src/main/create.ts`, `src/renderer/routes/new-project.tsx`, `scripts/smoke.mjs`, the IPC contract
+
+---
+
+## 2026-09-17: A project's parts come from its config, and each runs in its own terminal panel
+
+**Decision:** a project's parts are the `types` in its `.prumo/config.json`. The command follows the architecture:
+`pnpm <type>` at a workspace root (Prumo writes those root scripts as `pnpm --filter <type> dev`), `pnpm dev` in an
+`alone` project. Each part has its own start and stop buttons and its own terminal panel, which appears once the
+app has run and stays after it stops, since a failed run's output is what explains it. "Run all" starts each app
+separately, and the project screen and the project list both show "<n> of <m> running".
+
+The panel is a real terminal: it renders colours and Expo's QR code, and **what the user types reaches the
+process**, which is how a question asked by `pnpm dev` gets answered.
+
+**Options considered:**
+- Where the parts come from: A) `types` plus the architecture rule; B) reading the project's `package.json`
+  scripts; C) asking the CLI.
+- The panel: A) always present once run; B) only while running.
+
+**Reasoning:** A and A. The CLI exposes no list of parts, and reading `package.json` would mean deciding which
+scripts are apps, which is a larger guess than the rule Prumo already follows. A panel that vanishes with the
+process takes the failure's explanation with it.
+
+**What it costs:** this is **the one piece of Prumo's layout the Desktop copies** (`src/shared/parts.ts`): a
+project that renames its root scripts stops matching, and a new app type has to be added here too. It is written
+down as a need on the Prumo side.
+
+**Affects:** `src/shared/parts.ts`, `src/renderer/routes/project.tsx`, `src/renderer/components/terminal.tsx`

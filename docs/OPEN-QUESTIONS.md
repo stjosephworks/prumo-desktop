@@ -67,6 +67,8 @@ writes to system locations.
 **Question:** which of these should become questions in Prumo's own `docs/OPEN-QUESTIONS.md`?
 - **Document `prumo db --check`**, which the Desktop uses to tell whether the database is missing; today it is passed
   through to the project's script without appearing in `prumo db --help`.
+- **The parts of a project, and the command that starts each**, so the Desktop stops deriving `pnpm <type>` and
+  `pnpm dev` from the architecture (`src/shared/parts.ts`).
 - **The Prumo version in `.prumo/config.json`**, so the Desktop can tell whether a project is outdated.
 - **Validating a name without generating**, so the Desktop can validate while the user types without copying the
   rule.
