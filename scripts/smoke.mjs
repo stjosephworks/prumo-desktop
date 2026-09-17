@@ -6,7 +6,8 @@
 // then asks the renderer itself what the bridge returned and what the window shows. The app is closed at the end.
 // Anything that needs a native dialog, such as adding a folder, is not reachable from here on purpose.
 import { spawn } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const FINDER_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
@@ -46,8 +47,18 @@ async function page() {
   throw new Error(`The app never exposed a page. Its output:\n${log}`)
 }
 
-function evaluate(socket, expression, id) {
+function evaluate(socket, expression, id, timeoutMs = 300_000) {
   return new Promise((done, fail) => {
+    const timer = setTimeout(
+      () => fail(new Error(`\`${expression.slice(0, 60)}\` never answered. App output:\n${log}`)),
+      timeoutMs,
+    )
+    const settle = (finish) => (value) => {
+      clearTimeout(timer)
+      finish(value)
+    }
+    done = settle(done)
+    fail = settle(fail)
     const onMessage = (event) => {
       const message = JSON.parse(event.data)
       if (message.id !== id) return
@@ -84,16 +95,48 @@ try {
     if (!text.includes('Projects')) await sleep(250)
   }
 
+  // Creating for real, through the packaged app: the embedded CLI, `pnpm install` and the list, in one go.
+  const parent = mkdtempSync(join(tmpdir(), 'prumo-desktop-smoke-'))
+  const created = await evaluate(
+    socket,
+    `window.prumo.projects.create(${JSON.stringify({
+      parent,
+      name: 'smoke-web',
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+    })})`,
+    3,
+  )
+  const listed = await evaluate(socket, 'window.prumo.projects.list()', 4)
+
+  if (created?.ok) {
+    await evaluate(
+      socket,
+      `window.prumo.projects.remove(${JSON.stringify(created.project.path)})`,
+      5,
+    )
+  }
+  rmSync(parent, { recursive: true, force: true })
+
   const failures = []
   if (environment?.node === undefined) failures.push('the app found no Node with the Finder PATH')
   if (!Array.isArray(environment?.checks) || environment.checks.length === 0) {
     failures.push('`prumo doctor` returned no checks')
   }
   if (!Array.isArray(projects)) failures.push('the projects bridge answered nothing')
+  if (created?.ok !== true) failures.push(`creating a project failed: ${JSON.stringify(created)}`)
+  if (!listed?.some((one) => one.name === 'smoke-web')) {
+    failures.push('the created project did not reach the list')
+  }
   if (!text.includes('Projects')) failures.push('the window rendered nothing')
 
   console.log(
-    JSON.stringify({ environment, projects, screen: text.split('\n').filter(Boolean) }, null, 2),
+    JSON.stringify(
+      { environment, projects, created, screen: text.split('\n').filter(Boolean) },
+      null,
+      2,
+    ),
   )
 
   if (failures.length > 0) {

@@ -591,3 +591,29 @@ enough to re-read. A file inside a project would put the Desktop's own state in 
 the list wait. A project moved to another folder looks like a new one.
 
 **Affects:** `src/main/projects.ts`, `src/renderer/routes/projects.tsx`, the IPC contract
+
+---
+
+## 2026-09-17: Creating a project is a form over `prumo new`, and its errors come back by code
+
+**Decision:** the form asks what the CLI asks (where, name, types, shape, tenancy) and runs the embedded
+`prumo new <name> --types … --alone|--monorepo --multi-tenant|--single-tenant --json` as a plain child process, in
+the chosen parent folder. While it runs, the CLI's stderr streams into a log the user can read. On success the
+project is added to the list from the CLI's own `target`, with nothing for the user to find again. On failure the
+error is placed by **code**: `invalid_input` beside the name, `target_not_empty` beside the folder, anything else
+above the log.
+
+**Options considered:**
+- Where errors are shown: A) by the CLI's error code; B) one message at the top of the form.
+- Validation: A) only the CLI judges the name; B) validate as the user types.
+
+**Reasoning:** A and A. The codes are Prumo's contract and its wording is not, so branching on the code survives a
+reworded message. Validating while typing would copy the CLI's rule into the Desktop, which is the whole thing the
+separate repository exists to prevent.
+
+**What it costs:** a name error appears only after pressing "Create", and the wait includes `pnpm install`. The
+Desktop cannot say which step it is on, only show the log, because the CLI prints one document per run. The tests
+and `pnpm smoke` create real projects and install them, so both are as slow as pnpm is, and need a network on a
+cold store.
+
+**Affects:** `src/main/create.ts`, `src/renderer/routes/new-project.tsx`, `scripts/smoke.mjs`, the IPC contract

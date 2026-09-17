@@ -1,6 +1,12 @@
 // The bridge, and nothing else: it exposes the contract, never Node itself.
 import { contextBridge, ipcRenderer } from 'electron'
-import { type Bridge, CHANNELS, type RunningApp, type StartApp } from '../shared/ipc.ts'
+import {
+  type Bridge,
+  CHANNELS,
+  type NewProject,
+  type RunningApp,
+  type StartApp,
+} from '../shared/ipc.ts'
 
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
@@ -9,6 +15,15 @@ const bridge: Bridge = {
     add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),
     remove: (path: string) => ipcRenderer.invoke(CHANNELS.projectsRemove, path),
     reveal: (path: string) => ipcRenderer.invoke(CHANNELS.projectsReveal, path),
+    create: (input: NewProject) => ipcRenderer.invoke(CHANNELS.projectsCreate, input),
+    chooseParent: () => ipcRenderer.invoke(CHANNELS.projectsChooseParent),
+    onCreateLog: (listener) => {
+      const handler = (_event: unknown, chunk: string) => listener(chunk)
+      ipcRenderer.on(CHANNELS.projectsCreateLog, handler)
+      return () => {
+        ipcRenderer.off(CHANNELS.projectsCreateLog, handler)
+      }
+    },
   },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),

@@ -58,6 +58,7 @@ app.whenReady().then(() => {
   register({
     apps,
     projects,
+    cli: cliPath,
     windows: () => BrowserWindow.getAllWindows(),
     environment: async () => {
       const node = await findNode()

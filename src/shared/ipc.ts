@@ -30,6 +30,24 @@ export type Project = {
   config?: ProjectConfig
 }
 
+/** The answers `prumo new` needs. Every question the CLI asks has a flag, and the Desktop fills them all. */
+export type NewProject = {
+  /** The folder the project is created inside; the CLI creates `<parent>/<name>`. */
+  parent: string
+  name: string
+  types: ProjectConfig['types']
+  architecture: ProjectConfig['architecture']
+  multiTenant: boolean
+}
+
+/**
+ * A failed creation carries the CLI's own error code, which the Desktop branches on:
+ * `invalid_input` belongs beside the name, `target_not_empty` beside the folder.
+ */
+export type CreateResult =
+  | { ok: true; project: Project }
+  | { ok: false; code: string; message: string }
+
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
 export type AppState = 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -54,6 +72,11 @@ export type Bridge = {
     remove: (path: string) => Promise<void>
     /** Opens the project in Finder, the editor or a terminal. */
     reveal: (path: string) => Promise<void>
+    /** Runs `prumo new`; the log arrives through `onCreateLog` while it runs. */
+    create: (input: NewProject) => Promise<CreateResult>
+    /** Opens the folder picker for where a new project goes. */
+    chooseParent: () => Promise<string | undefined>
+    onCreateLog: (listener: (chunk: string) => void) => () => void
   }
   apps: {
     list: () => Promise<RunningApp[]>
@@ -74,6 +97,9 @@ export const CHANNELS = {
   projectsAdd: 'prumo:projects:add',
   projectsRemove: 'prumo:projects:remove',
   projectsReveal: 'prumo:projects:reveal',
+  projectsCreate: 'prumo:projects:create',
+  projectsChooseParent: 'prumo:projects:choose-parent',
+  projectsCreateLog: 'prumo:projects:create-log',
   list: 'prumo:apps:list',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',

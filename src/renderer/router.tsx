@@ -6,6 +6,7 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { Environment } from './routes/environment.tsx'
+import { NewProject } from './routes/new-project.tsx'
 import { Projects } from './routes/projects.tsx'
 
 const root = createRootRoute({ component: Outlet })
@@ -13,6 +14,7 @@ const root = createRootRoute({ component: Outlet })
 const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: Projects }),
   createRoute({ getParentRoute: () => root, path: '/environment', component: Environment }),
+  createRoute({ getParentRoute: () => root, path: '/new', component: NewProject }),
 ])
 
 // A packaged renderer is loaded from file://, where a path-based history has no server to answer it.

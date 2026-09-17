@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { Project } from '../../shared/ipc.ts'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
@@ -52,13 +53,21 @@ export function Projects() {
     <main className="mx-auto max-w-3xl px-8 py-12">
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Projects</h1>
-        <button
-          type="button"
-          onClick={add}
-          className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
-        >
-          Add folder
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={add}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+          >
+            Add folder
+          </button>
+          <Link
+            to="/new"
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
+          >
+            New project
+          </Link>
+        </div>
       </header>
 
       <EnvironmentBanner />
@@ -67,7 +76,7 @@ export function Projects() {
 
       {projects?.length === 0 && (
         <p className="mt-10 text-sm text-neutral-500">
-          No projects yet. Add a folder that holds a <code>.prumo/config.json</code>.
+          No projects yet. Create one, or add a folder that holds a <code>.prumo/config.json</code>.
         </p>
       )}
 
