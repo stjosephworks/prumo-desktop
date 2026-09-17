@@ -1,0 +1,36 @@
+{
+  "name": "prumo-desktop-spike",
+  "productName": "Prumo Desktop Spike",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Throwaway spike proving the risky parts of Prumo Desktop",
+  "main": ".vite/build/main.js",
+  "author": "Leonardo Freitas",
+  "license": "MIT",
+  "scripts": {
+    "embed-cli": "node scripts/embed-cli.mjs",
+    "start": "electron-forge start",
+    "package": "pnpm embed-cli && electron-forge package"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/plugin-vite": "7.11.2",
+    "@types/node": "24.13.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "electron": "44.4.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.0"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "1.170.36",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "fix-path": "5.0.0",
+    "node-pty": "1.1.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  }
+}
