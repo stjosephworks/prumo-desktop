@@ -42,7 +42,12 @@ jobs:
           node-version: 24
           cache: pnpm
       # The packaged app reads the PATH of a login shell, as it does when opened from Finder. On a runner, pnpm
-      # lives only in the job's environment, so a global install is what puts it where that shell looks.
-      - run: npm install --global pnpm@12.3.4
+      # lives only in the job's environment and node only in the tool cache, so both are linked into /usr/local/bin,
+      # which is on every login shell's PATH, the way a developer machine has them.
+      - name: Put pnpm and node where a login shell finds them
+        run: |
+          sudo ln -sf "$(command -v pnpm)" /usr/local/bin/pnpm
+          sudo ln -sf "$(command -v node)" /usr/local/bin/node
+          env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -lc 'node --version && pnpm --version'
       - run: pnpm install
       - run: pnpm smoke
