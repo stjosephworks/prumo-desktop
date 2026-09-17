@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, alpha, dev]
+  pull_request:
+    # Every branch the flow protects, so that a required check is never one that had no reason to run.
+    branches: [main, alpha, dev]
+  schedule:
+    # Versions are pinned exactly, and the embedded CLI is fetched from npm: a rotted one turns this red on its own.
+    - cron: '0 6 * * 1'
+
+jobs:
+  checks:
+    # macOS is what 0.0.1 targets; Ubuntu is where Docker exists, so the database tests actually run somewhere.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # `pnpm test` embeds the pinned CLI first, then runs against real processes and that CLI.
+      - run: pnpm test
+
+  packaged:
+    # The path a user actually takes: a packaged app, opened with the PATH an app opened from Finder receives.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install
+      - run: pnpm smoke

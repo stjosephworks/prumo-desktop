@@ -27,6 +27,11 @@ This repository holds the decisions:
 
 Version 0.0.1 targets macOS only. Every technology choice must also work on Windows and Linux.
 
+## Branches
+
+One chain, and nothing skips a step: a branch of your own → `dev` → `alpha` → `main`. Nobody pushes to those three;
+a ruleset refuses it, and `.github/workflows/flow.yml` refuses a pull request that skips a step.
+
 ## Working on it
 
 ```sh

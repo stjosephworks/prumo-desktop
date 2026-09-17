@@ -744,3 +744,32 @@ opens at all is Expo's business, and its answer appears in the terminal panel li
 
 **Affects:** `src/shared/urls.ts`, `src/renderer/routes/project.tsx`, `src/renderer/use-app-output.ts`, the IPC
 contract
+
+---
+
+## 2026-09-17: The repository follows Prumo's flow, and the rules are written where an assistant reads them
+
+**Decision:** the same rules Prumo uses:
+- **One chain of branches:** a branch of your own → `dev` → `alpha` → `main`. Nobody pushes to those three.
+- A **ruleset** on the three branches refuses deletion and force pushes, requires a pull request, and requires the
+  CI checks to pass.
+- **`.github/workflows/flow.yml`** refuses a pull request that skips a step, which a ruleset cannot express: it can
+  require a pull request, but not say where it may come from.
+- **`.github/workflows/ci.yml`** runs lint, typecheck and the tests on **macOS and Ubuntu**, and a second job
+  packages the app and runs `pnpm smoke` on macOS.
+- The rules are written in **`AGENTS.md`**, which most assistants read, with **`CLAUDE.md`** importing it.
+
+**Options considered:**
+- CI hosts: A) macOS and Ubuntu, plus the packaged smoke on macOS; B) macOS only; C) Ubuntu only, as Prumo does.
+- Where the rules for an assistant live: A) `AGENTS.md` plus a `CLAUDE.md` import; B) `CLAUDE.md` only.
+
+**Reasoning:** A and A. macOS is what 0.0.1 targets, and its runners have no Docker, so the database tests would
+never run anywhere; Ubuntu has Docker and runs them. Only a packaged build can prove the parts unit tests cannot
+see. `AGENTS.md` is read by Codex, Cursor, Copilot and others, and it is the pattern the sites already use.
+
+**What it costs:** every change now takes three pull requests to reach `main`, including one-line fixes. CI runs
+the matrix twice and packages an app, so it is slower and more expensive than Prumo's. On macOS the database tests
+are skipped, and nothing says so louder than a skipped test. `node-pty` compiles on Ubuntu instead of using a
+prebuild, which is a different path from the one users take.
+
+**Affects:** `.github/workflows/*`, `AGENTS.md`, `CLAUDE.md`, `README.md`
