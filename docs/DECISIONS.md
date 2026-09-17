@@ -450,3 +450,73 @@ with Vite 8.
 **What it costs:** nothing runs yet.
 
 **Affects:** the repository
+
+---
+
+## 2026-09-17: The database is always Prumo's Docker one, and "Create database" asks only for a name
+
+**Decision:** following Prumo's decision "The development database is always the Docker one" (Prumo commit
+`cb33307`, published in `@stjoseph/prumo` 0.0.5):
+- **"Create database"** on the API part asks only for a name, and runs `prumo db --name <name> --json` outside a
+  pseudo terminal. The script picks a free port on its own and keeps it in `POSTGRES_PORT`; `--port` is not offered.
+- `docker_missing` and `docker_not_running` from `prumo db` are shown as such: not installed apart from not running.
+- **The Database part exists whenever the project has an API,** since every API template carries its
+  `docker-compose.yml`. Its state still comes from `docker compose ps`, and it keeps running when the Desktop quits.
+- State and the `--check` question inside the API's terminal are unchanged.
+
+**Options considered:**
+- A) Follow Prumo: Docker only, a name only.
+- B) Keep offering a local Postgres from the Desktop.
+
+**Reasoning:** A. The Desktop is a consumer: `prumo db` no longer accepts `--local`, `--host`, `--user` or
+`--password`, so B would mean a second implementation.
+
+**What it costs:** Docker becomes necessary for any project with an API, not only for one choice of server. Anyone who
+prefers their own Postgres edits `.env` by hand, outside the Desktop.
+
+**Amends:** "The database is created through `prumo db`, and Docker is a part only when the project has it", whose
+form choices (local or Docker, user and password) are removed; and "Prerequisites come from `prumo doctor`", whose
+cost about `psql` locations no longer applies, since `doctor` stopped checking `psql` and a local server.
+
+**Affects:** the API part, the Database part, the environment layer
+
+---
+
+## 2026-09-17: The spike proved the risky parts on macOS, at the cost of four workarounds
+
+**Decision:** the framework, UI stack and process decisions stand. The spike (branch `spike`, folder `spike/`) was
+packaged with Electron Forge and opened **through Finder**, and passed every proof:
+
+| Proof | Observed |
+|---|---|
+| `PATH` from Finder | Before `fix-path`, `PATH` was `/usr/bin:/bin:/usr/sbin:/sbin` and nvm's Node was invisible; after it, Node v24.19.0 was found |
+| Quitting from Finder | With the web app running, the app quit, no process was left and port 5173 was free. `fix-path`'s warning did not reproduce |
+| Embedded CLI | `@stjoseph/prumo` 0.0.5 in `Contents/Resources/prumo`, run with the system's Node: `new --json` returned its document on stdout and its log on stderr; `invalid_input` for "Bad Name"; `db --check --json` answered `database_missing`, then `ok` after `db --json` created and migrated the database (on port 5435, then 5436, since lower ports were taken) |
+| Expo in a pseudo terminal | QR code, `exp://` URL, shortcuts and colours rendered in xterm.js (checked on a screenshot). Expo's "Use port 8082 instead?" was answered by writing to the terminal |
+| Stopping a process tree | web, api and mobile each ran in **one process group** (5, 9 and 7 processes). SIGTERM to the group was enough, no SIGKILL; no survivor; ports 5173, 3100 and 8082 free |
+| Forge's Vite plugin on Vite 8 | Builds and renders packaged; one deprecation warning (`inlineDynamicImports`) |
+| TanStack Router from `file://` | Hash history navigated to `#/terminal` |
+
+**Options considered:**
+- A) Keep the decisions, with the workarounds below.
+- B) Reopen the framework or the build.
+
+**Reasoning:** A. Every workaround is a few lines of build configuration, none touches the application's design.
+
+**What it costs:**
+- **Forge's Vite plugin packages only its bundles, never `node_modules`**, despite its documentation saying native
+  modules "will mostly work out of the box". `node-pty` is copied in by a `packageAfterCopy` hook, left outside
+  `app.asar` (`asar.unpack`), and copied without `binding.gyp`, so Forge does not try to rebuild it (its N-API
+  prebuilds already match).
+- **`node-pty` 1.1.0 installs `spawn-helper` without the executable bit**, so spawning fails with
+  `posix_spawnp failed`; the hook sets it.
+- **`node-pty` has prebuilds for macOS and Windows only.** Linux will compile it, which needs `node-addon-api` and a
+  toolchain in CI.
+- **pnpm 12** needs `blockExoticSubdeps: false` (Forge's `@electron/rebuild` depends on `@electron/node-gyp` from a git
+  repository) and `allowBuilds` for `electron` and `node-pty`, in `pnpm-workspace.yaml`, with `nodeLinker: hoisted`.
+- **The packaged app is 349 MB** on arm64, the embedded CLI and its templates included.
+- **`open` from a terminal passes the caller's environment** to the app, so it cannot test `PATH`; only Finder (or an
+  AppleScript asking Finder to open it) reproduces a user's launch. An inherited `ELECTRON_RUN_AS_NODE=1` made the app
+  run as plain Node and exit silently.
+
+**Affects:** `forge.config.js`, the build, CI, testing a packaged build

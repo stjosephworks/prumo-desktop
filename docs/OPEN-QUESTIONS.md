@@ -18,24 +18,6 @@ Entry format:
 
 ---
 
-## What the spike must prove
-
-**Raised:** 2026-09-17
-**Question:** do the risky parts work in practice, on macOS, before any interface is built?
-1. An app opened from **Finder** finds Node and pnpm through `fix-path`, **and still quits properly** (its README
-   warns that packaged Electron apps launched from Finder may not).
-2. The embedded `prumo new --json`, run with the system's Node from outside the ASAR archive, returns its document on
-   stdout and its log on stderr.
-3. `pnpm mobile` run in `node-pty` shows Expo's QR code and `exp://` URL in an xterm.js panel.
-4. Signalling the process group frees the ports held by Vite, Nest and Metro (`lsof -i :<port>` comes back empty).
-5. Electron Forge's experimental Vite plugin builds a renderer on Vite 8, the version Prumo's `web` template uses.
-6. TanStack Router works in a packaged renderer loaded from `file://` (hash history expected, not verified).
-**Why it matters:** each is a decision that rests on a fact not yet observed. A failure reopens the framework or UI
-decisions before an interface depends on them.
-**Blocks:** the foundation and every feature
-
----
-
 ## Does a notarised build pass with `node-pty`?
 
 **Raised:** 2026-09-17
@@ -85,9 +67,6 @@ writes to system locations.
 **Question:** which of these should become questions in Prumo's own `docs/OPEN-QUESTIONS.md`?
 - **Document `prumo db --check`**, which the Desktop uses to tell whether the database is missing; today it is passed
   through to the project's script without appearing in `prumo db --help`.
-- **`prumo doctor` on Windows and Linux**: its `psql` locations are macOS paths only.
-- **The `--check` question's wording**: it asks "Create a development database in Docker now?", while the script tries
-  a local Postgres first.
 - **The Prumo version in `.prumo/config.json`**, so the Desktop can tell whether a project is outdated.
 - **Validating a name without generating**, so the Desktop can validate while the user types without copying the
   rule.
