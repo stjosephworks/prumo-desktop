@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const FINDER_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+// Built from the character code: an escape written into a regular expression is a control character.
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[a-zA-Z]`, 'g')
 const PORT = 9333
 
 const out = join(import.meta.dirname, '..', 'out')
@@ -144,8 +146,7 @@ try {
       )
       // A terminal buffer is coloured, and the escapes cut through words: even `localhost:5173` arrives as
       // `localhost:<escape>5173`. Anything matched against it has to be stripped first.
-      const plain =
-        typeof buffer === 'string' ? buffer.replaceAll(/\u001b\[[0-9;?]*[a-zA-Z]/g, '') : ''
+      const plain = typeof buffer === 'string' ? buffer.replaceAll(ANSI, '') : ''
       // The port comes from what the dev server printed: 5173 may already be taken, and Vite then moves on.
       run.port = Number(plain.match(/localhost:(\d+)/)?.[1])
       run.ready = Number.isInteger(run.port)
