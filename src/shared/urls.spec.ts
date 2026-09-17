@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { browserUrl, stripAnsi } from './urls.ts'
 
-const ESC = ''
+const ESC = '\u001b'
 // Shaped like a real run in a pseudo terminal, colours included.
 const VITE = `${ESC}[32m➜${ESC}[39m  ${ESC}[1mLocal${ESC}[22m:   ${ESC}[36mhttp://localhost:${ESC}[1m5174${ESC}[22m/${ESC}[39m\r\n`
 
