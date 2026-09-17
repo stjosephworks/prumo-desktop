@@ -46,8 +46,10 @@ jobs:
       # which is on every login shell's PATH, the way a developer machine has them.
       - name: Put pnpm and node where a login shell finds them
         run: |
-          sudo ln -sf "$(command -v pnpm)" /usr/local/bin/pnpm
           sudo ln -sf "$(command -v node)" /usr/local/bin/node
+          # pnpm's own launcher resolves paths from where it sits, so it is called through a wrapper, not linked.
+          printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v pnpm)" | sudo tee /usr/local/bin/pnpm > /dev/null
+          sudo chmod +x /usr/local/bin/pnpm
           env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -lc 'node --version && pnpm --version'
       - run: pnpm install
       - run: pnpm smoke
