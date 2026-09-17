@@ -1,9 +1,13 @@
 // Finding the address an app printed. The Desktop keeps no copy of any template's port: Vite, Next and Expo all
 // announce where they are listening, and that announcement is the only source.
 
+// Built from the character code: an escape inside a regular expression is a control character, which the linter
+// refuses on sight, and writing it as one would hide it from anyone reading the line.
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[a-zA-Z]`, 'g')
+
 /** A terminal buffer is coloured, and the escapes cut through words: `localhost:<escape>5173`. */
 export function stripAnsi(text: string): string {
-  return text.replaceAll(/\[[0-9;?]*[a-zA-Z]/g, '')
+  return text.replaceAll(ANSI, '')
 }
 
 const LOCAL =
