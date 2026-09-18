@@ -9,23 +9,12 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 
 ## Status
 
-**Version 0.0.1 runs on macOS, unsigned.** A throwaway spike, on the `spike` branch, proved the risky parts first.
-This repository holds the decisions:
+**Version 0.0.1 runs on macOS, unsigned.** It creates and lists projects, runs their apps and their database,
+and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
+was built.
 
-- [`docs/DECISIONS.md`](docs/DECISIONS.md): every approved decision, with the options considered, the reasoning and
-  what it costs.
-- [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md): what is still unresolved.
-
-## Build order
-
-1. ~~**Spike, before any interface.**~~ Done on 2026-09-17, every proof passed; see `docs/DECISIONS.md`.
-2. ~~**Foundation.**~~ Done on 2026-09-17: the environment layer (`PATH`, `prumo doctor`), the process layer (start,
-   stop the whole tree, state, terminal buffer, stopping everything on quit), the IPC contract and a first screen.
-3. ~~**Features, one at a time:**~~ Done on 2026-09-17: project list, creating a project, running apps, the
-   database, reading `.prumo/`.
-4. **First signed and notarised build**, well before the public release.
-
-Version 0.0.1 targets macOS only. Every technology choice must also work on Windows and Linux.
+Next is the first signed and notarised build, well before any public release. Version 0.0.1 targets macOS only,
+and every technology choice must also work on Windows and Linux.
 
 ## Branches
 
