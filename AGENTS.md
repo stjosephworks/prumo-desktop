@@ -10,18 +10,13 @@ The Desktop is a **consumer** of Prumo, never a second implementation of it. It 
 the files a generated project carries.
 
 **The rule that follows from it:** when something is missing, the answer is to expose it in Prumo, not to
-reimplement it here. Anything the Desktop has to derive on its own is written down as a cost in
-[`docs/DECISIONS.md`](docs/DECISIONS.md) and as a need in [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md).
+reimplement it here.
 
-## Where decisions live
+## History
 
-| Question | Lives in |
-|---|---|
-| What was decided, why, and what it costs | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
-| What is still open | [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md), the only home for an open question |
-
-Update `DECISIONS.md` in the same turn a decision is made, in its entry format, and always record what the choice
-costs, not only why it won.
+`dev-logs/` holds how the Desktop was decided, kept for context and referenced by nothing. Read it to understand
+why something is the way it is, never to learn what is in force, and do not append to it: what is in force is the
+code, this file and the README.
 
 ## Language
 
