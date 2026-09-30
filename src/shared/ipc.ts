@@ -24,6 +24,19 @@ export type ProjectConfig = {
   mcp: boolean
 }
 
+/**
+ * The Prumo CLI the Desktop runs. `shipped` is the copy inside the app; `updated` is a newer one of the same
+ * minor, installed beside the app's data. `available` is the newest the Desktop can update to; `needsDesktop`
+ * is a newer minor, which only a newer Desktop runs. Both are undefined when the registry could not be asked.
+ */
+export type CliStatus = {
+  version: string
+  source: 'shipped' | 'updated'
+  available?: string
+  needsDesktop?: string
+  error?: string
+}
+
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
 export type Project = {
   path: string
@@ -94,6 +107,12 @@ export type Bridge = {
   environment: () => Promise<Environment>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
   openExternal: (url: string) => Promise<void>
+  cli: {
+    /** The CLI in use, and what the npm registry has that is newer. */
+    status: () => Promise<CliStatus>
+    /** Installs `available` and switches to it; the new status on success. */
+    update: () => Promise<{ ok: true; status: CliStatus } | { ok: false; message: string }>
+  }
   projects: {
     list: () => Promise<Project[]>
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
@@ -149,6 +168,8 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  cliStatus: 'prumo:cli:status',
+  cliUpdate: 'prumo:cli:update',
   projectsList: 'prumo:projects:list',
   projectsAdd: 'prumo:projects:add',
   projectsRemove: 'prumo:projects:remove',

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import type { Environment as Report } from '../../shared/ipc.ts'
+import { CliUpdate } from '../components/cli-update.tsx'
 
 const COLOURS = {
   ok: 'text-emerald-600',
@@ -25,6 +26,8 @@ export function Environment() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">This machine</h1>
       <p className="mt-1 text-sm text-neutral-500">Every check comes from `prumo doctor`.</p>
+
+      <CliUpdate detailed />
 
       <section className="mt-8">
         {report === undefined && <p className="text-sm text-neutral-500">Checking…</p>}

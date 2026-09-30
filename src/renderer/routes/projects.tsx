@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { Project, RunningApp } from '../../shared/ipc.ts'
 import { partId, partsFor } from '../../shared/parts.ts'
+import { CliUpdate } from '../components/cli-update.tsx'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
 import { useApps } from '../use-apps.ts'
 
@@ -97,6 +98,7 @@ export function Projects() {
       </header>
 
       <EnvironmentBanner />
+      <CliUpdate />
 
       {error !== undefined && <p className="mt-4 text-sm text-red-600">{error}</p>}
 

@@ -3,7 +3,13 @@
 import type { BrowserWindow } from 'electron'
 import { dialog, ipcMain, shell } from 'electron'
 import type { PortAnswer, Project, ProjectConfig } from '../shared/ipc.ts'
-import { CHANNELS, type Environment, type NewProject, type StartApp } from '../shared/ipc.ts'
+import {
+  CHANNELS,
+  type CliStatus,
+  type Environment,
+  type NewProject,
+  type StartApp,
+} from '../shared/ipc.ts'
 import { createProject } from './create.ts'
 import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
@@ -12,6 +18,8 @@ import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
 
 type Wiring = {
+  cliStatus: () => Promise<CliStatus>
+  cliUpdate: () => Promise<{ ok: true; status: CliStatus } | { ok: false; message: string }>
   apps: Apps
   projects: Projects
   windows: () => BrowserWindow[]
@@ -20,12 +28,22 @@ type Wiring = {
   cli: () => string
 }
 
-export function register({ apps, projects, windows, environment, cli }: Wiring): void {
+export function register({
+  apps,
+  projects,
+  windows,
+  environment,
+  cli,
+  cliStatus,
+  cliUpdate,
+}: Wiring): void {
   const send = (channel: string, ...args: unknown[]) => {
     for (const window of windows()) window.webContents.send(channel, ...args)
   }
 
   ipcMain.handle(CHANNELS.environment, () => environment())
+  ipcMain.handle(CHANNELS.cliStatus, () => cliStatus())
+  ipcMain.handle(CHANNELS.cliUpdate, () => cliUpdate())
 
   ipcMain.handle(CHANNELS.projectsList, () => projects.list())
   ipcMain.handle(CHANNELS.projectsAdd, async () => {

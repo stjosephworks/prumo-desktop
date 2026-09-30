@@ -11,6 +11,10 @@ import {
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  cli: {
+    status: () => ipcRenderer.invoke(CHANNELS.cliStatus),
+    update: () => ipcRenderer.invoke(CHANNELS.cliUpdate),
+  },
   projects: {
     list: () => ipcRenderer.invoke(CHANNELS.projectsList),
     add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),

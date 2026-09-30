@@ -99,6 +99,8 @@ try {
 
   const environment = await evaluate(socket, 'window.prumo.environment()', 1)
   const projects = await evaluate(socket, 'window.prumo.projects.list()', 2)
+  // The registry asked from the packaged app: the CLI in use, and whether a newer one exists.
+  const cli = await evaluate(socket, 'window.prumo.cli.status()', 14)
   // Waits for the screen to have rendered the report rather than its loading state.
   let text = ''
   for (let attempt = 0; attempt < 20 && !text.includes('Projects'); attempt++) {
@@ -221,6 +223,8 @@ try {
   if (!Array.isArray(environment?.checks) || environment.checks.length === 0) {
     failures.push('`prumo doctor` returned no checks')
   }
+  if (typeof cli?.version !== 'string') failures.push('the CLI status named no version')
+  if (cli?.error !== undefined) failures.push(`the npm registry could not be asked: ${cli.error}`)
   if (!Array.isArray(projects)) failures.push('the projects bridge answered nothing')
   if (created?.ok !== true) failures.push(`creating a project failed: ${JSON.stringify(created)}`)
   if (!listed?.some((one) => one.name === 'smoke-web')) {
@@ -242,6 +246,7 @@ try {
     JSON.stringify(
       {
         environment,
+        cli,
         projects,
         created,
         run,
