@@ -46,6 +46,8 @@ const bridge: Bridge = {
   },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),
+    checkPort: (project, type, answer) =>
+      ipcRenderer.invoke(CHANNELS.checkPort, project, type, answer),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),
     stop: (id: string) => ipcRenderer.invoke(CHANNELS.stop, id),
     buffer: (id: string) => ipcRenderer.invoke(CHANNELS.buffer, id),

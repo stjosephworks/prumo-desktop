@@ -116,6 +116,7 @@ try {
       types: ['web'],
       architecture: 'alone',
       multiTenant: false,
+      mcp: false,
     })})`,
     3,
   )
@@ -128,10 +129,22 @@ try {
     portWhileRunning: false,
     portAfterStop: true,
     screenHasUrl: false,
+    portCheck: undefined,
   }
 
   if (created?.ok) {
     const id = `${created.project.path}#dev`
+    // The port first, as the screen does. A port in use is moved, never freed: the smoke must not stop
+    // something of the user's that happens to hold 5173.
+    const project = JSON.stringify(created.project)
+    run.portCheck = await evaluate(socket, `window.prumo.apps.checkPort(${project}, 'web')`, 12)
+    if (run.portCheck?.code === 'port_busy') {
+      run.portCheck = await evaluate(
+        socket,
+        `window.prumo.apps.checkPort(${project}, 'web', 'change')`,
+        13,
+      )
+    }
     await evaluate(
       socket,
       `window.prumo.apps.start(${JSON.stringify({ project: created.project.path, script: 'dev' })})`,
@@ -147,7 +160,7 @@ try {
       // A terminal buffer is coloured, and the escapes cut through words: even `localhost:5173` arrives as
       // `localhost:<escape>5173`. Anything matched against it has to be stripped first.
       const plain = typeof buffer === 'string' ? buffer.replaceAll(ANSI, '') : ''
-      // The port comes from what the dev server printed: 5173 may already be taken, and Vite then moves on.
+      // The port comes from what the dev server printed: it is 5173 unless the check moved the app.
       run.port = Number(plain.match(/localhost:(\d+)/)?.[1])
       run.ready = Number.isInteger(run.port)
       if (!run.ready) await sleep(1000)
@@ -212,6 +225,9 @@ try {
   if (created?.ok !== true) failures.push(`creating a project failed: ${JSON.stringify(created)}`)
   if (!listed?.some((one) => one.name === 'smoke-web')) {
     failures.push('the created project did not reach the list')
+  }
+  if (run.portCheck?.ok !== true) {
+    failures.push(`the port check did not clear the way: ${JSON.stringify(run.portCheck)}`)
   }
   if (!run.ready) failures.push('the app never reported a dev server in its terminal')
   if (!run.portWhileRunning) failures.push(`nothing was listening on ${run.port} while the app ran`)

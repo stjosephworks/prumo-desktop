@@ -2,11 +2,12 @@
 
 import type { BrowserWindow } from 'electron'
 import { dialog, ipcMain, shell } from 'electron'
-import type { Project } from '../shared/ipc.ts'
+import type { PortAnswer, Project, ProjectConfig } from '../shared/ipc.ts'
 import { CHANNELS, type Environment, type NewProject, type StartApp } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
 import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
+import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
 
@@ -83,6 +84,11 @@ export function register({ apps, projects, windows, environment, cli }: Wiring):
   ipcMain.handle(CHANNELS.databaseStop, (_event, project: Project) => stopDocker(project))
 
   ipcMain.handle(CHANNELS.list, () => apps.list())
+  ipcMain.handle(
+    CHANNELS.checkPort,
+    (_event, project: Project, type: ProjectConfig['types'][number], answer?: PortAnswer) =>
+      checkPort(project, type, answer),
+  )
   ipcMain.handle(CHANNELS.start, (_event, app: StartApp) => apps.start(app))
   ipcMain.handle(CHANNELS.stop, (_event, id: string) => apps.stop(id))
   ipcMain.handle(CHANNELS.buffer, (_event, id: string) => apps.buffer(id))

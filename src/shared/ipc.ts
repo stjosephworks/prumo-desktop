@@ -82,6 +82,13 @@ export type RunningApp = {
 
 export type StartApp = { project: string; script: string; cols?: number; rows?: number }
 
+/**
+ * Whether an app's port is free, from the app's own `scripts/ports.mjs --check`. `port_busy` carries the
+ * script's message, which names what holds the port; `kill` stops that, `change` moves the app to a free port.
+ */
+export type PortCheck = { ok: true } | { ok: false; code: string; message: string }
+export type PortAnswer = 'kill' | 'change'
+
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
@@ -123,6 +130,12 @@ export type Bridge = {
   }
   apps: {
     list: () => Promise<RunningApp[]>
+    /** Frees the part's port before it starts; without an answer it only reports who holds it. */
+    checkPort: (
+      project: Project,
+      type: ProjectConfig['types'][number],
+      answer?: PortAnswer,
+    ) => Promise<PortCheck>
     start: (app: StartApp) => Promise<RunningApp>
     stop: (id: string) => Promise<RunningApp | undefined>
     /** Everything the app has written so far, to fill a terminal that was opened late. */
@@ -152,6 +165,7 @@ export const CHANNELS = {
   databaseStop: 'prumo:database:stop',
   databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
+  checkPort: 'prumo:apps:check-port',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',
   buffer: 'prumo:apps:buffer',
