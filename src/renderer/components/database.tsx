@@ -8,8 +8,20 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import type { DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
 import { apiDirectory } from '../../shared/parts.ts'
+import { useApps } from '../use-apps.ts'
 import { Terminal } from './terminal.tsx'
-import { Button, INPUT, LogBlock, Notice, Section, StatusDot } from './ui.tsx'
+import {
+  Button,
+  cx,
+  INPUT,
+  LogBlock,
+  Notice,
+  ProgressBar,
+  Section,
+  StatusDot,
+  TerminalToggle,
+  useOutputPanel,
+} from './ui.tsx'
 
 const DOCKER_MESSAGE = {
   missing: 'Docker is not installed, and the database runs in it.',
@@ -34,6 +46,7 @@ export function Database({ project }: { project: Project }) {
 
   useEffect(refresh, [refresh])
   useEffect(() => window.prumo.database.onLog((chunk) => setLog((all) => all + chunk)), [])
+  const [logOpen, toggleLog] = useOutputPanel(error !== undefined)
 
   if (state === undefined || !state.database.part) return null
 
@@ -151,7 +164,22 @@ export function Database({ project }: { project: Project }) {
           )}
           {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
 
-          {log !== '' && <LogBlock className="max-h-56">{log}</LogBlock>}
+          {working === 'create' && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Creating the database in Docker and running the migrations…
+              </p>
+              <ProgressBar label="Creating the database" />
+            </div>
+          )}
+
+          {log !== '' && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-[0.72rem] text-muted-foreground">prumo db</span>
+              <TerminalToggle open={logOpen} onToggle={toggleLog} failed={error !== undefined} />
+            </div>
+          )}
+          {log !== '' && logOpen && <LogBlock className="max-h-56">{log}</LogBlock>}
         </div>
 
         {migrationId !== undefined && <MigrationPanel id={migrationId} />}
@@ -160,27 +188,42 @@ export function Database({ project }: { project: Project }) {
   )
 }
 
-/** The migration's own terminal, shown once it has been run at least once. */
+const MIGRATION_TEXT = {
+  starting: 'running…',
+  running: 'running…',
+  stopped: 'done',
+  failed: 'failed',
+} as const
+
+/** The migration, once it has run: a bar while it works, and its terminal only when asked for or when it failed. */
 function MigrationPanel({ id }: { id: string }) {
-  const [exists, setExists] = useState(false)
+  const app = useApps().find((one) => one.id === id)
+  const failed = app?.state === 'failed'
+  const [open, toggle] = useOutputPanel(failed)
 
-  useEffect(() => {
-    const check = () =>
-      window.prumo.apps.list().then((apps) => setExists(apps.some((one) => one.id === id)))
+  if (app === undefined) return null
 
-    check()
-
-    return window.prumo.apps.onState((app) => {
-      if (app.id === id) setExists(true)
-    })
-  }, [id])
-
-  if (!exists) return null
+  const working = app.state === 'starting' || app.state === 'running'
 
   return (
     <div className="border-t border-rule">
-      <p className="px-5 py-2 font-mono text-[0.72rem] text-muted-foreground">pnpm db:migrate</p>
-      <Terminal id={id} />
+      <div className="relative flex items-center justify-between gap-3 px-5 py-2">
+        <span className="flex items-center gap-2 font-mono text-[0.72rem] text-muted-foreground">
+          pnpm db:migrate
+          <span
+            className={cx(
+              'font-sans text-xs',
+              failed ? 'text-destructive' : working ? 'text-warning' : 'text-success',
+            )}
+          >
+            {MIGRATION_TEXT[app.state]}
+            {failed && app.exitCode !== undefined && ` (exit ${app.exitCode})`}
+          </span>
+        </span>
+        <TerminalToggle open={open} onToggle={toggle} failed={failed} />
+        {working && <ProgressBar label="Migrating" className="absolute inset-x-0 bottom-0" />}
+      </div>
+      {open && <Terminal id={id} />}
     </div>
   )
 }

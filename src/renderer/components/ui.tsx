@@ -1,6 +1,7 @@
 // The few pieces every screen is built from, in the site's manner: ruled lines, small radii, serif headings,
 // navy for what acts and brass for what marks.
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { SquareTerminal } from 'lucide-react'
+import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from 'react'
 
 export function cx(...names: (string | false | null | undefined)[]): string {
   return names.filter(Boolean).join(' ')
@@ -169,6 +170,74 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
       {children}
     </label>
   )
+}
+
+/** A thin brass bar that moves while something runs whose end nobody can predict. */
+export function ProgressBar({
+  label = 'Working',
+  className,
+}: {
+  label?: string
+  className?: string
+}) {
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      // Positioned by the caller: `absolute` to sit on an edge, `relative` to take a line of its own.
+      className={cx('h-0.5 w-full overflow-hidden bg-brass/15', className ?? 'relative')}
+    >
+      <div className="progress-indeterminate absolute inset-y-0 w-1/3 bg-brass" />
+    </div>
+  )
+}
+
+/**
+ * The discreet way to a command's output. It turns red when the command failed and its output is closed, which
+ * only happens once the user has closed it themselves.
+ */
+export function TerminalToggle({
+  open,
+  onToggle,
+  failed = false,
+}: {
+  open: boolean
+  onToggle: () => void
+  failed?: boolean
+}) {
+  const label = open ? 'Hide terminal' : 'Show terminal'
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-pressed={open}
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      className={cx(
+        'w-7 px-0',
+        open && 'bg-muted text-navy',
+        failed && !open && 'text-destructive',
+      )}
+    >
+      <SquareTerminal className="size-4!" />
+    </Button>
+  )
+}
+
+/**
+ * Whether a command's output is shown: out of sight while it works, opened by the user, and opened by itself when
+ * the command fails, since that is when the output is what matters.
+ */
+export function useOutputPanel(failed: boolean): [boolean, () => void] {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (failed) setOpen(true)
+  }, [failed])
+
+  return [open, () => setOpen((current) => !current)]
 }
 
 /** Output a person reads, not a terminal: the log of a command the Desktop ran for them. */

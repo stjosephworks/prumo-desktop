@@ -3,7 +3,18 @@ import { Check, Folder, Globe, type LucideIcon, Server, Smartphone, Sparkles } f
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import type { ProjectConfig } from '../../shared/ipc.ts'
 import { allowsAlone, asksMcp, asksTenancy } from '../../shared/questions.ts'
-import { Button, cx, INPUT, Label, LogBlock, PageHeader, Section } from '../components/ui.tsx'
+import {
+  Button,
+  cx,
+  INPUT,
+  Label,
+  LogBlock,
+  PageHeader,
+  ProgressBar,
+  Section,
+  TerminalToggle,
+  useOutputPanel,
+} from '../components/ui.tsx'
 import { refreshProjects } from '../use-projects.ts'
 
 const TYPES: {
@@ -92,7 +103,11 @@ export function NewProject() {
   const logEnd = useRef<HTMLDivElement>(null)
 
   useEffect(() => window.prumo.projects.onCreateLog((chunk) => setLog((all) => all + chunk)), [])
-  useEffect(() => logEnd.current?.scrollIntoView({ block: 'end' }), [])
+  // A creation that failed with output to read; a refused name or folder has none, and is shown beside its field.
+  const failed = error !== undefined && log !== ''
+  const [logOpen, toggleLog] = useOutputPanel(failed)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the log growing, or being opened, is what scrolls it.
+  useEffect(() => logEnd.current?.scrollIntoView({ block: 'end' }), [log, logOpen])
 
   // Several types always make a workspace, whatever was picked while there was one.
   const shape = allowsAlone(types) ? architecture : 'monorepo'
@@ -297,14 +312,21 @@ export function NewProject() {
             Installing dependencies and preparing the project; this takes a while.
           </span>
         )}
+        {log !== '' && (
+          <span className="ml-auto">
+            <TerminalToggle open={logOpen} onToggle={toggleLog} failed={failed} />
+          </span>
+        )}
       </div>
+
+      {creating && <ProgressBar label="Creating the project" className="relative mt-4" />}
 
       {/* An error the CLI did not tie to a field still has to be seen. */}
       {error !== undefined && !['invalid_input', 'target_not_empty'].includes(error.code) && (
         <p className="mt-4 text-sm text-destructive">{error.message}</p>
       )}
 
-      {log !== '' && (
+      {log !== '' && logOpen && (
         <LogBlock className="mt-6 max-h-72">
           {log}
           <div ref={logEnd} />

@@ -81,6 +81,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Still there, still saying "working", without moving. */
+  .progress-indeterminate {
+    animation: none;
+    left: 0;
+    opacity: 0.6;
+    width: 100%;
+  }
+
   *,
   *::before,
   *::after {
@@ -100,6 +108,19 @@
 
   .no-drag {
     app-region: no-drag;
+  }
+
+  .progress-indeterminate {
+    animation: progress-slide 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  @keyframes progress-slide {
+    from {
+      left: -33%;
+    }
+    to {
+      left: 100%;
+    }
   }
 
   /* A document of .prumo/, set as the site sets its documents. */

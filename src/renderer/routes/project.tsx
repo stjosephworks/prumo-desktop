@@ -22,9 +22,12 @@ import {
   cx,
   Notice,
   PageHeader,
+  ProgressBar,
   Section,
   StatusDot,
   Tag,
+  TerminalToggle,
+  useOutputPanel,
 } from '../components/ui.tsx'
 import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
@@ -101,12 +104,16 @@ function PartPanel({
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
   // Only the apps that serve a page are watched for an address; mobile answers on a phone, not in a browser.
-  const output = useAppOutput(id, busy && (part.type === 'web' || part.type === 'site'))
+  const serves = part.type === 'web' || part.type === 'site'
+  const output = useAppOutput(id, busy && serves)
   const url = browserUrl(output)
+  // A page server is still starting until it prints its address; the rest are started once they print anything.
+  const shown = state === 'running' && serves && url === undefined ? 'starting' : state
+  const [open, toggle] = useOutputPanel(state === 'failed')
 
   return (
     <li className="overflow-hidden rounded-md border border-rule bg-card">
-      <div className="flex items-center justify-between gap-4 px-5 py-4">
+      <div className="relative flex items-center justify-between gap-4 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3.5">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-rule bg-paper text-navy [&_svg]:size-4">
             {ICON[part.type]}
@@ -114,9 +121,9 @@ function PartPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
-              <span className={cx('flex items-center gap-1.5 text-xs', STATE_TEXT[state])}>
-                <StatusDot state={state} />
-                {state}
+              <span className={cx('flex items-center gap-1.5 text-xs', STATE_TEXT[shown])}>
+                <StatusDot state={shown} />
+                {shown}
                 {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
               </span>
             </div>
@@ -148,6 +155,10 @@ function PartPanel({
             </>
           )}
 
+          {app !== undefined && (
+            <TerminalToggle open={open} onToggle={toggle} failed={state === 'failed'} />
+          )}
+
           <Button
             size="sm"
             variant={busy ? 'secondary' : 'primary'}
@@ -157,14 +168,18 @@ function PartPanel({
             {busy ? 'Stop' : 'Start'}
           </Button>
         </div>
+
+        {shown === 'starting' && (
+          <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
+        )}
       </div>
 
       {refused !== undefined && (
         <PortBusy refused={refused} onAnswer={(answer) => onStart(answer)} onCancel={onCancel} />
       )}
 
-      {/* The panel exists once an app has run: its log is worth reading after a failure too. */}
-      {app !== undefined && (
+      {/* Out of sight unless asked for, or unless the app failed: then its log is what matters. */}
+      {app !== undefined && open && (
         <div className="border-t border-rule">
           <Terminal id={id} />
         </div>
