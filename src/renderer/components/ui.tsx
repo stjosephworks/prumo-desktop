@@ -193,8 +193,8 @@ export function ProgressBar({
 }
 
 /**
- * The discreet way to a command's output. It turns red when the command failed and its output is closed, which
- * only happens once the user has closed it themselves.
+ * The way to a command's output: a button like the others, filled while the output is open. It turns red when
+ * the command failed and its output is closed, which only happens once the user has closed it themselves.
  */
 export function TerminalToggle({
   open,
@@ -205,23 +205,19 @@ export function TerminalToggle({
   onToggle: () => void
   failed?: boolean
 }) {
-  const label = open ? 'Hide terminal' : 'Show terminal'
-
   return (
     <Button
-      variant="ghost"
+      variant={open ? 'primary' : 'secondary'}
       size="sm"
       aria-pressed={open}
-      aria-label={label}
-      title={label}
+      title={open ? 'Hide terminal' : 'Show terminal'}
       onClick={onToggle}
       className={cx(
-        'w-7 px-0',
-        open && 'bg-muted text-navy',
-        failed && !open && 'text-destructive',
+        failed && !open && 'border-destructive/50 text-destructive hover:text-destructive',
       )}
     >
-      <SquareTerminal className="size-4!" />
+      <SquareTerminal />
+      Terminal
     </Button>
   )
 }
