@@ -1,10 +1,14 @@
 import { Link } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
+import { ArrowUpRight, FolderPlus, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import type { Project, RunningApp } from '../../shared/ipc.ts'
 import { partId, partsFor } from '../../shared/parts.ts'
+import { PlumbMark } from '../components/brand.tsx'
 import { CliUpdate } from '../components/cli-update.tsx'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
+import { Button, buttonClass, PageHeader, StatusDot, Tag } from '../components/ui.tsx'
 import { useApps } from '../use-apps.ts'
+import { refreshProjects, useProjects } from '../use-projects.ts'
 
 /** What a project is, in one line: its shape, from its own `.prumo/config.json`. */
 function Shape({ project }: { project: Project }) {
@@ -13,24 +17,14 @@ function Shape({ project }: { project: Project }) {
   const { types, architecture, multiTenant, mcp } = project.config
 
   return (
-    <p className="mt-1 flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       {types.map((type) => (
-        <span key={type} className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
-          {type}
-        </span>
+        <Tag key={type}>{type}</Tag>
       ))}
-      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
-        {architecture}
-      </span>
-      {multiTenant && (
-        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
-          multi-tenant
-        </span>
-      )}
-      {mcp && (
-        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">MCP</span>
-      )}
-    </p>
+      <Tag>{architecture}</Tag>
+      {multiTenant && <Tag>multi-tenant</Tag>}
+      {mcp && <Tag tone="brass">MCP</Tag>}
+    </div>
   )
 }
 
@@ -48,28 +42,40 @@ function Running({ project, apps }: { project: Project; apps: RunningApp[] }) {
   if (running.length === 0) return null
 
   return (
-    <p className="mt-1 text-xs text-emerald-600">
+    <span className="flex items-center gap-1.5 text-xs text-success">
+      <StatusDot state="running" />
       {running.length} of {parts.length} running
-    </p>
+    </span>
+  )
+}
+
+function Empty() {
+  return (
+    <div className="flex flex-col items-center rounded-md border border-dashed border-rule bg-card/60 px-8 py-16 text-center">
+      <PlumbMark className="h-16 w-auto opacity-80" lineLength={22} />
+      <h2 className="mt-5 font-serif text-xl font-semibold text-navy">No projects yet</h2>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        Create one, or add a folder that holds a{' '}
+        <code className="font-mono text-[0.8rem] text-ink">.prumo/config.json</code>.
+      </p>
+      <Link to="/new" className={`${buttonClass('primary')} mt-6`}>
+        <Plus />
+        New project
+      </Link>
+    </div>
   )
 }
 
 export function Projects() {
-  const [projects, setProjects] = useState<Project[]>()
+  const projects = useProjects()
   const [error, setError] = useState<string>()
   const apps = useApps()
-
-  const refresh = useCallback(() => {
-    window.prumo.projects.list().then(setProjects)
-  }, [])
-
-  useEffect(refresh, [refresh])
 
   const add = async () => {
     setError(undefined)
     try {
       await window.prumo.projects.add()
-      refresh()
+      await refreshProjects()
     } catch (problem) {
       // The message comes from the main process, which checked for .prumo/config.json.
       setError(String(problem).replace(/^Error: .*?Error: /, ''))
@@ -77,83 +83,96 @@ export function Projects() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-8 py-12">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Projects</h1>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={add}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-          >
-            Add folder
-          </button>
-          <Link
-            to="/new"
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
-          >
-            New project
-          </Link>
-        </div>
-      </header>
+    <main className="mx-auto max-w-4xl px-10 pb-16">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Projects"
+        description="Everything here was made by Prumo, and follows the conventions in its .prumo/."
+        actions={
+          <>
+            <Button onClick={add}>
+              <FolderPlus />
+              Add folder
+            </Button>
+            <Link to="/new" className={buttonClass('primary')}>
+              <Plus />
+              New project
+            </Link>
+          </>
+        }
+      />
 
-      <EnvironmentBanner />
-      <CliUpdate />
+      <div className="space-y-3">
+        <EnvironmentBanner />
+        <CliUpdate />
+        {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+      </div>
 
-      {error !== undefined && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      <div className="mt-6">
+        {projects?.length === 0 && <Empty />}
 
-      {projects?.length === 0 && (
-        <p className="mt-10 text-sm text-neutral-500">
-          No projects yet. Create one, or add a folder that holds a <code>.prumo/config.json</code>.
-        </p>
-      )}
-
-      <ul className="mt-6 divide-y divide-neutral-200">
-        {projects?.map((project) => (
-          <li key={project.path} className="flex items-start justify-between gap-4 py-4">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 font-medium">
-                {project.found ? (
-                  <Link to="/project" search={{ path: project.path }} className="hover:underline">
-                    {project.name}
-                  </Link>
-                ) : (
-                  project.name
-                )}
-                {!project.found && (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
-                    not found
-                  </span>
-                )}
-              </p>
-              <p className="truncate text-xs text-neutral-500">{project.path}</p>
-              <Shape project={project} />
-              <Running project={project} apps={apps} />
-            </div>
-            <div className="flex shrink-0 gap-3 text-sm">
-              {project.found && (
-                <button
-                  type="button"
-                  onClick={() => window.prumo.projects.reveal(project.path)}
-                  className="text-neutral-600 hover:text-neutral-900"
-                >
-                  Open
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={async () => {
-                  await window.prumo.projects.remove(project.path)
-                  refresh()
-                }}
-                className="text-neutral-400 hover:text-red-600"
+        {projects !== undefined && projects.length > 0 && (
+          <ul className="divide-y divide-rule overflow-hidden rounded-md border border-rule bg-card">
+            {projects.map((project) => (
+              <li
+                key={project.path}
+                className="group relative flex items-center gap-5 px-5 py-4 transition-colors hover:bg-paper/60"
               >
-                Remove
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2.5">
+                    {project.found ? (
+                      <Link
+                        to="/project"
+                        search={{ path: project.path }}
+                        className="font-serif text-[1.05rem] font-semibold text-navy after:absolute after:inset-0 hover:underline hover:decoration-brass hover:underline-offset-4"
+                      >
+                        {project.name}
+                      </Link>
+                    ) : (
+                      <span className="font-serif text-[1.05rem] font-semibold text-muted-foreground">
+                        {project.name}
+                      </span>
+                    )}
+                    {!project.found && <Tag tone="warning">not found</Tag>}
+                    <Running project={project} apps={apps} />
+                  </div>
+                  <p className="mt-0.5 truncate font-mono text-[0.72rem] text-muted-foreground">
+                    {project.path}
+                  </p>
+                  <div className="mt-2.5">
+                    <Shape project={project} />
+                  </div>
+                </div>
+
+                {/* Above the row's link, so each button still gets its own click. */}
+                <div className="relative z-10 flex shrink-0 items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                  {project.found && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.prumo.projects.reveal(project.path)}
+                    >
+                      <ArrowUpRight />
+                      Open
+                    </Button>
+                  )}
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      await window.prumo.projects.remove(project.path)
+                      await refreshProjects()
+                    }}
+                  >
+                    <Trash2 />
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </main>
   )
 }

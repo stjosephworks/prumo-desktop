@@ -5,6 +5,7 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router'
+import { Sidebar } from './components/sidebar.tsx'
 import { Docs } from './routes/docs.tsx'
 import { Environment } from './routes/environment.tsx'
 import { NewProject } from './routes/new-project.tsx'
@@ -12,15 +13,19 @@ import { ProjectScreen } from './routes/project.tsx'
 import { Projects } from './routes/projects.tsx'
 
 /**
- * The window has no title bar (`titleBarStyle: 'hiddenInset'`), so this strip is what the user grabs to move it,
- * and double-clicks to zoom it. It is opaque: content scrolled beneath it would look clickable and not be.
+ * The window has no title bar (`titleBarStyle: 'hiddenInset'`): the top of the sidebar and the strip above the
+ * content are what the user grabs to move it, and double-clicks to zoom it. The strip is opaque, because content
+ * scrolled beneath it would look clickable and not be.
  */
 function Layout() {
   return (
-    <>
-      <div className="drag-region fixed inset-x-0 top-0 z-10 h-10 bg-white" />
-      <Outlet />
-    </>
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <div className="relative min-w-0 flex-1 overflow-y-auto">
+        <div className="drag-region sticky top-0 z-10 h-10 bg-paper/90 backdrop-blur-sm" />
+        <Outlet />
+      </div>
+    </div>
   )
 }
 

@@ -1,7 +1,9 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { SquarePen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Button } from '../components/ui.tsx'
 
 /** A link inside a document, resolved against the document it came from. */
 function resolveLink(from: string, href: string): string {
@@ -36,42 +38,36 @@ export function Docs() {
     })
   }, [path, doc])
 
+  const project = path.split('/').at(-1)
+
   return (
-    <main className="mx-auto max-w-3xl px-8 py-12">
-      <div className="flex items-center justify-between">
-        <Link
-          to="/project"
-          search={{ path }}
-          className="text-sm text-neutral-500 hover:text-neutral-900"
-        >
-          ← Project
-        </Link>
-        <div className="flex items-center gap-4 text-sm">
+    <main className="mx-auto max-w-3xl px-10 pb-16">
+      <div className="flex items-center justify-between gap-4 border-b border-rule pb-4">
+        <nav className="flex min-w-0 items-center gap-1.5 font-mono text-[0.72rem] text-muted-foreground">
+          <Link to="/project" search={{ path }} className="hover:text-navy">
+            {project}
+          </Link>
+          <span>/</span>
+          <Link to="/docs" search={{ path, doc: 'INDEX.md' }} className="hover:text-navy">
+            .prumo
+          </Link>
           {doc !== 'INDEX.md' && (
-            <Link
-              to="/docs"
-              search={{ path, doc: 'INDEX.md' }}
-              className="text-neutral-500 hover:text-neutral-900"
-            >
-              Index
-            </Link>
+            <>
+              <span>/</span>
+              <span className="truncate text-ink">{doc}</span>
+            </>
           )}
-          <button
-            type="button"
-            onClick={() => window.prumo.docs.openInEditor(path, doc)}
-            className="rounded-md border border-neutral-300 px-3 py-1 hover:bg-neutral-50"
-          >
-            Open in editor
-          </button>
-        </div>
+        </nav>
+        <Button size="sm" onClick={() => window.prumo.docs.openInEditor(path, doc)}>
+          <SquarePen />
+          Open in editor
+        </Button>
       </div>
 
-      <p className="mt-4 text-xs text-neutral-500">.prumo/{doc}</p>
-
-      {error !== undefined && <p className="mt-6 text-sm text-red-600">{error}</p>}
+      {error !== undefined && <p className="mt-6 text-sm text-destructive">{error}</p>}
 
       {text !== undefined && (
-        <article className="prose mt-6 max-w-none text-[15px] leading-relaxed">
+        <article className="doc mt-8">
           <Markdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -80,27 +76,29 @@ export function Docs() {
 
                 if (/^https?:\/\//.test(target)) {
                   return (
-                    <button
-                      type="button"
-                      className="text-blue-700 underline"
-                      onClick={() => window.prumo.openExternal(target)}
+                    <a
+                      href={target}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        window.prumo.openExternal(target)
+                      }}
                     >
                       {children}
-                    </button>
+                    </a>
                   )
                 }
 
                 // A link between documents is navigation inside the app, not a page load.
                 return (
-                  <button
-                    type="button"
-                    className="text-blue-700 underline"
-                    onClick={() =>
+                  <a
+                    href={target}
+                    onClick={(event) => {
+                      event.preventDefault()
                       navigate({ to: '/docs', search: { path, doc: resolveLink(doc, target) } })
-                    }
+                    }}
                   >
                     {children}
-                  </button>
+                  </a>
                 )
               },
             }}

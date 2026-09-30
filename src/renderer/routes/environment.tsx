@@ -1,17 +1,16 @@
-import { Link } from '@tanstack/react-router'
+import { Check, CircleAlert, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Environment as Report } from '../../shared/ipc.ts'
 import { CliUpdate } from '../components/cli-update.tsx'
+import { cx, Notice, PageHeader, Section } from '../components/ui.tsx'
 
-const COLOURS = {
-  ok: 'text-emerald-600',
-  warn: 'text-amber-600',
-  fail: 'text-red-600',
+const MARK = {
+  ok: { icon: Check, colour: 'text-success border-success/30 bg-success/10' },
+  warn: { icon: CircleAlert, colour: 'text-warning border-warning/30 bg-warning/10' },
+  fail: { icon: X, colour: 'text-destructive border-destructive/30 bg-destructive/10' },
 } as const
 
-const SYMBOLS = { ok: '✓', warn: '!', fail: '✗' } as const
-
-/** The first screen while the features are not built: what this machine has, straight from `prumo doctor`. */
+/** What this machine has, straight from `prumo doctor`, and which Prumo CLI the Desktop runs. */
 export function Environment() {
   const [report, setReport] = useState<Report>()
 
@@ -20,46 +19,77 @@ export function Environment() {
   }, [])
 
   return (
-    <main className="mx-auto max-w-2xl px-8 py-16">
-      <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
-        ← Projects
-      </Link>
-      <h1 className="mt-4 text-2xl font-semibold">This machine</h1>
-      <p className="mt-1 text-sm text-neutral-500">Every check comes from `prumo doctor`.</p>
+    <main className="mx-auto max-w-3xl px-10 pb-16">
+      <PageHeader
+        eyebrow="prumo doctor"
+        title="This machine"
+        description="Every check comes from the CLI; the Desktop keeps no list of its own."
+      />
 
-      <CliUpdate detailed />
+      <div className="space-y-10">
+        <Section title="Prumo CLI">
+          <CliUpdate detailed />
+        </Section>
 
-      <section className="mt-8">
-        {report === undefined && <p className="text-sm text-neutral-500">Checking…</p>}
+        <Section
+          title="Tools"
+          aside={
+            report?.node !== undefined && (
+              <span className={cx('text-xs', report.ready ? 'text-success' : 'text-destructive')}>
+                {report.ready ? 'Ready' : 'Not ready'}
+              </span>
+            )
+          }
+        >
+          {report === undefined && <p className="text-sm text-muted-foreground">Checking…</p>}
 
-        {report !== undefined && report.node === undefined && (
-          <p className="text-sm text-red-600">
-            Node was not found. Install Node 22.17 or later, then reopen Prumo Desktop.
-          </p>
-        )}
+          {report !== undefined && report.node === undefined && (
+            <Notice tone="error" icon={<X />}>
+              Node was not found. Install Node 22.17 or later, then reopen Prumo Desktop.
+            </Notice>
+          )}
 
-        {report?.node !== undefined && (
-          <>
-            <p className="text-sm text-neutral-500">
-              Node {report.node.version} at <code>{report.node.path}</code>
-            </p>
-            <ul className="mt-4 space-y-2">
-              {report.checks.map((check) => (
-                <li key={check.id} className="flex gap-3 text-sm">
-                  <span className={COLOURS[check.status]}>{SYMBOLS[check.status]}</span>
-                  <span className="w-28 shrink-0 font-medium">{check.label}</span>
-                  <span className="text-neutral-500">{check.detail}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 text-sm">
-              {report.ready
-                ? 'Ready.'
-                : 'Not ready: fix what is marked ✗ before creating a project.'}
-            </p>
-          </>
-        )}
-      </section>
+          {report?.node !== undefined && (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Node {report.node.version} at{' '}
+                <code className="font-mono text-[0.78rem] text-ink">{report.node.path}</code>
+              </p>
+              <ul className="divide-y divide-rule overflow-hidden rounded-md border border-rule bg-card">
+                {report.checks.map((check) => {
+                  const mark = MARK[check.status]
+                  const Icon = mark.icon
+
+                  return (
+                    <li key={check.id} className="flex items-center gap-4 px-5 py-3 text-sm">
+                      <span
+                        className={cx(
+                          'flex size-6 shrink-0 items-center justify-center rounded-full border',
+                          mark.colour,
+                        )}
+                      >
+                        <Icon className="size-3.5" />
+                      </span>
+                      <span className="w-32 shrink-0 font-medium">{check.label}</span>
+                      <span className="min-w-0 flex-1 text-muted-foreground">{check.detail}</span>
+                      {!check.required && (
+                        <span className="font-mono text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                          optional
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              {!report.ready && (
+                <p className="mt-4 text-sm text-destructive">
+                  Fix what is marked with a cross before creating a project.
+                </p>
+              )}
+            </>
+          )}
+        </Section>
+      </div>
     </main>
   )
 }
