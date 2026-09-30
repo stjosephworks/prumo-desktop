@@ -11,7 +11,20 @@ import { NewProject } from './routes/new-project.tsx'
 import { ProjectScreen } from './routes/project.tsx'
 import { Projects } from './routes/projects.tsx'
 
-const root = createRootRoute({ component: Outlet })
+/**
+ * The window has no title bar (`titleBarStyle: 'hiddenInset'`), so this strip is what the user grabs to move it,
+ * and double-clicks to zoom it. It is opaque: content scrolled beneath it would look clickable and not be.
+ */
+function Layout() {
+  return (
+    <>
+      <div className="drag-region fixed inset-x-0 top-0 z-10 h-10 bg-white" />
+      <Outlet />
+    </>
+  )
+}
+
+const root = createRootRoute({ component: Layout })
 
 const routeTree = root.addChildren([
   createRoute({ getParentRoute: () => root, path: '/', component: Projects }),

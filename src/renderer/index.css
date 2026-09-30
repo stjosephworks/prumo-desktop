@@ -4,3 +4,9 @@
 :root {
   font-family: "Geist Variable", system-ui, sans-serif;
 }
+
+/* Electron moves the window by the areas marked drag; nothing inside one receives a click. */
+.drag-region {
+  app-region: drag;
+  user-select: none;
+}
