@@ -199,7 +199,7 @@ export function NewProject() {
         </button>
         {creating && (
           <span className="text-sm text-neutral-500">
-            Installing dependencies; this takes a while.
+            Installing dependencies and preparing the project; this takes a while.
           </span>
         )}
       </div>
