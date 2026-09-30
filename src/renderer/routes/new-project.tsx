@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { ProjectConfig } from '../../shared/ipc.ts'
+import { allowsAlone, asksMcp, asksTenancy } from '../../shared/questions.ts'
 
 const TYPES: { value: ProjectConfig['types'][number]; label: string }[] = [
   { value: 'api', label: 'api' },
@@ -10,8 +11,9 @@ const TYPES: { value: ProjectConfig['types'][number]; label: string }[] = [
 ]
 
 /**
- * Every question the CLI asks, as a form. The Desktop keeps no copy of the rules: the name is judged by
- * `prumo new`, and its answer is shown beside the field it belongs to.
+ * Every question the CLI asks, as a form. The name is judged by `prumo new`, and its answer is shown beside the
+ * field. Which questions apply to the chosen types follows the CLI (`src/shared/questions.ts`), so the form only
+ * shows what the CLI would ask, and never sends a combination it refuses.
  */
 export function NewProject() {
   const navigate = useNavigate()
@@ -20,6 +22,7 @@ export function NewProject() {
   const [types, setTypes] = useState<ProjectConfig['types']>(['api', 'web'])
   const [architecture, setArchitecture] = useState<ProjectConfig['architecture']>('monorepo')
   const [multiTenant, setMultiTenant] = useState(false)
+  const [mcp, setMcp] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<{ code: string; message: string }>()
   const [log, setLog] = useState('')
@@ -27,6 +30,9 @@ export function NewProject() {
 
   useEffect(() => window.prumo.projects.onCreateLog((chunk) => setLog((all) => all + chunk)), [])
   useEffect(() => logEnd.current?.scrollIntoView({ block: 'end' }), [])
+
+  // Several types always make a workspace, whatever was picked while there was one.
+  const shape = allowsAlone(types) ? architecture : 'monorepo'
 
   const toggle = (value: ProjectConfig['types'][number]) => {
     setTypes((current) =>
@@ -45,8 +51,9 @@ export function NewProject() {
       parent,
       name,
       types,
-      architecture,
-      multiTenant,
+      architecture: shape,
+      multiTenant: asksTenancy(types) && multiTenant,
+      mcp: asksMcp(types) && mcp,
     })
 
     setCreating(false)
@@ -130,7 +137,8 @@ export function NewProject() {
                   <input
                     type="radio"
                     name="architecture"
-                    checked={architecture === value}
+                    checked={shape === value}
+                    disabled={value === 'alone' && !allowsAlone(types)}
                     onChange={() => setArchitecture(value)}
                   />
                   {value}
@@ -139,26 +147,45 @@ export function NewProject() {
             </div>
           </div>
 
-          <div>
-            <span className="text-sm font-medium">Tenancy</span>
-            <div className="mt-1 flex gap-4">
-              {[
-                { value: false, label: 'single-tenant' },
-                { value: true, label: 'multi-tenant' },
-              ].map((option) => (
-                <label key={option.label} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="radio"
-                    name="tenancy"
-                    checked={multiTenant === option.value}
-                    onChange={() => setMultiTenant(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
+          {asksTenancy(types) && (
+            <div>
+              <span className="text-sm font-medium">Tenancy</span>
+              <div className="mt-1 flex gap-4">
+                {[
+                  { value: false, label: 'single-tenant' },
+                  { value: true, label: 'multi-tenant' },
+                ].map((option) => (
+                  <label key={option.label} className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="radio"
+                      name="tenancy"
+                      checked={multiTenant === option.value}
+                      onChange={() => setMultiTenant(option.value)}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {asksMcp(types) && (
+          <label className="flex items-start gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={mcp}
+              onChange={(event) => setMcp(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">MCP</span>
+              <span className="block text-neutral-500">
+                Let AI assistants use the API through MCP, signed in as the user.
+              </span>
+            </span>
+          </label>
+        )}
       </fieldset>
 
       <div className="mt-8 flex items-center gap-4">

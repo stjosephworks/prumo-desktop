@@ -20,6 +20,8 @@ export type ProjectConfig = {
   types: ('api' | 'web' | 'mobile' | 'site')[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean
+  /** An MCP server on the api. A project from a CLI older than 0.1.0 has no such field, and is read as false. */
+  mcp: boolean
 }
 
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
@@ -38,11 +40,15 @@ export type NewProject = {
   types: ProjectConfig['types']
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
+  /** Only asked, and only passed, when the types hold both api and web. */
+  mcp: boolean
 }
 
 /**
  * A failed creation carries the CLI's own error code, which the Desktop branches on:
- * `invalid_input` belongs beside the name, `target_not_empty` beside the folder.
+ * `invalid_input` belongs beside the name, `target_not_empty` beside the folder. The CLI also answers
+ * `invalid_input` for a combination of flags, but the form never sends one (`src/shared/questions.ts`), so what
+ * reaches it is about the name.
  */
 export type CreateResult =
   | { ok: true; project: Project }

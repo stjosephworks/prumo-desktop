@@ -9,7 +9,7 @@ import { useApps } from '../use-apps.ts'
 function Shape({ project }: { project: Project }) {
   if (project.config === undefined) return null
 
-  const { types, architecture, multiTenant } = project.config
+  const { types, architecture, multiTenant, mcp } = project.config
 
   return (
     <p className="mt-1 flex flex-wrap gap-1.5">
@@ -25,6 +25,9 @@ function Shape({ project }: { project: Project }) {
         <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">
           multi-tenant
         </span>
+      )}
+      {mcp && (
+        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">MCP</span>
       )}
     </p>
   )

@@ -63,7 +63,7 @@ export class Projects {
     try {
       const config = JSON.parse(readFileSync(join(path, CONFIG), 'utf8')) as ProjectConfig
 
-      return { path, name, found: true, config }
+      return { path, name, found: true, config: { ...config, mcp: config.mcp ?? false } }
     } catch {
       // Either the folder is gone, or it is no longer a Prumo project: both are "not found" to the user.
       return { path, name, found: false }

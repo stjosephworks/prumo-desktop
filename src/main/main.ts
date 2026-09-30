@@ -80,7 +80,7 @@ app.whenReady().then(() => {
 
 let stopping = false
 
-// Quitting stops every app, killing whole process trees: leaving Vite, Nest or Metro behind would
+// Quitting stops every app, killing whole process trees: leaving Vite, Fastify or Metro behind would
 // occupy ports the Desktop can no longer recognise when it reopens.
 app.on('before-quit', async (event) => {
   if (stopping) return

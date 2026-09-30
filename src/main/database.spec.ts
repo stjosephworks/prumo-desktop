@@ -32,7 +32,14 @@ beforeAll(async () => {
   parent = mkdtempSync(join(tmpdir(), 'prumo-desktop-db-'))
   const projects = new Projects(join(parent, 'projects.json'))
   const result = await createProject(
-    { parent, name: 'spec-api', types: ['api'], architecture: 'alone', multiTenant: false },
+    {
+      parent,
+      name: 'spec-api',
+      types: ['api'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+    },
     projects,
     { cli },
   )
@@ -59,7 +66,7 @@ whenDocker('a project without an API has no database part', async () => {
     path: '/tmp/none',
     name: 'none',
     found: true,
-    config: { types: ['web'], architecture: 'alone', multiTenant: false },
+    config: { types: ['web'], architecture: 'alone', multiTenant: false, mcp: false },
   }
 
   expect(await databaseState(none, { cli })).toEqual({ part: false })

@@ -1,6 +1,7 @@
 // Creating a project: the form's answers become flags, and the CLI decides everything else.
 import { join } from 'node:path'
 import type { CreateResult, NewProject } from '../shared/ipc.ts'
+import { asksMcp, asksTenancy } from '../shared/questions.ts'
 import { CliError, type CliOptions, runCli } from './cli.ts'
 import type { Projects } from './projects.ts'
 
@@ -22,8 +23,11 @@ export async function createProject(
     '--types',
     input.types.join(','),
     input.architecture === 'alone' ? '--alone' : '--monorepo',
-    input.multiTenant ? '--multi-tenant' : '--single-tenant',
   ]
+
+  // Only the flags of questions the CLI asks: it refuses `--mcp` without api and web.
+  if (asksTenancy(input.types)) args.push(input.multiTenant ? '--multi-tenant' : '--single-tenant')
+  if (asksMcp(input.types)) args.push(input.mcp ? '--mcp' : '--no-mcp')
 
   try {
     const { envelope } = await runCli<Created>(args, { ...options, cwd: input.parent })
