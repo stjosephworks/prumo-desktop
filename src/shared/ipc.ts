@@ -108,9 +108,17 @@ export type RunningApp = {
   script: string
   state: AppState
   exitCode?: number
+  /** The port its check settled before it started, when there was one: where an API's health is asked. */
+  port?: number
 }
 
-export type StartApp = { project: string; script: string; cols?: number; rows?: number }
+export type StartApp = {
+  project: string
+  script: string
+  cols?: number
+  rows?: number
+  port?: number
+}
 
 /**
  * Whether an app's port is free, from the app's own `scripts/ports.mjs --check`. `port_busy` carries the

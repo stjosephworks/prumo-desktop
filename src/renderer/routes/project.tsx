@@ -98,12 +98,6 @@ const API_DISPLAY: Record<ApiStatus, Display> = {
   },
 }
 
-/**
- * The port each API was started on, as its check settled it, by app id. Kept outside the screen so that leaving
- * and coming back still knows where to ask for the API's health.
- */
-const settledPorts = new Map<string, number>()
-
 const ICON: Record<Part['type'], ReactNode> = {
   api: <Server />,
   web: <Globe />,
@@ -175,7 +169,8 @@ function PartPanel({
   const phoneUrl = part.type === 'mobile' ? expoUrl(output) : undefined
   // A page server is still starting until it prints its address; the rest are started once they print anything.
   // An API is judged by its readiness route; a process that lives is not a server that answers.
-  const apiPort = part.type === 'api' ? settledPorts.get(id) : undefined
+  // The port the app was started on, kept with it in the main process, wherever it was started from.
+  const apiPort = part.type === 'api' ? app?.port : undefined
   const health = useApiHealth(apiPort, busy)
   const display =
     health !== undefined
@@ -323,8 +318,7 @@ export function ProjectScreen() {
     }
 
     forget(part)
-    if (check.port !== undefined) settledPorts.set(partId(project, part), check.port)
-    window.prumo.apps.start({ project: project.path, script: part.script })
+    window.prumo.apps.start({ project: project.path, script: part.script, port: check.port })
   }
 
   return (
@@ -426,7 +420,7 @@ export function ProjectScreen() {
       {project.config?.mcp === true && (
         <McpPanel
           name={project.name}
-          apiPort={apiPart === undefined ? undefined : settledPorts.get(partId(project, apiPart))}
+          apiPort={apiPart === undefined ? undefined : appOf(apiPart)?.port}
           apiRunning={runningType('api')}
           webRunning={runningType('web')}
         />
