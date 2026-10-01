@@ -8,6 +8,7 @@ import { applyShellPath, findNode } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
+import { createTray } from './tray.ts'
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
 declare const MAIN_WINDOW_VITE_NAME: string
@@ -102,6 +103,17 @@ function createWindow(): BrowserWindow {
   return window
 }
 
+/** Brings the window forward, making one if none is open, on a project when one is given. */
+function showWindow(project?: string): void {
+  const window = BrowserWindow.getAllWindows()[0] ?? createWindow()
+  window.show()
+  window.focus()
+  if (project !== undefined) window.webContents.send(CHANNELS.navigate, project)
+}
+
+// Held for the app's lifetime: a tray nothing refers to can be collected, and its icon would vanish.
+const held: object[] = []
+
 /**
  * What happens outside the window: the Dock badge counts what runs, and a process that fails while the window is
  * in the background says so in a notification, which brings the window back on that project when clicked.
@@ -129,18 +141,14 @@ function watchApps(): void {
       body: `${project?.name ?? basename(changed.project)} · exit ${changed.exitCode ?? '?'}`,
     })
 
-    notice.on('click', () => {
-      const window = BrowserWindow.getAllWindows()[0] ?? createWindow()
-      window.show()
-      window.focus()
-      if (project !== undefined) window.webContents.send(CHANNELS.navigate, project.path)
-    })
+    notice.on('click', () => showWindow(project?.path))
     notice.show()
   })
 }
 
 app.whenReady().then(() => {
   watchApps()
+  if (process.platform === 'darwin') held.push(createTray({ apps, projects, show: showWindow }))
   register({
     apps,
     projects,
