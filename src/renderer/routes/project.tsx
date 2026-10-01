@@ -14,6 +14,7 @@ import { type ReactNode, useState } from 'react'
 import type { PortAnswer, PortCheck, Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
 import { browserUrl, expoUrl } from '../../shared/urls.ts'
+import { Checks } from '../components/checks.tsx'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
 import { McpPanel } from '../components/mcp.tsx'
@@ -418,6 +419,8 @@ export function ProjectScreen() {
           ))}
         </ul>
       </Section>
+
+      <Checks project={project} />
 
       {project.config?.mcp === true && (
         <McpPanel
