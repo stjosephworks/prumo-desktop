@@ -8,6 +8,7 @@ import { CliUpdate } from '../components/cli-update.tsx'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
 import { GitBadge } from '../components/git-badge.tsx'
 import { Button, buttonClass, PageHeader, StatusDot, Tag } from '../components/ui.tsx'
+import { useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { refreshProjects, useProjects } from '../use-projects.ts'
 
@@ -31,6 +32,7 @@ function Shape({ project }: { project: Project }) {
 
 /** The summary a project shows in the list, counted from the apps the Desktop started. */
 function Running({ project, apps }: { project: Project; apps: RunningApp[] }) {
+  const t = useT()
   const parts = partsFor(project)
 
   if (parts.length === 0) return null
@@ -45,23 +47,25 @@ function Running({ project, apps }: { project: Project; apps: RunningApp[] }) {
   return (
     <span className="flex items-center gap-1.5 text-xs text-success">
       <StatusDot state="running" />
-      {running.length} of {parts.length} running
+      {t.projects.running(running.length, parts.length)}
     </span>
   )
 }
 
 function Empty() {
+  const t = useT()
+
   return (
     <div className="flex flex-col items-center rounded-md border border-dashed border-rule bg-card/60 px-8 py-16 text-center">
       <PlumbMark className="h-16 w-auto opacity-80" lineLength={22} />
-      <h2 className="mt-5 font-serif text-xl font-semibold text-navy">No projects yet</h2>
+      <h2 className="mt-5 font-serif text-xl font-semibold text-navy">{t.projects.emptyTitle}</h2>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        Create one, or add a folder that holds a{' '}
+        {t.projects.emptyBefore}{' '}
         <code className="font-mono text-[0.8rem] text-ink">.prumo/config.json</code>.
       </p>
       <Link to="/new" className={`${buttonClass('primary')} mt-6`}>
         <Plus />
-        New project
+        {t.nav.newProject}
       </Link>
     </div>
   )
@@ -71,6 +75,7 @@ export function Projects() {
   const projects = useProjects()
   const [error, setError] = useState<string>()
   const apps = useApps()
+  const t = useT()
 
   const add = async () => {
     setError(undefined)
@@ -86,18 +91,18 @@ export function Projects() {
   return (
     <main className="mx-auto max-w-4xl px-10 pb-16">
       <PageHeader
-        eyebrow="Workspace"
-        title="Projects"
-        description="Everything here was made by Prumo, and follows the conventions in its .prumo/."
+        eyebrow={t.projects.eyebrow}
+        title={t.nav.projects}
+        description={t.projects.description}
         actions={
           <>
             <Button onClick={add}>
               <FolderPlus />
-              Add folder
+              {t.projects.addFolder}
             </Button>
             <Link to="/new" className={buttonClass('primary')}>
               <Plus />
-              New project
+              {t.nav.newProject}
             </Link>
           </>
         }
@@ -134,7 +139,7 @@ export function Projects() {
                         {project.name}
                       </span>
                     )}
-                    {!project.found && <Tag tone="warning">not found</Tag>}
+                    {!project.found && <Tag tone="warning">{t.projects.notFound}</Tag>}
                     <Running project={project} apps={apps} />
                   </div>
                   <div className="mt-0.5 flex min-w-0 items-center gap-3">
@@ -157,7 +162,7 @@ export function Projects() {
                       onClick={() => window.prumo.projects.reveal(project.path)}
                     >
                       <ArrowUpRight />
-                      Open
+                      {t.projects.open}
                     </Button>
                   )}
                   <Button
@@ -169,7 +174,7 @@ export function Projects() {
                     }}
                   >
                     <Trash2 />
-                    Remove
+                    {t.projects.remove}
                   </Button>
                 </div>
               </li>

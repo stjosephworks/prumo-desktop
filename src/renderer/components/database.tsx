@@ -9,6 +9,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
 import { apiDirectory } from '../../shared/parts.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { Terminal } from './terminal.tsx'
 import {
@@ -27,14 +28,9 @@ import {
 /** Where the project's own database script sends someone without Docker (scripts/database.mjs). */
 const DOCKER_DOWNLOAD = 'https://www.docker.com/products/docker-desktop/'
 
-const DOCKER_MESSAGE = {
-  missing: 'Docker is not installed, and the database runs in it.',
-  stopped: 'Docker is installed but not running.',
-  running: '',
-} as const
-
 /** The database part of a project: created through `prumo db`, run by Docker, migrated on request. */
 export function Database({ project }: { project: Project }) {
+  const t = useT()
   const [state, setState] = useState<{ database: DatabaseState; docker: DockerState }>()
   const [name, setName] = useState(project.name.replaceAll('-', '_'))
   const [working, setWorking] = useState<string>()
@@ -67,7 +63,7 @@ export function Database({ project }: { project: Project }) {
   const openDocker = () =>
     act('open-docker', async () => {
       if (!(await window.prumo.database.openDocker())) {
-        setError('Docker Desktop did not start. Open it yourself, then try again.')
+        setError(t.database.didNotStart)
       }
     })
 
@@ -83,7 +79,7 @@ export function Database({ project }: { project: Project }) {
   return (
     <Section
       className="mt-10"
-      title="Database"
+      title={t.database.title}
       aside={
         state.database.created &&
         docker.part &&
@@ -101,7 +97,7 @@ export function Database({ project }: { project: Project }) {
               }
             >
               {containerRunning ? <Square /> : <Play />}
-              {containerRunning ? 'Stop' : 'Start'}
+              {containerRunning ? t.common.stop : t.common.start}
             </Button>
             {/* Migrations never run by themselves: they are asked for, and their output is a terminal like any other. */}
             <Button
@@ -111,7 +107,7 @@ export function Database({ project }: { project: Project }) {
               }
             >
               <ArrowUpFromLine />
-              Migrate
+              {t.database.migrate}
             </Button>
           </div>
         )
@@ -127,14 +123,14 @@ export function Database({ project }: { project: Project }) {
               <span className="font-serif text-base font-semibold text-navy">PostgreSQL</span>
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <StatusDot state={containerRunning ? 'running' : 'stopped'} />
-                {state.database.created ? 'created' : 'not created yet'}
+                {state.database.created ? t.database.created : t.database.notCreated}
                 {docker.part &&
                   docker.docker === 'running' &&
-                  ` · Docker ${containerRunning ? 'up' : 'down'}`}
-                {port !== undefined && ` · port ${port}`}
+                  ` · ${t.database.docker(containerRunning)}`}
+                {port !== undefined && ` · ${t.database.port(port)}`}
               </span>
             </div>
-            <p className="font-mono text-[0.72rem] text-muted-foreground">prumo db, in Docker</p>
+            <p className="font-mono text-[0.72rem] text-muted-foreground">{t.database.subtitle}</p>
           </div>
         </div>
 
@@ -146,29 +142,31 @@ export function Database({ project }: { project: Project }) {
               action={
                 docker.docker === 'stopped' && (
                   <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
-                    {working === 'open-docker' ? 'Opening…' : 'Open Docker'}
+                    {working === 'open-docker' ? t.database.openingButton : t.database.openDocker}
                   </Button>
                 )
               }
             >
               {working === 'open-docker'
-                ? 'Opening Docker Desktop; its engine takes a moment to answer…'
-                : DOCKER_MESSAGE[docker.docker]}
+                ? t.database.opening
+                : docker.docker === 'missing'
+                  ? t.database.missing
+                  : t.database.stopped}
             </Notice>
           )}
 
           {!state.database.created && (
             <div>
               <p className="text-sm text-muted-foreground">
-                The API starts with{' '}
-                <code className="font-mono text-[0.8rem] text-ink">DATABASE_URL=MISSING</code>.
-                Creating the database writes its URL and runs the migrations.
+                {t.database.introBefore}{' '}
+                <code className="font-mono text-[0.8rem] text-ink">DATABASE_URL=MISSING</code>
+                {t.database.introAfter}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  aria-label="Database name"
+                  aria-label={t.database.nameLabel}
                   className={`${INPUT} max-w-xs font-mono`}
                 />
                 <Button
@@ -188,7 +186,7 @@ export function Database({ project }: { project: Project }) {
                     })
                   }
                 >
-                  {working === 'create' ? 'Creating…' : 'Create database'}
+                  {working === 'create' ? t.database.creating : t.database.create}
                 </Button>
               </div>
             </div>
@@ -200,9 +198,9 @@ export function Database({ project }: { project: Project }) {
           {created !== undefined && (
             <Notice tone="info" icon={<Check className="text-success" />}>
               <span className="font-mono">{created.database}</span>{' '}
-              {created.created ? 'was created' : 'already existed'} on port{' '}
-              <span className="font-mono">{created.port}</span>
-              {created.migrated ? ', and the migrations ran.' : '; the migrations did not run.'}
+              {created.created ? t.database.wasCreated : t.database.alreadyExisted}{' '}
+              {t.database.onPort} <span className="font-mono">{created.port}</span>
+              {created.migrated ? t.database.migrated : t.database.notMigrated}
             </Notice>
           )}
 
@@ -213,11 +211,11 @@ export function Database({ project }: { project: Project }) {
               icon={<TriangleAlert />}
               action={
                 <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
-                  {working === 'open-docker' ? 'Opening…' : 'Open Docker'}
+                  {working === 'open-docker' ? t.database.openingButton : t.database.openDocker}
                 </Button>
               }
             >
-              Docker is installed but not running. Open it, then create the database again.
+              {t.database.notRunningRetry}
             </Notice>
           )}
           {error !== undefined && errorCode === 'docker_missing' && (
@@ -226,11 +224,11 @@ export function Database({ project }: { project: Project }) {
               icon={<TriangleAlert />}
               action={
                 <Button size="sm" onClick={() => window.prumo.openExternal(DOCKER_DOWNLOAD)}>
-                  Get Docker Desktop
+                  {t.database.getDocker}
                 </Button>
               }
             >
-              Docker is not installed, and the database runs in it.
+              {t.database.missing}
             </Notice>
           )}
           {error !== undefined &&
@@ -239,10 +237,8 @@ export function Database({ project }: { project: Project }) {
 
           {working === 'create' && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Creating the database in Docker and running the migrations…
-              </p>
-              <ProgressBar label="Creating the database" />
+              <p className="text-xs text-muted-foreground">{t.database.creatingProgress}</p>
+              <ProgressBar label={t.database.creatingLabel} />
             </div>
           )}
 
@@ -261,15 +257,9 @@ export function Database({ project }: { project: Project }) {
   )
 }
 
-const MIGRATION_TEXT = {
-  starting: 'running…',
-  running: 'running…',
-  stopped: 'done',
-  failed: 'failed',
-} as const
-
 /** The migration, once it has run: a bar while it works, and its terminal only when asked for or when it failed. */
 function MigrationPanel({ id }: { id: string }) {
+  const t = useT()
   const app = useApps().find((one) => one.id === id)
   const failed = app?.state === 'failed'
   const [open, toggle] = useOutputPanel(failed)
@@ -289,12 +279,14 @@ function MigrationPanel({ id }: { id: string }) {
               failed ? 'text-destructive' : working ? 'text-warning' : 'text-success',
             )}
           >
-            {MIGRATION_TEXT[app.state]}
-            {failed && app.exitCode !== undefined && ` (exit ${app.exitCode})`}
+            {t.database.migration[app.state]}
+            {failed && app.exitCode !== undefined && ` (${t.common.exit(app.exitCode)})`}
           </span>
         </span>
         <TerminalToggle open={open} onToggle={toggle} failed={failed} />
-        {working && <ProgressBar label="Migrating" className="absolute inset-x-0 bottom-0" />}
+        {working && (
+          <ProgressBar label={t.database.migrating} className="absolute inset-x-0 bottom-0" />
+        )}
       </div>
       {open && <Terminal id={id} />}
     </div>

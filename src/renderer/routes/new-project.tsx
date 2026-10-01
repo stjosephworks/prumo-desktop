@@ -15,17 +15,14 @@ import {
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
+import { useT } from '../i18n/i18n.tsx'
 import { refreshProjects } from '../use-projects.ts'
 
-const TYPES: {
-  value: ProjectConfig['types'][number]
-  icon: LucideIcon
-  detail: string
-}[] = [
-  { value: 'api', icon: Server, detail: 'An HTTP API, with sign-in and a database' },
-  { value: 'web', icon: Globe, detail: 'An app in the browser, signed in' },
-  { value: 'mobile', icon: Smartphone, detail: 'An Expo app for iOS and Android' },
-  { value: 'site', icon: Globe, detail: 'A public site, for pages anyone reads' },
+const TYPES: { value: ProjectConfig['types'][number]; icon: LucideIcon }[] = [
+  { value: 'api', icon: Server },
+  { value: 'web', icon: Globe },
+  { value: 'mobile', icon: Smartphone },
+  { value: 'site', icon: Globe },
 ]
 
 /** Two or three choices side by side, one of them chosen: a radio group dressed as a control. */
@@ -91,6 +88,7 @@ function Field({
  */
 export function NewProject() {
   const navigate = useNavigate()
+  const t = useT()
   const [parent, setParent] = useState<string>()
   const [name, setName] = useState('')
   const [types, setTypes] = useState<ProjectConfig['types']>(['api', 'web'])
@@ -151,16 +149,16 @@ export function NewProject() {
     <main className="mx-auto max-w-3xl px-10 pb-16">
       <PageHeader
         eyebrow="prumo new"
-        title="New project"
-        description="Every question the CLI would ask, answered here. The code and its .prumo/ arrive together."
+        title={t.nav.newProject}
+        description={t.newProject.description}
       />
 
       <fieldset disabled={creating} className="space-y-10">
-        <Section title="Where it goes">
+        <Section title={t.newProject.where}>
           <div className="grid grid-cols-[1fr_1.2fr] gap-5">
             <Field
-              label="Name"
-              hint={fieldError('invalid_input') === undefined && 'Lowercase, with dashes.'}
+              label={t.newProject.name}
+              hint={fieldError('invalid_input') === undefined && t.newProject.nameHint}
             >
               <input
                 id="name"
@@ -175,7 +173,7 @@ export function NewProject() {
               )}
             </Field>
 
-            <Field label="Folder">
+            <Field label={t.newProject.folder}>
               <button
                 type="button"
                 onClick={async () => setParent(await window.prumo.projects.chooseParent())}
@@ -188,7 +186,7 @@ export function NewProject() {
                     parent === undefined && 'text-muted-foreground',
                   )}
                 >
-                  {parent === undefined ? 'Choose a folder…' : `${parent}/${name || '…'}`}
+                  {parent === undefined ? t.newProject.chooseFolder : `${parent}/${name || '…'}`}
                 </span>
               </button>
               {fieldError('target_not_empty') !== undefined && (
@@ -198,7 +196,7 @@ export function NewProject() {
           </div>
         </Section>
 
-        <Section title="What it has">
+        <Section title={t.newProject.what}>
           <div className="grid grid-cols-2 gap-3">
             {TYPES.map((type) => {
               const chosen = types.includes(type.value)
@@ -230,7 +228,9 @@ export function NewProject() {
                   </span>
                   <span className="min-w-0">
                     <span className="block font-serif font-semibold text-navy">{type.value}</span>
-                    <span className="block text-xs text-muted-foreground">{type.detail}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {t.newProject.types[type.value]}
+                    </span>
                   </span>
                   {chosen && <Check className="absolute right-3 top-3 size-4 text-brass-ink" />}
                 </label>
@@ -239,11 +239,11 @@ export function NewProject() {
           </div>
         </Section>
 
-        <Section title="How it is shaped">
+        <Section title={t.newProject.shaped}>
           <div className="flex flex-wrap gap-x-10 gap-y-6">
             <Field
-              label="Shape"
-              hint={allowsAlone(types) ? undefined : 'Several types always make a workspace.'}
+              label={t.newProject.shape}
+              hint={allowsAlone(types) ? undefined : t.newProject.severalTypes}
             >
               <Segmented
                 name="architecture"
@@ -257,7 +257,7 @@ export function NewProject() {
             </Field>
 
             {asksTenancy(types) && (
-              <Field label="Tenancy">
+              <Field label={t.newProject.tenancy}>
                 <Segmented
                   name="tenancy"
                   value={multiTenant}
@@ -289,9 +289,7 @@ export function NewProject() {
                   <Sparkles className="size-3.5 text-brass-ink" />
                   MCP
                 </span>
-                <span className="block text-sm text-muted-foreground">
-                  Let AI assistants use the API through MCP, signed in as the user.
-                </span>
+                <span className="block text-sm text-muted-foreground">{t.newProject.mcp}</span>
               </span>
             </label>
           )}
@@ -305,12 +303,10 @@ export function NewProject() {
           disabled={creating || parent === undefined || name === '' || types.length === 0}
           className="h-9 px-5"
         >
-          {creating ? 'Creating…' : 'Create project'}
+          {creating ? t.newProject.creating : t.newProject.create}
         </Button>
         {creating && (
-          <span className="text-sm text-muted-foreground">
-            Installing dependencies and preparing the project; this takes a while.
-          </span>
+          <span className="text-sm text-muted-foreground">{t.newProject.preparing}</span>
         )}
         {log !== '' && (
           <span className="ml-auto">
@@ -319,7 +315,7 @@ export function NewProject() {
         )}
       </div>
 
-      {creating && <ProgressBar label="Creating the project" className="relative mt-4" />}
+      {creating && <ProgressBar label={t.newProject.creatingLabel} className="relative mt-4" />}
 
       {/* An error the CLI did not tie to a field still has to be seen. */}
       {error !== undefined && !['invalid_input', 'target_not_empty'].includes(error.code) && (

@@ -2,6 +2,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { FolderOpen, Gauge, LayoutGrid, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { partId, partsFor } from '../../shared/parts.ts'
+import { type Locale, useLocale, useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 import { Wordmark } from './brand.tsx'
@@ -38,7 +39,38 @@ function NavItem({
  * The window's left edge: where the traffic lights sit (its top is what moves the window), the wordmark, the
  * screens, and every project with a dot when one of its apps runs.
  */
+/** EN and PT side by side, as the site's language switch; the choice is remembered. */
+function LanguageSwitch() {
+  const t = useT()
+  const { locale, setLocale } = useLocale()
+
+  return (
+    <div className="flex items-center justify-between border-t border-rule px-5 py-3">
+      <span className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
+        {t.nav.language}
+      </span>
+      <div className="flex rounded-sm border border-rule bg-card p-0.5 text-xs">
+        {(['en', 'pt'] as Locale[]).map((one) => (
+          <button
+            key={one}
+            type="button"
+            aria-pressed={locale === one}
+            onClick={() => setLocale(one)}
+            className={cx(
+              'rounded-[2px] px-2 py-0.5 font-mono uppercase',
+              locale === one ? 'bg-navy text-card' : 'text-muted-foreground hover:text-ink',
+            )}
+          >
+            {one}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function Sidebar() {
+  const t = useT()
   const location = useRouterState({ select: (state) => state.location })
   const projects = useProjects()
   const apps = useApps()
@@ -67,19 +99,19 @@ export function Sidebar() {
 
       <nav className="space-y-0.5 px-3">
         <NavItem to="/" icon={<LayoutGrid />} active={location.pathname === '/'}>
-          Projects
+          {t.nav.projects}
         </NavItem>
         <NavItem to="/new" icon={<Plus />} active={location.pathname === '/new'}>
-          New project
+          {t.nav.newProject}
         </NavItem>
         <NavItem to="/environment" icon={<Gauge />} active={location.pathname === '/environment'}>
-          This machine
+          {t.nav.thisMachine}
         </NavItem>
       </nav>
 
       <div className="mt-7 flex min-h-0 flex-1 flex-col">
         <p className="px-5 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
-          Open a project
+          {t.nav.openAProject}
         </p>
         <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
           {projects
@@ -108,10 +140,12 @@ export function Sidebar() {
               )
             })}
           {projects?.every((project) => !project.found) && (
-            <li className="px-2.5 text-xs text-muted-foreground">None yet.</li>
+            <li className="px-2.5 text-xs text-muted-foreground">{t.nav.noneYet}</li>
           )}
         </ul>
       </div>
+
+      <LanguageSwitch />
     </aside>
   )
 }

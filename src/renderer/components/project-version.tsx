@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { compareVersions } from '../../shared/versions.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { Tag } from './ui.tsx'
 
 /** The first version that records itself in .prumo/config.json. */
@@ -10,6 +11,7 @@ const RECORDED_SINCE = '0.1.1'
  * own, but conventions and templates may have moved on since, so it is said, not alarmed about.
  */
 export function ProjectVersion({ made }: { made?: string }) {
+  const t = useT()
   const [current, setCurrent] = useState<string>()
 
   useEffect(() => {
@@ -20,21 +22,19 @@ export function ProjectVersion({ made }: { made?: string }) {
 
   if (made === undefined) {
     return (
-      <span title={`Prumo records its version since ${RECORDED_SINCE}; this app runs ${current}.`}>
-        <Tag tone="warning">made before Prumo {RECORDED_SINCE}</Tag>
+      <span title={t.project.madeBeforeTitle(RECORDED_SINCE, current)}>
+        <Tag tone="warning">{t.project.madeBefore(RECORDED_SINCE)}</Tag>
       </span>
     )
   }
 
   if (compareVersions(made, current) < 0) {
     return (
-      <span title={`Templates and conventions may have changed since ${made}.`}>
-        <Tag tone="warning">
-          Prumo {made} · this app runs {current}
-        </Tag>
+      <span title={t.project.olderTitle(made)}>
+        <Tag tone="warning">{t.project.older(made, current)}</Tag>
       </span>
     )
   }
 
-  return <Tag>Prumo {made}</Tag>
+  return <Tag>{t.project.made(made)}</Tag>
 }

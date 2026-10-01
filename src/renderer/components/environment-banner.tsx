@@ -2,10 +2,12 @@ import { Link } from '@tanstack/react-router'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Environment } from '../../shared/ipc.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { buttonClass, Notice } from './ui.tsx'
 
 /** Shown only when something is missing: `prumo doctor` decides what "missing" means, not the Desktop. */
 export function EnvironmentBanner() {
+  const t = useT()
   const [environment, setEnvironment] = useState<Environment>()
 
   useEffect(() => {
@@ -22,13 +24,13 @@ export function EnvironmentBanner() {
       icon={<TriangleAlert />}
       action={
         <Link to="/environment" className={buttonClass('secondary', 'sm')}>
-          See the checks
+          {t.banner.seeChecks}
         </Link>
       }
     >
       {environment.node === undefined
-        ? 'Node was not found on this machine, so nothing can run.'
-        : `Not ready: ${missing.map((check) => check.label).join(', ')}.`}
+        ? t.banner.nodeMissing
+        : t.banner.notReady(missing.map((check) => check.label).join(', '))}
     </Notice>
   )
 }

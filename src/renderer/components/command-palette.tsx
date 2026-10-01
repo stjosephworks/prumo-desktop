@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { FolderOpen, Gauge, LayoutGrid, Play, Plus, Search, Square } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { partId, partsFor } from '../../shared/parts.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 import { cx } from './ui.tsx'
@@ -14,6 +15,7 @@ type Command = { id: string; label: string; hint?: string; icon: ReactNode; run:
  */
 export function CommandPalette() {
   const navigate = useNavigate()
+  const t = useT()
   const projects = useProjects()
   const apps = useApps()
   const [open, setOpen] = useState(false)
@@ -42,11 +44,16 @@ export function CommandPalette() {
   const commands = useMemo<Command[]>(() => {
     const running = apps.filter((one) => one.state === 'running' || one.state === 'starting')
     const screens: Command[] = [
-      { id: 'projects', label: 'Projects', icon: <LayoutGrid />, run: () => navigate({ to: '/' }) },
-      { id: 'new', label: 'New project', icon: <Plus />, run: () => navigate({ to: '/new' }) },
+      {
+        id: 'projects',
+        label: t.nav.projects,
+        icon: <LayoutGrid />,
+        run: () => navigate({ to: '/' }),
+      },
+      { id: 'new', label: t.nav.newProject, icon: <Plus />, run: () => navigate({ to: '/new' }) },
       {
         id: 'machine',
-        label: 'This machine',
+        label: t.nav.thisMachine,
         icon: <Gauge />,
         run: () => navigate({ to: '/environment' }),
       },
@@ -62,7 +69,7 @@ export function CommandPalette() {
           {
             id: `open:${project.path}`,
             label: project.name,
-            hint: 'Open project',
+            hint: t.palette.openProject,
             icon: <FolderOpen />,
             run: () => navigate({ to: '/project', search: { path: project.path } }),
           },
@@ -70,7 +77,7 @@ export function CommandPalette() {
             ? [
                 {
                   id: `run:${project.path}`,
-                  label: `Run all apps in ${project.name}`,
+                  label: t.palette.runAll(project.name),
                   hint: stopped.map((part) => part.type).join(', '),
                   icon: <Play />,
                   run: () => {
@@ -97,8 +104,8 @@ export function CommandPalette() {
         ? [
             {
               id: 'stop-all',
-              label: 'Stop everything',
-              hint: `${running.length} running`,
+              label: t.palette.stopEverything,
+              hint: t.palette.running(running.length),
               icon: <Square />,
               run: () => {
                 for (const one of running) window.prumo.apps.stop(one.id)
@@ -108,7 +115,7 @@ export function CommandPalette() {
         : []
 
     return [...screens, ...perProject, ...stopAll]
-  }, [apps, projects, navigate])
+  }, [apps, projects, navigate, t])
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   const shown = commands.filter((command) =>
@@ -129,13 +136,13 @@ export function CommandPalette() {
       {/* The dimmed backdrop is the close button: a click outside the list closes it. */}
       <button
         type="button"
-        aria-label="Close commands"
+        aria-label={t.palette.close}
         onClick={() => setOpen(false)}
         className="absolute inset-0 cursor-default bg-ink/25 backdrop-blur-[2px]"
       />
       <div
         role="dialog"
-        aria-label="Commands"
+        aria-label={t.palette.label}
         className="relative w-full max-w-lg overflow-hidden rounded-md border border-rule bg-card shadow-2xl shadow-ink/20"
       >
         <div className="flex items-center gap-2.5 border-b border-rule px-4">
@@ -159,7 +166,7 @@ export function CommandPalette() {
               }
               if (event.key === 'Enter') run(shown[active])
             }}
-            placeholder="Go to a project, or run its apps…"
+            placeholder={t.palette.placeholder}
             className="h-12 flex-1 bg-transparent text-sm text-ink placeholder:text-muted-foreground/70 focus:outline-none"
           />
           <kbd className="rounded-sm border border-rule px-1.5 font-mono text-[0.65rem] text-muted-foreground">
@@ -169,7 +176,7 @@ export function CommandPalette() {
         <ul className="max-h-80 overflow-y-auto p-1.5">
           {shown.length === 0 && (
             <li className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Nothing matches.
+              {t.palette.nothing}
             </li>
           )}
           {shown.map((command, index) => (

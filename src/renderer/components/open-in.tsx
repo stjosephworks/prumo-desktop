@@ -1,12 +1,14 @@
 import { Code, FolderOpen, SquareTerminal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Openers } from '../../shared/ipc.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { Button } from './ui.tsx'
 
 const SHORT: Record<string, string> = { 'Visual Studio Code': 'VS Code' }
 
 /** Finder, the first editor this machine has, and its terminal, each opening the project's folder. */
 export function OpenIn({ path }: { path: string }) {
+  const t = useT()
   const [openers, setOpeners] = useState<Openers>({ editors: [], terminals: [] })
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export function OpenIn({ path }: { path: string }) {
     <>
       <Button variant="ghost" onClick={() => window.prumo.projects.reveal(path)}>
         <FolderOpen />
-        Finder
+        {t.project.finder}
       </Button>
       {editor !== undefined && (
         <Button variant="ghost" onClick={() => window.prumo.projects.openIn(editor, path)}>

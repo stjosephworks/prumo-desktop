@@ -2,6 +2,7 @@
 // navy for what acts and brass for what marks.
 import { SquareTerminal } from 'lucide-react'
 import { type ButtonHTMLAttributes, type ReactNode, useEffect, useState } from 'react'
+import { useT } from '../i18n/i18n.tsx'
 
 export function cx(...names: (string | false | null | undefined)[]): string {
   return names.filter(Boolean).join(' ')
@@ -174,17 +175,13 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
 }
 
 /** A thin brass bar that moves while something runs whose end nobody can predict. */
-export function ProgressBar({
-  label = 'Working',
-  className,
-}: {
-  label?: string
-  className?: string
-}) {
+export function ProgressBar({ label, className }: { label?: string; className?: string }) {
+  const t = useT()
+
   return (
     <div
       role="progressbar"
-      aria-label={label}
+      aria-label={label ?? t.common.working}
       // Positioned by the caller: `absolute` to sit on an edge, `relative` to take a line of its own.
       className={cx('h-0.5 w-full overflow-hidden bg-brass/15', className ?? 'relative')}
     >
@@ -206,19 +203,21 @@ export function TerminalToggle({
   onToggle: () => void
   failed?: boolean
 }) {
+  const t = useT()
+
   return (
     <Button
       variant={open ? 'primary' : 'secondary'}
       size="sm"
       aria-pressed={open}
-      title={open ? 'Hide terminal' : 'Show terminal'}
+      title={open ? t.common.hideTerminal : t.common.showTerminal}
       onClick={onToggle}
       className={cx(
         failed && !open && 'border-destructive/50 text-destructive hover:text-destructive',
       )}
     >
       <SquareTerminal />
-      Terminal
+      {t.common.terminal}
     </Button>
   )
 }

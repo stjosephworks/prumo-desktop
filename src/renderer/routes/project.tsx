@@ -34,6 +34,8 @@ import {
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
+import type { Dictionary } from '../i18n/en.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { type ApiStatus, useApiHealth } from '../use-api-health.ts'
 import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
@@ -42,7 +44,7 @@ import { useProjects } from '../use-projects.ts'
 /** What a card says about its app: a dot, a word, its colour, and whether it is still on its way. */
 type Display = {
   dot: 'running' | 'starting' | 'stopped' | 'failed' | 'warning'
-  label: string
+  label: (t: Dictionary) => string
   tone: string
   working: boolean
   failed: boolean
@@ -51,28 +53,28 @@ type Display = {
 const DISPLAY: Record<RunningApp['state'], Display> = {
   starting: {
     dot: 'starting',
-    label: 'starting',
+    label: (t) => t.common.states.starting,
     tone: 'text-warning',
     working: true,
     failed: false,
   },
   running: {
     dot: 'running',
-    label: 'running',
+    label: (t) => t.common.states.running,
     tone: 'text-success',
     working: false,
     failed: false,
   },
   stopped: {
     dot: 'stopped',
-    label: 'stopped',
+    label: (t) => t.common.states.stopped,
     tone: 'text-muted-foreground',
     working: false,
     failed: false,
   },
   failed: {
     dot: 'failed',
-    label: 'failed',
+    label: (t) => t.common.states.failed,
     tone: 'text-destructive',
     working: false,
     failed: true,
@@ -84,14 +86,14 @@ const API_DISPLAY: Record<ApiStatus, Display> = {
   ready: DISPLAY.running,
   database_down: {
     dot: 'warning',
-    label: 'database down',
+    label: (t) => t.project.databaseDown,
     tone: 'text-warning',
     working: false,
     failed: false,
   },
   not_responding: {
     dot: 'failed',
-    label: 'not responding',
+    label: (t) => t.project.notResponding,
     tone: 'text-destructive',
     working: false,
     failed: true,
@@ -116,6 +118,8 @@ function PortBusy({
   onAnswer: (answer: PortAnswer) => void
   onCancel: () => void
 }) {
+  const t = useT()
+
   return (
     <Notice
       tone="warning"
@@ -125,13 +129,13 @@ function PortBusy({
         refused.code === 'port_busy' && (
           <div className="flex gap-1.5">
             <Button size="sm" onClick={() => onAnswer('kill')}>
-              Stop it
+              {t.project.stopIt}
             </Button>
             <Button size="sm" onClick={() => onAnswer('change')}>
-              Move this app
+              {t.project.moveApp}
             </Button>
             <Button size="sm" variant="ghost" onClick={onCancel}>
-              Cancel
+              {t.common.cancel}
             </Button>
           </div>
         )
@@ -158,6 +162,7 @@ function PartPanel({
   onStart: (answer?: PortAnswer) => void
   onCancel: () => void
 }) {
+  const t = useT()
   const id = partId(project, part)
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
@@ -192,8 +197,10 @@ function PartPanel({
               <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
               <span className={cx('flex items-center gap-1.5 text-xs', display.tone)}>
                 <StatusDot state={display.dot} />
-                {display.label}
-                {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
+                {display.label(t)}
+                {state === 'failed' &&
+                  app?.exitCode !== undefined &&
+                  ` (${t.common.exit(app.exitCode)})`}
               </span>
             </div>
             <p className="font-mono text-[0.72rem] text-muted-foreground">pnpm {part.script}</p>
@@ -205,7 +212,7 @@ function PartPanel({
           {url !== undefined && (
             <Button size="sm" onClick={() => window.prumo.openExternal(url)}>
               <ArrowUpRight />
-              Open {url.replace(/^https?:\/\//, '')}
+              {t.common.open(url.replace(/^https?:\/\//, ''))}
             </Button>
           )}
 
@@ -216,7 +223,7 @@ function PartPanel({
               onClick={() => window.prumo.openExternal(`http://localhost:${apiPort}/api/docs`)}
             >
               <BookOpen />
-              API docs
+              {t.project.apiDocs}
             </Button>
           )}
 
@@ -227,10 +234,10 @@ function PartPanel({
           {part.type === 'mobile' && busy && (
             <>
               <Button size="sm" onClick={() => window.prumo.apps.write(id, 'i')}>
-                iOS simulator
+                {t.project.ios}
               </Button>
               <Button size="sm" onClick={() => window.prumo.apps.write(id, 'a')}>
-                Android emulator
+                {t.project.android}
               </Button>
             </>
           )}
@@ -245,12 +252,15 @@ function PartPanel({
             onClick={() => (busy ? window.prumo.apps.stop(id) : onStart())}
           >
             {busy ? <Square /> : <Play />}
-            {busy ? 'Stop' : 'Start'}
+            {busy ? t.common.stop : t.common.start}
           </Button>
         </div>
 
         {display.working && (
-          <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
+          <ProgressBar
+            label={t.project.startingWhat(part.type)}
+            className="absolute inset-x-0 bottom-0"
+          />
         )}
       </div>
 
@@ -275,6 +285,7 @@ export function ProjectScreen() {
   const projects = useProjects()
   const [refusals, setRefusals] = useState<Record<string, Refused>>({})
   const apps = useApps()
+  const t = useT()
   const project = projects?.find((one) => one.path === path)
 
   if (projects === undefined) return null
@@ -282,11 +293,11 @@ export function ProjectScreen() {
   if (project === undefined) {
     return (
       <main className="mx-auto max-w-4xl px-10 pb-16">
-        <PageHeader eyebrow="Project" title="Not in the list" />
+        <PageHeader eyebrow={t.project.eyebrowMissing} title={t.project.missingTitle} />
         <p className="text-sm text-muted-foreground">
-          This project is no longer in the list.{' '}
+          {t.project.missingBody}{' '}
           <Link to="/" className="text-navy underline decoration-brass underline-offset-4">
-            Back to projects
+            {t.project.back}
           </Link>
         </p>
       </main>
@@ -326,7 +337,7 @@ export function ProjectScreen() {
       <PageHeader
         eyebrow={
           <Link to="/" className="hover:text-navy">
-            Projects /
+            {t.project.eyebrow}
           </Link>
         }
         title={project.name}
@@ -358,18 +369,18 @@ export function ProjectScreen() {
               className={buttonClass('secondary')}
             >
               <BookOpen />
-              Conventions
+              {t.project.conventions}
             </Link>
           </>
         }
       />
 
       <Section
-        title="Apps"
+        title={t.project.apps}
         aside={
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              {running.length} of {parts.length} running
+              {t.projects.running(running.length, parts.length)}
             </span>
             {running.length > 0 && (
               <Button
@@ -379,7 +390,7 @@ export function ProjectScreen() {
                 }}
               >
                 <Square />
-                Stop all
+                {t.project.stopAll}
               </Button>
             )}
             <Button
@@ -395,7 +406,7 @@ export function ProjectScreen() {
               }}
             >
               <Play />
-              Run all
+              {t.project.runAll}
             </Button>
           </div>
         }
