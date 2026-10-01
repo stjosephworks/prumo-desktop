@@ -171,7 +171,8 @@ function PartPanel({
   const phoneUrl = part.type === 'mobile' ? expoUrl(output) : undefined
   // A page server is still starting until it prints its address; the rest are started once they print anything.
   // An API is judged by its readiness route; a process that lives is not a server that answers.
-  const health = useApiHealth(part.type === 'api' ? settledPorts.get(id) : undefined, busy)
+  const apiPort = part.type === 'api' ? settledPorts.get(id) : undefined
+  const health = useApiHealth(apiPort, busy)
   const display =
     health !== undefined
       ? API_DISPLAY[health]
@@ -206,6 +207,17 @@ function PartPanel({
             <Button size="sm" onClick={() => window.prumo.openExternal(url)}>
               <ArrowUpRight />
               Open {url.replace(/^https?:\/\//, '')}
+            </Button>
+          )}
+
+          {/* Every generated API serves its OpenAPI reference here outside production; shown once it answers. */}
+          {health === 'ready' && apiPort !== undefined && (
+            <Button
+              size="sm"
+              onClick={() => window.prumo.openExternal(`http://localhost:${apiPort}/api/docs`)}
+            >
+              <BookOpen />
+              API docs
             </Button>
           )}
 
