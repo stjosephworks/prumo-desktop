@@ -29,16 +29,75 @@ import {
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
+import { type ApiStatus, useApiHealth } from '../use-api-health.ts'
 import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 
-const STATE_TEXT: Record<RunningApp['state'], string> = {
-  starting: 'text-warning',
-  running: 'text-success',
-  stopped: 'text-muted-foreground',
-  failed: 'text-destructive',
+/** What a card says about its app: a dot, a word, its colour, and whether it is still on its way. */
+type Display = {
+  dot: 'running' | 'starting' | 'stopped' | 'failed' | 'warning'
+  label: string
+  tone: string
+  working: boolean
+  failed: boolean
 }
+
+const DISPLAY: Record<RunningApp['state'], Display> = {
+  starting: {
+    dot: 'starting',
+    label: 'starting',
+    tone: 'text-warning',
+    working: true,
+    failed: false,
+  },
+  running: {
+    dot: 'running',
+    label: 'running',
+    tone: 'text-success',
+    working: false,
+    failed: false,
+  },
+  stopped: {
+    dot: 'stopped',
+    label: 'stopped',
+    tone: 'text-muted-foreground',
+    working: false,
+    failed: false,
+  },
+  failed: {
+    dot: 'failed',
+    label: 'failed',
+    tone: 'text-destructive',
+    working: false,
+    failed: true,
+  },
+}
+
+const API_DISPLAY: Record<ApiStatus, Display> = {
+  starting: DISPLAY.starting,
+  ready: DISPLAY.running,
+  database_down: {
+    dot: 'warning',
+    label: 'database down',
+    tone: 'text-warning',
+    working: false,
+    failed: false,
+  },
+  not_responding: {
+    dot: 'failed',
+    label: 'not responding',
+    tone: 'text-destructive',
+    working: false,
+    failed: true,
+  },
+}
+
+/**
+ * The port each API was started on, as its check settled it, by app id. Kept outside the screen so that leaving
+ * and coming back still knows where to ask for the API's health.
+ */
+const settledPorts = new Map<string, number>()
 
 const ICON: Record<Part['type'], ReactNode> = {
   api: <Server />,
@@ -108,8 +167,15 @@ function PartPanel({
   const output = useAppOutput(id, busy && serves)
   const url = browserUrl(output)
   // A page server is still starting until it prints its address; the rest are started once they print anything.
-  const shown = state === 'running' && serves && url === undefined ? 'starting' : state
-  const [open, toggle] = useOutputPanel(state === 'failed')
+  // An API is judged by its readiness route; a process that lives is not a server that answers.
+  const health = useApiHealth(part.type === 'api' ? settledPorts.get(id) : undefined, busy)
+  const display =
+    health !== undefined
+      ? API_DISPLAY[health]
+      : state === 'running' && serves && url === undefined
+        ? DISPLAY.starting
+        : DISPLAY[state]
+  const [open, toggle] = useOutputPanel(display.failed)
 
   return (
     <li className="overflow-hidden rounded-md border border-rule bg-card">
@@ -121,9 +187,9 @@ function PartPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
-              <span className={cx('flex items-center gap-1.5 text-xs', STATE_TEXT[shown])}>
-                <StatusDot state={shown} />
-                {shown}
+              <span className={cx('flex items-center gap-1.5 text-xs', display.tone)}>
+                <StatusDot state={display.dot} />
+                {display.label}
                 {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
               </span>
             </div>
@@ -156,7 +222,7 @@ function PartPanel({
           )}
 
           {app !== undefined && (
-            <TerminalToggle open={open} onToggle={toggle} failed={state === 'failed'} />
+            <TerminalToggle open={open} onToggle={toggle} failed={display.failed} />
           )}
 
           <Button
@@ -169,7 +235,7 @@ function PartPanel({
           </Button>
         </div>
 
-        {shown === 'starting' && (
+        {display.working && (
           <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
         )}
       </div>
@@ -233,6 +299,7 @@ export function ProjectScreen() {
     }
 
     forget(part)
+    if (check.port !== undefined) settledPorts.set(partId(project, part), check.port)
     window.prumo.apps.start({ project: project.path, script: part.script })
   }
 

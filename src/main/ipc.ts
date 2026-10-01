@@ -13,6 +13,7 @@ import {
 import { createProject } from './create.ts'
 import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
+import { apiHealth } from './health.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
@@ -107,6 +108,7 @@ export function register({
     (_event, project: Project, type: ProjectConfig['types'][number], answer?: PortAnswer) =>
       checkPort(project, type, answer),
   )
+  ipcMain.handle(CHANNELS.health, (_event, port: number) => apiHealth(port))
   ipcMain.handle(CHANNELS.start, (_event, app: StartApp) => apps.start(app))
   ipcMain.handle(CHANNELS.stop, (_event, id: string) => apps.stop(id))
   ipcMain.handle(CHANNELS.buffer, (_event, id: string) => apps.buffer(id))

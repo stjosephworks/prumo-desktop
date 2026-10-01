@@ -64,6 +64,7 @@ const DOT = {
   starting: 'bg-warning animate-pulse',
   stopped: 'bg-rule',
   failed: 'bg-destructive',
+  warning: 'bg-warning',
 } as const
 
 export function StatusDot({ state }: { state: keyof typeof DOT }) {

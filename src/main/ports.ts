@@ -21,9 +21,15 @@ export async function checkPort(
   const args = ['--check', ...(answer === undefined ? [] : [`--${answer}`])]
 
   try {
-    const { envelope } = await runCli(args, { cli: script, cwd: directory })
+    const { envelope } = await runCli<{ ports?: Record<string, number> }>(args, {
+      cli: script,
+      cwd: directory,
+    })
 
-    return envelope.ok ? { ok: true } : { ok: false, ...envelope.error }
+    // The port the app will start on, as the script settled it: where the Desktop then asks for its health.
+    return envelope.ok
+      ? { ok: true, port: envelope.data.ports?.[type] }
+      : { ok: false, ...envelope.error }
   } catch (problem) {
     if (problem instanceof CliError)
       return { ok: false, code: problem.code, message: problem.message }

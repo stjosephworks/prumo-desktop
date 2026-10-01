@@ -99,7 +99,13 @@ export type StartApp = { project: string; script: string; cols?: number; rows?: 
  * Whether an app's port is free, from the app's own `scripts/ports.mjs --check`. `port_busy` carries the
  * script's message, which names what holds the port; `kill` stops that, `change` moves the app to a free port.
  */
-export type PortCheck = { ok: true } | { ok: false; code: string; message: string }
+export type PortCheck = { ok: true; port?: number } | { ok: false; code: string; message: string }
+
+/**
+ * What an API's `/api/health/ready` answers: `ready` (200), `database_down` (503, the server runs but cannot
+ * reach its database) or `unreachable` (nothing answers on the port).
+ */
+export type ApiHealth = 'ready' | 'database_down' | 'unreachable'
 export type PortAnswer = 'kill' | 'change'
 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
@@ -155,6 +161,8 @@ export type Bridge = {
       type: ProjectConfig['types'][number],
       answer?: PortAnswer,
     ) => Promise<PortCheck>
+    /** Asks a running API, on the port its check settled, whether it is ready. */
+    health: (port: number) => Promise<ApiHealth>
     start: (app: StartApp) => Promise<RunningApp>
     stop: (id: string) => Promise<RunningApp | undefined>
     /** Everything the app has written so far, to fill a terminal that was opened late. */
@@ -187,6 +195,7 @@ export const CHANNELS = {
   databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
   checkPort: 'prumo:apps:check-port',
+  health: 'prumo:apps:health',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',
   buffer: 'prumo:apps:buffer',
