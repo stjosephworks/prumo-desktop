@@ -1,7 +1,7 @@
 // The Electron side: the window, the IPC handlers, and the promise that nothing the Desktop started outlives it.
-import { join } from 'node:path'
-import { app, BrowserWindow, dialog } from 'electron'
-import type { CliStatus } from '../shared/ipc.ts'
+import { basename, join } from 'node:path'
+import { app, BrowserWindow, dialog, Notification } from 'electron'
+import { CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, findNode } from './environment.ts'
@@ -102,7 +102,45 @@ function createWindow(): BrowserWindow {
   return window
 }
 
+/**
+ * What happens outside the window: the Dock badge counts what runs, and a process that fails while the window is
+ * in the background says so in a notification, which brings the window back on that project when clicked.
+ */
+function watchApps(): void {
+  const failed = new Set<string>()
+
+  apps.on('state', (changed: RunningApp) => {
+    const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
+    app.setBadgeCount(running.length)
+
+    if (changed.state !== 'failed') {
+      failed.delete(changed.id)
+      return
+    }
+    // One notification per failure, and none while the user is looking at the window.
+    if (failed.has(changed.id) || BrowserWindow.getFocusedWindow() !== null) return
+    failed.add(changed.id)
+
+    if (!Notification.isSupported()) return
+
+    const project = projects.list().find((one) => changed.project.startsWith(one.path))
+    const notice = new Notification({
+      title: `pnpm ${changed.script} failed`,
+      body: `${project?.name ?? basename(changed.project)} · exit ${changed.exitCode ?? '?'}`,
+    })
+
+    notice.on('click', () => {
+      const window = BrowserWindow.getAllWindows()[0] ?? createWindow()
+      window.show()
+      window.focus()
+      if (project !== undefined) window.webContents.send(CHANNELS.navigate, project.path)
+    })
+    notice.show()
+  })
+}
+
 app.whenReady().then(() => {
+  watchApps()
   register({
     apps,
     projects,

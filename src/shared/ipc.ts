@@ -128,6 +128,8 @@ export type PortAnswer = 'kill' | 'change'
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
+  /** The main process asking to show a project, as when a notification about it is clicked. */
+  onNavigate: (listener: (project: string) => void) => () => void
   /** Puts text on the system clipboard, through the main process, whether or not the window has focus. */
   copy: (text: string) => Promise<void>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
@@ -216,6 +218,7 @@ export const CHANNELS = {
   docsOpenInEditor: 'prumo:docs:open-in-editor',
   openExternal: 'prumo:open-external',
   copy: 'prumo:copy',
+  navigate: 'prumo:navigate',
   databaseState: 'prumo:database:state',
   databaseCreate: 'prumo:database:create',
   databaseStart: 'prumo:database:start',

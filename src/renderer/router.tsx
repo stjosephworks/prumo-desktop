@@ -4,7 +4,9 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  useNavigate,
 } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { Sidebar } from './components/sidebar.tsx'
 import { Docs } from './routes/docs.tsx'
 import { Environment } from './routes/environment.tsx'
@@ -18,6 +20,14 @@ import { Projects } from './routes/projects.tsx'
  * scrolled beneath it would look clickable and not be.
  */
 function Layout() {
+  const navigate = useNavigate()
+
+  // A notification about a project was clicked: the main process brought the window back, this shows the project.
+  useEffect(
+    () => window.prumo.onNavigate((path) => navigate({ to: '/project', search: { path } })),
+    [navigate],
+  )
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
