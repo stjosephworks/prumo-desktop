@@ -1,12 +1,13 @@
 import {
   ArrowUpFromLine,
+  Check,
   Database as DatabaseIcon,
   Play,
   Square,
   TriangleAlert,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import type { DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
+import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
 import { apiDirectory } from '../../shared/parts.ts'
 import { useApps } from '../use-apps.ts'
 import { Terminal } from './terminal.tsx'
@@ -23,6 +24,9 @@ import {
   useOutputPanel,
 } from './ui.tsx'
 
+/** Where the project's own database script sends someone without Docker (scripts/database.mjs). */
+const DOCKER_DOWNLOAD = 'https://www.docker.com/products/docker-desktop/'
+
 const DOCKER_MESSAGE = {
   missing: 'Docker is not installed, and the database runs in it.',
   stopped: 'Docker is installed but not running.',
@@ -35,6 +39,8 @@ export function Database({ project }: { project: Project }) {
   const [name, setName] = useState(project.name.replaceAll('-', '_'))
   const [working, setWorking] = useState<string>()
   const [error, setError] = useState<string>()
+  const [errorCode, setErrorCode] = useState<string>()
+  const [created, setCreated] = useState<Extract<DatabaseCreated, { ok: true }>>()
   const [log, setLog] = useState('')
 
   const api = apiDirectory(project)
@@ -55,10 +61,20 @@ export function Database({ project }: { project: Project }) {
     docker.part &&
     docker.docker === 'running' &&
     docker.services.some((one) => one.state === 'running')
+  // Docker's own answer for the host port, so the Desktop never reads the API's .env for it.
+  const port = docker.part ? docker.services.find((one) => one.port !== undefined)?.port : undefined
+
+  const openDocker = () =>
+    act('open-docker', async () => {
+      if (!(await window.prumo.database.openDocker())) {
+        setError('Docker Desktop did not start. Open it yourself, then try again.')
+      }
+    })
 
   const act = async (label: string, action: () => Promise<unknown>) => {
     setWorking(label)
     setError(undefined)
+    setErrorCode(undefined)
     await action()
     setWorking(undefined)
     refresh()
@@ -115,6 +131,7 @@ export function Database({ project }: { project: Project }) {
                 {docker.part &&
                   docker.docker === 'running' &&
                   ` · Docker ${containerRunning ? 'up' : 'down'}`}
+                {port !== undefined && ` · port ${port}`}
               </span>
             </div>
             <p className="font-mono text-[0.72rem] text-muted-foreground">prumo db, in Docker</p>
@@ -128,19 +145,7 @@ export function Database({ project }: { project: Project }) {
               icon={<TriangleAlert className="text-warning" />}
               action={
                 docker.docker === 'stopped' && (
-                  <Button
-                    size="sm"
-                    disabled={working !== undefined}
-                    onClick={() =>
-                      act('open-docker', async () => {
-                        if (!(await window.prumo.database.openDocker())) {
-                          setError(
-                            'Docker Desktop did not start. Open it yourself, then try again.',
-                          )
-                        }
-                      })
-                    }
-                  >
+                  <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
                     {working === 'open-docker' ? 'Opening…' : 'Open Docker'}
                   </Button>
                 )
@@ -172,8 +177,14 @@ export function Database({ project }: { project: Project }) {
                   onClick={() =>
                     act('create', async () => {
                       setLog('')
+                      setCreated(undefined)
                       const result = await window.prumo.database.create(project, name)
-                      if (!result.ok) setError(result.message)
+                      if (result.ok) {
+                        setCreated(result)
+                      } else {
+                        setError(result.message)
+                        setErrorCode(result.code)
+                      }
                     })
                   }
                 >
@@ -186,7 +197,45 @@ export function Database({ project }: { project: Project }) {
           {state.database.error !== undefined && (
             <p className="text-sm text-destructive">{state.database.error.message}</p>
           )}
-          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          {created !== undefined && (
+            <Notice tone="info" icon={<Check className="text-success" />}>
+              <span className="font-mono">{created.database}</span>{' '}
+              {created.created ? 'was created' : 'already existed'} on port{' '}
+              <span className="font-mono">{created.port}</span>
+              {created.migrated ? ', and the migrations ran.' : '; the migrations did not run.'}
+            </Notice>
+          )}
+
+          {/* Docker's two failures have a way out; anything else is the command's own words. */}
+          {error !== undefined && errorCode === 'docker_not_running' && (
+            <Notice
+              tone="error"
+              icon={<TriangleAlert />}
+              action={
+                <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
+                  {working === 'open-docker' ? 'Opening…' : 'Open Docker'}
+                </Button>
+              }
+            >
+              Docker is installed but not running. Open it, then create the database again.
+            </Notice>
+          )}
+          {error !== undefined && errorCode === 'docker_missing' && (
+            <Notice
+              tone="error"
+              icon={<TriangleAlert />}
+              action={
+                <Button size="sm" onClick={() => window.prumo.openExternal(DOCKER_DOWNLOAD)}>
+                  Get Docker Desktop
+                </Button>
+              }
+            >
+              Docker is not installed, and the database runs in it.
+            </Notice>
+          )}
+          {error !== undefined &&
+            errorCode !== 'docker_not_running' &&
+            errorCode !== 'docker_missing' && <p className="text-sm text-destructive">{error}</p>}
 
           {working === 'create' && (
             <div className="space-y-2">

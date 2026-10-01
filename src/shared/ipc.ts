@@ -72,13 +72,22 @@ export type DatabaseState =
   | { part: false }
   | { part: true; created: boolean; error?: { code: string; message: string } }
 
+/**
+ * What `prumo db --name` answers. `created` is false when the database already existed; the codes the Desktop
+ * branches on are `docker_missing` and `docker_not_running`.
+ */
+export type DatabaseCreated =
+  | { ok: true; database: string; port: number; created: boolean; migrated: boolean }
+  | { ok: false; code: string; message: string }
+
 /** What Docker says about the project's own compose service. `missing` and `stopped` are told apart. */
 export type DockerState =
   | { part: false }
   | {
       part: true
       docker: 'missing' | 'stopped' | 'running'
-      services: { name: string; state: string }[]
+      /** `port` is the host port Docker publishes, known only while the service runs. */
+      services: { name: string; state: string; port?: number }[]
     }
 
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
@@ -146,10 +155,7 @@ export type Bridge = {
   database: {
     state: (project: Project) => Promise<{ database: DatabaseState; docker: DockerState }>
     /** Runs `prumo db --name <name>`: it creates the database in Docker and migrates it. */
-    create: (
-      project: Project,
-      name: string,
-    ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
+    create: (project: Project, name: string) => Promise<DatabaseCreated>
     startDocker: (project: Project) => Promise<boolean>
     stopDocker: (project: Project) => Promise<boolean>
     /** Opens Docker Desktop and resolves once its engine answers; false where the Desktop cannot open it. */

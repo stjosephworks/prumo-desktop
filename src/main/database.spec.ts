@@ -84,13 +84,17 @@ whenDocker(
   'creating the database makes it exist, run in Docker, and stop when asked',
   async () => {
     const created = await createDatabase(project, 'spec_api', { cli })
-    expect(created).toEqual({ ok: true })
+    expect(created).toMatchObject({ ok: true, database: 'spec_api', created: true, migrated: true })
 
     expect(await databaseState(project, { cli })).toEqual({ part: true, created: true })
 
     const running = await dockerState(project)
     expect(running).toMatchObject({ part: true, docker: 'running' })
     if (running.part) expect(running.services.some((one) => one.state === 'running')).toBe(true)
+    // The port Docker publishes is the one the command chose.
+    if (running.part && created.ok) {
+      expect(running.services.find((one) => one.port !== undefined)?.port).toBe(created.port)
+    }
 
     expect(await stopDocker(project)).toBe(true)
     const stopped = await dockerState(project)

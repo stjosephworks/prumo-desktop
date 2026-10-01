@@ -3,7 +3,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { promisify } from 'node:util'
-import type { DatabaseState, DockerState, Project } from '../shared/ipc.ts'
+import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../shared/ipc.ts'
 import { apiDirectory } from '../shared/parts.ts'
 import { type CliOptions, runCli } from './cli.ts'
 
@@ -35,10 +35,15 @@ export async function createDatabase(
   project: Project,
   name: string,
   options: Omit<CliOptions, 'cwd'>,
-): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
-  const { envelope } = await runCli(['db', '--name', name], { ...options, cwd: project.path })
+): Promise<DatabaseCreated> {
+  const { envelope } = await runCli<{
+    database: string
+    port: number
+    created: boolean
+    migrated: boolean
+  }>(['db', '--name', name], { ...options, cwd: project.path })
 
-  return envelope.ok ? { ok: true } : { ok: false, ...envelope.error }
+  return envelope.ok ? { ok: true, ...envelope.data } : { ok: false, ...envelope.error }
 }
 
 async function docker(
@@ -82,9 +87,15 @@ export async function dockerState(project: Project): Promise<DockerState> {
     .filter((line) => line.trim() !== '')
     .flatMap((line) => {
       try {
-        const service = JSON.parse(line) as { Service?: string; State?: string }
+        const service = JSON.parse(line) as {
+          Service?: string
+          State?: string
+          Publishers?: { PublishedPort?: number }[]
+        }
+        // Published once per address family (0.0.0.0 and ::), always the same port; empty while stopped.
+        const port = service.Publishers?.find((one) => one.PublishedPort)?.PublishedPort
 
-        return [{ name: service.Service ?? '?', state: service.State ?? 'unknown' }]
+        return [{ name: service.Service ?? '?', state: service.State ?? 'unknown', port }]
       } catch {
         return []
       }
