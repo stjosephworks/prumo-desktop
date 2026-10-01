@@ -1,6 +1,7 @@
 // The Electron side: the window, the IPC handlers, and the promise that nothing the Desktop started outlives it.
 import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, Notification } from 'electron'
+import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
 import { CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
@@ -143,6 +144,17 @@ function watchApps(): void {
 
     notice.on('click', () => showWindow(project?.path))
     notice.show()
+  })
+}
+
+// A packaged app updates itself from GitHub Releases through update.electronjs.org, which serves only signed macOS
+// builds of a public repository: it checks at launch and every ten minutes, then asks to restart.
+if (app.isPackaged) {
+  updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'stjosephworks/prumo-desktop',
+    },
   })
 }
 

@@ -2,6 +2,7 @@
   "name": "prumo-desktop",
   "productName": "Prumo Desktop",
   "version": "0.0.1",
+  "repository": "github:stjosephworks/prumo-desktop",
   "private": true,
   "description": "Desktop app for Prumo: create, follow and run Prumo projects",
   "main": ".vite/build/main.js",
@@ -12,6 +13,7 @@
     "prepare-run": "node scripts/fix-spawn-helper.mjs && node scripts/embed-cli.mjs",
     "start": "pnpm prepare-run && electron-forge start",
     "package": "pnpm prepare-run && electron-forge package",
+    "release": "pnpm prepare-run && electron-forge publish",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "test": "pnpm prepare-run && vitest run",
@@ -24,7 +26,10 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
     "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-dmg": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-vite": "7.11.2",
+    "@electron-forge/publisher-github": "7.11.2",
     "@types/node": "24.13.4",
     "@types/qrcode": "1.5.6",
     "@types/react": "19.2.18",
@@ -51,6 +56,7 @@
     "react-dom": "19.2.3",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
-    "tailwindcss": "4.3.3"
+    "tailwindcss": "4.3.3",
+    "update-electron-app": "3.3.0"
   }
 }

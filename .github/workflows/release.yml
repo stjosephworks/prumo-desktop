@@ -1,0 +1,79 @@
+name: Release
+
+# A push to main whose package.json version has no GitHub release yet becomes one: the app is signed with the
+# Developer ID, notarized, packaged as a dmg and a zip, and published as a draft. A person publishes the draft on
+# GitHub; only then does update.electronjs.org offer it to installed apps.
+#
+# Secrets it needs, all from the Apple Developer account:
+#   APPLE_CERTIFICATE           the Developer ID Application certificate, exported as .p12, base64-encoded
+#   APPLE_CERTIFICATE_PASSWORD  the password the .p12 was exported with
+#   APPLE_ID                    the Apple ID that notarizes
+#   APPLE_PASSWORD              an app-specific password for that Apple ID
+#   APPLE_TEAM_ID               the team the certificate belongs to
+# Without them the job says so and stops: an unsigned build would never update itself.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Decide whether this version needs a release
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_ID != '' }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if gh release view "v$version" > /dev/null 2>&1; then
+            echo "v$version already has a release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_SIGNING" != "true" ]; then
+            echo "::warning::v$version is not released: the Apple Developer ID secrets are not set."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.decide.outputs.release == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.decide.outputs.release == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - if: steps.decide.outputs.release == 'true'
+        run: pnpm install
+
+      # A keychain of its own for this job, holding only the certificate, unlocked for codesign.
+      - name: Import the Developer ID certificate
+        if: steps.decide.outputs.release == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -base64 24)"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+      - name: Sign, notarize, make and publish the draft
+        if: steps.decide.outputs.release == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm release
