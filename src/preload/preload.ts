@@ -22,6 +22,7 @@ const bridge: Bridge = {
     remove: (path: string) => ipcRenderer.invoke(CHANNELS.projectsRemove, path),
     reveal: (path: string) => ipcRenderer.invoke(CHANNELS.projectsReveal, path),
     openers: () => ipcRenderer.invoke(CHANNELS.projectsOpeners),
+    git: (path: string) => ipcRenderer.invoke(CHANNELS.projectsGit, path),
     openIn: (app: string, path: string) => ipcRenderer.invoke(CHANNELS.projectsOpenIn, app, path),
     create: (input: NewProject) => ipcRenderer.invoke(CHANNELS.projectsCreate, input),
     chooseParent: () => ipcRenderer.invoke(CHANNELS.projectsChooseParent),

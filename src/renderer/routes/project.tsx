@@ -16,6 +16,7 @@ import { browserUrl, expoUrl } from '../../shared/urls.ts'
 import { Checks } from '../components/checks.tsx'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
+import { GitBadge } from '../components/git-badge.tsx'
 import { McpPanel } from '../components/mcp.tsx'
 import { OpenIn } from '../components/open-in.tsx'
 import { ProjectVersion } from '../components/project-version.tsx'
@@ -337,7 +338,10 @@ export function ProjectScreen() {
         title={project.name}
         description={
           <div className="space-y-2.5">
-            <p className="truncate font-mono text-[0.72rem]">{project.path}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="truncate font-mono text-[0.72rem]">{project.path}</p>
+              <GitBadge path={project.path} />
+            </div>
             {project.config !== undefined && (
               <div className="flex flex-wrap gap-1.5">
                 {project.config.types.map((type) => (

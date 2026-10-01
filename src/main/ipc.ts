@@ -20,6 +20,7 @@ import {
   stopDocker,
 } from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
+import { gitState } from './git.ts'
 import { apiHealth } from './health.ts'
 import { openers, openIn } from './open-in.ts'
 import { checkPort } from './ports.ts'
@@ -68,6 +69,7 @@ export function register({
   ipcMain.handle(CHANNELS.projectsRemove, (_event, path: string) => projects.remove(path))
   ipcMain.handle(CHANNELS.projectsReveal, (_event, path: string) => shell.openPath(path))
   ipcMain.handle(CHANNELS.projectsOpeners, () => openers())
+  ipcMain.handle(CHANNELS.projectsGit, (_event, path: string) => gitState(path))
   ipcMain.handle(CHANNELS.projectsOpenIn, (_event, app: string, path: string) => openIn(app, path))
   ipcMain.handle(CHANNELS.projectsChooseParent, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({

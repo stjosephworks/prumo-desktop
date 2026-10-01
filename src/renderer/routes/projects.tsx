@@ -6,6 +6,7 @@ import { partId, partsFor } from '../../shared/parts.ts'
 import { PlumbMark } from '../components/brand.tsx'
 import { CliUpdate } from '../components/cli-update.tsx'
 import { EnvironmentBanner } from '../components/environment-banner.tsx'
+import { GitBadge } from '../components/git-badge.tsx'
 import { Button, buttonClass, PageHeader, StatusDot, Tag } from '../components/ui.tsx'
 import { useApps } from '../use-apps.ts'
 import { refreshProjects, useProjects } from '../use-projects.ts'
@@ -136,9 +137,12 @@ export function Projects() {
                     {!project.found && <Tag tone="warning">not found</Tag>}
                     <Running project={project} apps={apps} />
                   </div>
-                  <p className="mt-0.5 truncate font-mono text-[0.72rem] text-muted-foreground">
-                    {project.path}
-                  </p>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-3">
+                    <p className="truncate font-mono text-[0.72rem] text-muted-foreground">
+                      {project.path}
+                    </p>
+                    {project.found && <GitBadge path={project.path} />}
+                  </div>
                   <div className="mt-2.5">
                     <Shape project={project} />
                   </div>

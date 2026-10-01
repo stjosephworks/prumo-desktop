@@ -42,6 +42,9 @@ export type CliStatus = {
 /** The editors and terminals found on this machine, by their app names; empty where the Desktop cannot open one. */
 export type Openers = { editors: string[]; terminals: string[] }
 
+/** A project's Git state: its branch (undefined when detached) and how many paths have changes. */
+export type GitState = { branch?: string; changes: number }
+
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
 export type Project = {
   path: string
@@ -142,6 +145,8 @@ export type Bridge = {
     remove: (path: string) => Promise<void>
     /** Opens the project's folder in Finder. */
     reveal: (path: string) => Promise<void>
+    /** The project's branch and uncommitted changes; undefined when it is not a Git repository. */
+    git: (path: string) => Promise<GitState | undefined>
     /** The editors and terminals the project can be opened in. */
     openers: () => Promise<Openers>
     /** Opens the project in one of `openers()`; false when that app is unknown or would not open. */
@@ -202,6 +207,7 @@ export const CHANNELS = {
   projectsRemove: 'prumo:projects:remove',
   projectsReveal: 'prumo:projects:reveal',
   projectsOpeners: 'prumo:projects:openers',
+  projectsGit: 'prumo:projects:git',
   projectsOpenIn: 'prumo:projects:open-in',
   projectsCreate: 'prumo:projects:create',
   projectsChooseParent: 'prumo:projects:choose-parent',
