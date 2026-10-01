@@ -17,6 +17,7 @@ import { browserUrl, expoUrl } from '../../shared/urls.ts'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
 import { McpPanel } from '../components/mcp.tsx'
+import { ProjectVersion } from '../components/project-version.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import {
   Button,
@@ -344,6 +345,7 @@ export function ProjectScreen() {
                 <Tag>{project.config.architecture}</Tag>
                 {project.config.multiTenant && <Tag>multi-tenant</Tag>}
                 {project.config.mcp && <Tag tone="brass">MCP</Tag>}
+                <ProjectVersion made={project.config.prumo} />
               </div>
             )}
           </div>

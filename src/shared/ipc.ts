@@ -17,6 +17,8 @@ export type Environment =
 
 /** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
 export type ProjectConfig = {
+  /** The Prumo version that generated the project; written since 0.1.1, so absent from an older project. */
+  prumo?: string
   types: ('api' | 'web' | 'mobile' | 'site')[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean

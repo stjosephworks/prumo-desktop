@@ -110,6 +110,12 @@ test('a project that changed on disk is read again, not remembered', () => {
   })
 })
 
+test('the Prumo version a project records is read with the rest of its config', () => {
+  const projects = new Projects(store)
+
+  expect(projects.add(project({ prumo: '0.1.1' })).config?.prumo).toBe('0.1.1')
+})
+
 test('a project from a CLI older than 0.1.0 has no mcp field, and is read as without MCP', () => {
   const projects = new Projects(store)
   const path = project({ mcp: undefined })
