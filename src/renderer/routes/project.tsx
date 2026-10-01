@@ -2,7 +2,6 @@ import { Link, useSearch } from '@tanstack/react-router'
 import {
   ArrowUpRight,
   BookOpen,
-  FolderOpen,
   Globe,
   Play,
   Server,
@@ -18,6 +17,7 @@ import { Checks } from '../components/checks.tsx'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
 import { McpPanel } from '../components/mcp.tsx'
+import { OpenIn } from '../components/open-in.tsx'
 import { ProjectVersion } from '../components/project-version.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import {
@@ -353,10 +353,7 @@ export function ProjectScreen() {
         }
         actions={
           <>
-            <Button variant="ghost" onClick={() => window.prumo.projects.reveal(project.path)}>
-              <FolderOpen />
-              Open folder
-            </Button>
+            <OpenIn path={project.path} />
             <Link
               to="/docs"
               search={{ path: project.path, doc: 'INDEX.md' }}

@@ -21,6 +21,7 @@ import {
 } from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
 import { apiHealth } from './health.ts'
+import { openers, openIn } from './open-in.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
@@ -66,6 +67,8 @@ export function register({
   })
   ipcMain.handle(CHANNELS.projectsRemove, (_event, path: string) => projects.remove(path))
   ipcMain.handle(CHANNELS.projectsReveal, (_event, path: string) => shell.openPath(path))
+  ipcMain.handle(CHANNELS.projectsOpeners, () => openers())
+  ipcMain.handle(CHANNELS.projectsOpenIn, (_event, app: string, path: string) => openIn(app, path))
   ipcMain.handle(CHANNELS.projectsChooseParent, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],

@@ -39,6 +39,9 @@ export type CliStatus = {
   error?: string
 }
 
+/** The editors and terminals found on this machine, by their app names; empty where the Desktop cannot open one. */
+export type Openers = { editors: string[]; terminals: string[] }
+
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
 export type Project = {
   path: string
@@ -137,8 +140,12 @@ export type Bridge = {
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
     add: () => Promise<Project | undefined>
     remove: (path: string) => Promise<void>
-    /** Opens the project in Finder, the editor or a terminal. */
+    /** Opens the project's folder in Finder. */
     reveal: (path: string) => Promise<void>
+    /** The editors and terminals the project can be opened in. */
+    openers: () => Promise<Openers>
+    /** Opens the project in one of `openers()`; false when that app is unknown or would not open. */
+    openIn: (app: string, path: string) => Promise<boolean>
     /** Runs `prumo new`; the log arrives through `onCreateLog` while it runs. */
     create: (input: NewProject) => Promise<CreateResult>
     /** Opens the folder picker for where a new project goes. */
@@ -194,6 +201,8 @@ export const CHANNELS = {
   projectsAdd: 'prumo:projects:add',
   projectsRemove: 'prumo:projects:remove',
   projectsReveal: 'prumo:projects:reveal',
+  projectsOpeners: 'prumo:projects:openers',
+  projectsOpenIn: 'prumo:projects:open-in',
   projectsCreate: 'prumo:projects:create',
   projectsChooseParent: 'prumo:projects:choose-parent',
   projectsCreateLog: 'prumo:projects:create-log',
