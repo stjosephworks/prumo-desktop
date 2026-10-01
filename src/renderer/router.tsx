@@ -7,6 +7,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { CommandPalette } from './components/command-palette.tsx'
 import { Sidebar } from './components/sidebar.tsx'
 import { Docs } from './routes/docs.tsx'
 import { Environment } from './routes/environment.tsx'
@@ -31,6 +32,7 @@ function Layout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
+      <CommandPalette />
       <div className="relative min-w-0 flex-1 overflow-y-auto">
         <div className="drag-region sticky top-0 z-10 h-10 bg-paper/90 backdrop-blur-sm" />
         <Outlet />
