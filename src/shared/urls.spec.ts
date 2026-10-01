@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { browserUrl, stripAnsi } from './urls.ts'
+import { browserUrl, expoUrl, stripAnsi } from './urls.ts'
 
 const ESC = '\u001b'
 // Shaped like a real run in a pseudo terminal, colours included.
@@ -25,6 +25,13 @@ test('the local address wins over the network one printed after it', () => {
 
 test('a network address is still offered when it is the only one', () => {
   expect(browserUrl('ready on http://192.168.0.4:3200\n')).toBe('http://192.168.0.4:3200')
+})
+
+test('reads the address Expo Go opens, through the colours', () => {
+  const expo = `${ESC}[1m›${ESC}[22m Metro: ${ESC}[4mexp://192.168.0.4:8081${ESC}[24m\r\n`
+
+  expect(expoUrl(expo)).toBe('exp://192.168.0.4:8081')
+  expect(expoUrl('Starting Metro Bundler\n')).toBeUndefined()
 })
 
 test('an app that printed no address has none to open', () => {

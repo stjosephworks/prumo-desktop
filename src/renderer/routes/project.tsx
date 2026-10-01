@@ -13,8 +13,9 @@ import {
 import { type ReactNode, useState } from 'react'
 import type { PortAnswer, PortCheck, Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
-import { browserUrl } from '../../shared/urls.ts'
+import { browserUrl, expoUrl } from '../../shared/urls.ts'
 import { Database } from '../components/database.tsx'
+import { ExpoQr } from '../components/expo-qr.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import {
   Button,
@@ -162,10 +163,12 @@ function PartPanel({
   const id = partId(project, part)
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
-  // Only the apps that serve a page are watched for an address; mobile answers on a phone, not in a browser.
+  // A page server's address opens in a browser; mobile answers on a phone, through Expo's address below.
   const serves = part.type === 'web' || part.type === 'site'
-  const output = useAppOutput(id, busy && serves)
-  const url = browserUrl(output)
+  // Page servers are read for the address to open, Expo for the one a phone scans.
+  const output = useAppOutput(id, busy && (serves || part.type === 'mobile'))
+  const url = serves ? browserUrl(output) : undefined
+  const phoneUrl = part.type === 'mobile' ? expoUrl(output) : undefined
   // A page server is still starting until it prints its address; the rest are started once they print anything.
   // An API is judged by its readiness route; a process that lives is not a server that answers.
   const health = useApiHealth(part.type === 'api' ? settledPorts.get(id) : undefined, busy)
@@ -239,6 +242,8 @@ function PartPanel({
           <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
         )}
       </div>
+
+      {busy && phoneUrl !== undefined && <ExpoQr url={phoneUrl} />}
 
       {refused !== undefined && (
         <PortBusy refused={refused} onAnswer={(answer) => onStart(answer)} onCancel={onCancel} />

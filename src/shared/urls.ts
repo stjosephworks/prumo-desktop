@@ -13,6 +13,13 @@ export function stripAnsi(text: string): string {
 const LOCAL =
   /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?/g
 
+const EXPO = /exp:\/\/[^\s'"]+/g
+
+/** The address Expo Go opens, from Expo's own `Metro: exp://…` line: for a phone, never for a browser. */
+export function expoUrl(buffer: string): string | undefined {
+  return [...stripAnsi(buffer).matchAll(EXPO)].map((match) => match[0]).at(-1)
+}
+
 const LOOPBACK = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/
 
 /**
