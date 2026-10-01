@@ -16,6 +16,17 @@ test('takes the last address, since a server that moves port announces the new o
   expect(browserUrl(buffer)).toBe('http://localhost:3001')
 })
 
+test('the local address wins over the network one printed after it', () => {
+  const next =
+    '   - Local:        http://localhost:3200\n   - Network:      http://192.168.0.4:3200\n'
+
+  expect(browserUrl(next)).toBe('http://localhost:3200')
+})
+
+test('a network address is still offered when it is the only one', () => {
+  expect(browserUrl('ready on http://192.168.0.4:3200\n')).toBe('http://192.168.0.4:3200')
+})
+
 test('an app that printed no address has none to open', () => {
   expect(browserUrl('compiling…\n')).toBeUndefined()
   // Expo prints an exp:// URL, which is for a phone, not for a browser.
