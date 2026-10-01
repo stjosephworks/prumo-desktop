@@ -7,7 +7,14 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import type { Project } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
-import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
+import {
+  createDatabase,
+  databaseState,
+  dockerState,
+  openDocker,
+  startDocker,
+  stopDocker,
+} from './database.ts'
 import { Projects } from './projects.ts'
 
 const cli = join(import.meta.dirname, '..', '..', 'resources', 'prumo', 'dist', 'cli.js')
@@ -95,3 +102,8 @@ whenDocker(
   },
   600_000,
 )
+
+// Docker is already running here, so opening it again is a no-op that must still report an engine that answers.
+whenDocker('opening Docker resolves once its engine answers', async () => {
+  expect(await openDocker(10_000)).toBe(process.platform === 'darwin')
+})

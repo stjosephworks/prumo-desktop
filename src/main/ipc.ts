@@ -11,7 +11,14 @@ import {
   type StartApp,
 } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
-import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
+import {
+  createDatabase,
+  databaseState,
+  dockerState,
+  openDocker,
+  startDocker,
+  stopDocker,
+} from './database.ts'
 import { documentPath, readDocument } from './docs.ts'
 import { apiHealth } from './health.ts'
 import { checkPort } from './ports.ts'
@@ -101,6 +108,7 @@ export function register({
   )
   ipcMain.handle(CHANNELS.databaseStart, (_event, project: Project) => startDocker(project))
   ipcMain.handle(CHANNELS.databaseStop, (_event, project: Project) => stopDocker(project))
+  ipcMain.handle(CHANNELS.databaseOpenDocker, () => openDocker())
 
   ipcMain.handle(CHANNELS.list, () => apps.list())
   ipcMain.handle(

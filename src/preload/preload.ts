@@ -40,6 +40,7 @@ const bridge: Bridge = {
     create: (project, name) => ipcRenderer.invoke(CHANNELS.databaseCreate, project, name),
     startDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStart, project),
     stopDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStop, project),
+    openDocker: () => ipcRenderer.invoke(CHANNELS.databaseOpenDocker),
     onLog: (listener) => {
       const handler = (_event: unknown, chunk: string) => listener(chunk)
       ipcRenderer.on(CHANNELS.databaseLog, handler)

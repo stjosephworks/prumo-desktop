@@ -150,6 +150,8 @@ export type Bridge = {
     ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
     startDocker: (project: Project) => Promise<boolean>
     stopDocker: (project: Project) => Promise<boolean>
+    /** Opens Docker Desktop and resolves once its engine answers; false where the Desktop cannot open it. */
+    openDocker: () => Promise<boolean>
     /** The log of `prumo db`, while it runs. */
     onLog: (listener: (chunk: string) => void) => () => void
   }
@@ -192,6 +194,7 @@ export const CHANNELS = {
   databaseCreate: 'prumo:database:create',
   databaseStart: 'prumo:database:start',
   databaseStop: 'prumo:database:stop',
+  databaseOpenDocker: 'prumo:database:open-docker',
   databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
   checkPort: 'prumo:apps:check-port',

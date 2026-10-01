@@ -25,7 +25,7 @@ import {
 
 const DOCKER_MESSAGE = {
   missing: 'Docker is not installed, and the database runs in it.',
-  stopped: 'Docker is installed but not running. Open Docker Desktop and try again.',
+  stopped: 'Docker is installed but not running.',
   running: '',
 } as const
 
@@ -123,8 +123,32 @@ export function Database({ project }: { project: Project }) {
 
         <div className="space-y-4 px-5 pb-5 empty:hidden">
           {docker.part && docker.docker !== 'running' && (
-            <Notice tone="warning" icon={<TriangleAlert className="text-warning" />}>
-              {DOCKER_MESSAGE[docker.docker]}
+            <Notice
+              tone="warning"
+              icon={<TriangleAlert className="text-warning" />}
+              action={
+                docker.docker === 'stopped' && (
+                  <Button
+                    size="sm"
+                    disabled={working !== undefined}
+                    onClick={() =>
+                      act('open-docker', async () => {
+                        if (!(await window.prumo.database.openDocker())) {
+                          setError(
+                            'Docker Desktop did not start. Open it yourself, then try again.',
+                          )
+                        }
+                      })
+                    }
+                  >
+                    {working === 'open-docker' ? 'Opening…' : 'Open Docker'}
+                  </Button>
+                )
+              }
+            >
+              {working === 'open-docker'
+                ? 'Opening Docker Desktop; its engine takes a moment to answer…'
+                : DOCKER_MESSAGE[docker.docker]}
             </Notice>
           )}
 
