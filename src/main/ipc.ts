@@ -1,7 +1,7 @@
 // Every channel the renderer can reach, in one place. The names and shapes come from the shared contract.
 
 import type { BrowserWindow } from 'electron'
-import { dialog, ipcMain, shell } from 'electron'
+import { clipboard, dialog, ipcMain, shell } from 'electron'
 import type { PortAnswer, Project, ProjectConfig } from '../shared/ipc.ts'
 import {
   CHANNELS,
@@ -91,6 +91,7 @@ export function register({
   ipcMain.handle(CHANNELS.docsOpenInEditor, (_event, project: string, document: string) =>
     shell.openPath(documentPath(project, document)),
   )
+  ipcMain.handle(CHANNELS.copy, (_event, text: string) => clipboard.writeText(text))
   ipcMain.handle(CHANNELS.openExternal, (_event, url: string) => {
     // Only the web goes to the browser; anything else would be a way to open arbitrary files.
     if (/^https?:\/\//.test(url)) shell.openExternal(url)

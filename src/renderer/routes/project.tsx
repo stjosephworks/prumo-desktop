@@ -16,6 +16,7 @@ import { type Part, partId, partsFor } from '../../shared/parts.ts'
 import { browserUrl, expoUrl } from '../../shared/urls.ts'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
+import { McpPanel } from '../components/mcp.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import {
   Button,
@@ -301,6 +302,9 @@ export function ProjectScreen() {
     return state === 'running' || state === 'starting'
   })
 
+  const apiPart = parts.find((part) => part.type === 'api')
+  const runningType = (type: Part['type']) => running.some((part) => part.type === type)
+
   const forget = (part: Part) => setRefusals(({ [part.script]: _, ...rest }) => rest)
 
   /**
@@ -412,6 +416,15 @@ export function ProjectScreen() {
           ))}
         </ul>
       </Section>
+
+      {project.config?.mcp === true && (
+        <McpPanel
+          name={project.name}
+          apiPort={apiPart === undefined ? undefined : settledPorts.get(partId(project, apiPart))}
+          apiRunning={runningType('api')}
+          webRunning={runningType('web')}
+        />
+      )}
 
       <Database project={project} />
     </main>

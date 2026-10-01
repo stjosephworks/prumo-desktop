@@ -10,6 +10,7 @@ import {
 
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
+  copy: (text: string) => ipcRenderer.invoke(CHANNELS.copy, text),
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
   cli: {
     status: () => ipcRenderer.invoke(CHANNELS.cliStatus),
