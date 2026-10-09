@@ -34,7 +34,7 @@ function CopyLine({ label, value }: { label: string; value: string }) {
 
 /**
  * How an AI assistant reaches this project's API. The server is the API's `/api/mcp`; the address follows the port
- * the API's check settled, which is also what ports.mjs writes into BETTER_AUTH_URL. Signing in and consenting
+ * the API's check settled, which is also what ports.mjs writes into API_URL. Signing in and consenting
  * happen on the web app, so both have to run.
  */
 export function McpPanel({

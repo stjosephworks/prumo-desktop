@@ -45,7 +45,8 @@ pnpm smoke       # packages the app and checks it with the PATH an app opened fr
 
 ## Requirements (for users)
 
-Node 22.17 or later and pnpm. The Desktop checks them; it never installs them.
+Node 22.18 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
+`prumo doctor`; it never installs them.
 
 ## License
 
