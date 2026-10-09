@@ -10,8 +10,8 @@
 
 ## Download
 
-- **Apple silicon** (M1 and later): `Prumo Desktop-<version>-arm64.dmg`
-- **Intel**: `Prumo Desktop-<version>-x64.dmg`
+- **Apple silicon** (M1 and later): `Prumo.Desktop-<version>-arm64.dmg`
+- **Intel**: `Prumo.Desktop-<version>-x64.dmg`
 
 Open the dmg and drag Prumo Desktop into Applications.
 
