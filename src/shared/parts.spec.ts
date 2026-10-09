@@ -16,6 +16,8 @@ test('a workspace has one part per type, each with its own root script', () => {
       architecture: 'monorepo',
       multiTenant: false,
       mcp: false,
+      email: false,
+      social: [],
     }),
   )
 
@@ -28,7 +30,14 @@ test('a workspace has one part per type, each with its own root script', () => {
 
 test('an alone project is one part, started by pnpm dev', () => {
   const parts = partsFor(
-    project({ types: ['web'], architecture: 'alone', multiTenant: false, mcp: false }),
+    project({
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    }),
   )
 
   expect(parts).toEqual([{ type: 'web', script: 'dev' }])

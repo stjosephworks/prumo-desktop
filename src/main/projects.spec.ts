@@ -22,6 +22,8 @@ function project(config: Record<string, unknown> = {}): string {
       architecture: 'monorepo',
       multiTenant: false,
       mcp: false,
+      email: false,
+      social: [],
       ...config,
     }),
   )
@@ -41,6 +43,8 @@ test('adds a folder and reads what the project says about itself', () => {
     architecture: 'alone',
     multiTenant: false,
     mcp: false,
+    email: false,
+    social: [],
   })
   expect(projects.list()).toHaveLength(1)
 })
@@ -99,6 +103,8 @@ test('a project that changed on disk is read again, not remembered', () => {
       architecture: 'monorepo',
       multiTenant: true,
       mcp: true,
+      email: true,
+      social: ['apple'],
     }),
   )
 
@@ -107,6 +113,8 @@ test('a project that changed on disk is read again, not remembered', () => {
     architecture: 'monorepo',
     multiTenant: true,
     mcp: true,
+    email: true,
+    social: ['apple'],
   })
 })
 
@@ -121,4 +129,18 @@ test('a project from a CLI older than 0.1.0 has no mcp field, and is read as wit
   const path = project({ mcp: undefined })
 
   expect(projects.add(path).config?.mcp).toBe(false)
+})
+
+test('a project from a CLI older than 0.4.0 has no email or social field, and is read as having neither', () => {
+  const projects = new Projects(store)
+  const path = project({ email: undefined, social: undefined })
+
+  expect(projects.add(path).config).toMatchObject({ email: false, social: [] })
+})
+
+test('email and social sign-in are read as the project records them', () => {
+  const projects = new Projects(store)
+  const path = project({ email: true, social: ['google', 'apple'] })
+
+  expect(projects.add(path).config).toMatchObject({ email: true, social: ['google', 'apple'] })
 })

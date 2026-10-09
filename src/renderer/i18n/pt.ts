@@ -171,6 +171,14 @@ export const pt: Dictionary = {
     severalTypes: 'Vários tipos sempre formam um workspace.',
     tenancy: 'Tenancy',
     mcp: 'Deixar assistentes de IA usarem a API por MCP, logados como o usuário.',
+    emailTitle: 'Email',
+    email: 'Verificar endereços de email e redefinir senhas, com um código que a API envia.',
+    socialTitle: 'Login social',
+    social: 'Entrar por um provedor, além de email e senha. Nenhum marcado significa nenhum.',
+    providers: { google: 'Google', apple: 'Apple' },
+    createdWithWarnings: (name: string) =>
+      `${name} foi criado. Leia o que o Prumo avisa antes de seguir:`,
+    continue: 'Ir para os projetos',
     create: 'Criar projeto',
     creating: 'Criando…',
     preparing: 'Instalando dependências e preparando o projeto; isso demora um pouco.',
@@ -184,7 +192,7 @@ export const pt: Dictionary = {
     notReady: 'Não está pronta',
     checking: 'Verificando…',
     nodeMissing:
-      'O Node não foi encontrado. Instale o Node 22.17 ou mais novo e reabra o Prumo Desktop.',
+      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop.',
     nodeAt: 'em',
     optional: 'opcional',
     fix: 'Corrija o que está marcado com um X antes de criar um projeto.',

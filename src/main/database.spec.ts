@@ -46,6 +46,8 @@ beforeAll(async () => {
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      email: false,
+      social: [],
     },
     projects,
     { cli },
@@ -73,7 +75,14 @@ whenDocker('a project without an API has no database part', async () => {
     path: '/tmp/none',
     name: 'none',
     found: true,
-    config: { types: ['web'], architecture: 'alone', multiTenant: false, mcp: false },
+    config: {
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
   }
 
   expect(await databaseState(none, { cli })).toEqual({ part: false })
