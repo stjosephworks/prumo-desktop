@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
-const VERSION = '0.4.0'
+const VERSION = '0.4.1'
 const root = join(import.meta.dirname, '..')
 const target = join(root, 'resources', 'prumo')
 

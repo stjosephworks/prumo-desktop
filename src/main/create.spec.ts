@@ -42,7 +42,7 @@ test('creates a project, and it is in the list without anyone adding it', async 
 
   expect(existsSync(join(parent, 'spec-web', '.prumo', 'config.json'))).toBe(true)
   expect(result.project.config).toEqual({
-    prumo: '0.4.0',
+    prumo: '0.4.1',
     types: ['web'],
     architecture: 'alone',
     multiTenant: false,
