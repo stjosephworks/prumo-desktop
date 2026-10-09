@@ -7,21 +7,17 @@ changing anything.
 
 The Desktop is a **consumer** of Prumo, never a second implementation of it. It ships a pinned copy of the
 `@stjoseph/prumo` CLI and runs it; everything it knows about a project comes from what that CLI exposes and from
-the files a generated project carries.
+the files a generated project carries. The user can update that CLI from inside the app, but only within the minor
+version the Desktop ships (`src/main/cli-update.ts`): a new minor arrives with a new Desktop, tested against it.
 
 **The rule that follows from it:** when something is missing, the answer is to expose it in Prumo, not to
-reimplement it here. Anything the Desktop has to derive on its own is written down as a cost in
-[`docs/DECISIONS.md`](docs/DECISIONS.md) and as a need in [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md).
+reimplement it here.
 
-## Where decisions live
+## History
 
-| Question | Lives in |
-|---|---|
-| What was decided, why, and what it costs | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
-| What is still open | [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md), the only home for an open question |
-
-Update `DECISIONS.md` in the same turn a decision is made, in its entry format, and always record what the choice
-costs, not only why it won.
+`dev-logs/` holds how the Desktop was decided, kept for context and referenced by nothing. Read it to understand
+why something is the way it is, never to learn what is in force, and do not append to it: what is in force is the
+code, this file and the README.
 
 ## Language
 
@@ -63,6 +59,8 @@ pnpm test        # real processes and the embedded CLI, no mocks
 pnpm lint
 pnpm typecheck
 pnpm smoke       # packages the app and checks it with the PATH an app opened from Finder gets
+pnpm release     # what .github/workflows/release.yml runs: signs (Developer ID or ad-hoc), makes and drafts a release
+pnpm icon        # renders build/icon.svg into build/icon.icns
 ```
 
 **Tests use the real thing.** The process layer starts real processes and checks that stopping one frees its port;

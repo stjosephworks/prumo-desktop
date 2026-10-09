@@ -21,6 +21,9 @@ function project(config: Record<string, unknown> = {}): string {
       types: ['api', 'web'],
       architecture: 'monorepo',
       multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
       ...config,
     }),
   )
@@ -35,7 +38,14 @@ test('adds a folder and reads what the project says about itself', () => {
   const added = projects.add(path)
 
   expect(added.found).toBe(true)
-  expect(added.config).toEqual({ types: ['api'], architecture: 'alone', multiTenant: false })
+  expect(added.config).toEqual({
+    types: ['api'],
+    architecture: 'alone',
+    multiTenant: false,
+    mcp: false,
+    email: false,
+    social: [],
+  })
   expect(projects.list()).toHaveLength(1)
 })
 
@@ -88,12 +98,49 @@ test('a project that changed on disk is read again, not remembered', () => {
 
   writeFileSync(
     join(path, '.prumo', 'config.json'),
-    JSON.stringify({ types: ['api', 'mobile'], architecture: 'monorepo', multiTenant: true }),
+    JSON.stringify({
+      types: ['api', 'web'],
+      architecture: 'monorepo',
+      multiTenant: true,
+      mcp: true,
+      email: true,
+      social: ['apple'],
+    }),
   )
 
   expect(projects.list()[0]?.config).toEqual({
-    types: ['api', 'mobile'],
+    types: ['api', 'web'],
     architecture: 'monorepo',
     multiTenant: true,
+    mcp: true,
+    email: true,
+    social: ['apple'],
   })
+})
+
+test('the Prumo version a project records is read with the rest of its config', () => {
+  const projects = new Projects(store)
+
+  expect(projects.add(project({ prumo: '0.1.1' })).config?.prumo).toBe('0.1.1')
+})
+
+test('a project from a CLI older than 0.1.0 has no mcp field, and is read as without MCP', () => {
+  const projects = new Projects(store)
+  const path = project({ mcp: undefined })
+
+  expect(projects.add(path).config?.mcp).toBe(false)
+})
+
+test('a project from a CLI older than 0.4.0 has no email or social field, and is read as having neither', () => {
+  const projects = new Projects(store)
+  const path = project({ email: undefined, social: undefined })
+
+  expect(projects.add(path).config).toMatchObject({ email: false, social: [] })
+})
+
+test('email and social sign-in are read as the project records them', () => {
+  const projects = new Projects(store)
+  const path = project({ email: true, social: ['google', 'apple'] })
+
+  expect(projects.add(path).config).toMatchObject({ email: true, social: ['google', 'apple'] })
 })
