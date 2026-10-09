@@ -13,6 +13,11 @@ name: Release
 #   APPLE_TEAM_ID               the team the certificate belongs to
 # Without them the job says so and stops: an unsigned build would never update itself.
 #
+# Before publishing the draft, a person checks what the job cannot: download each dmg from the draft onto a Mac that
+# has never run Prumo Desktop (one Apple silicon, one Intel or under Rosetta), open it, drag the app to Applications
+# and launch it. Gatekeeper must open it without a warning; only the app inside the dmg is notarized and stapled,
+# the dmg itself is not signed.
+#
 # It can also be started by hand (Actions > Release > Run workflow) on main, for the version main already holds:
 # the first release after the secrets are added needs no new commit.
 
