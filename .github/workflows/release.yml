@@ -11,16 +11,22 @@ name: Release
 #   APPLE_PASSWORD              an app-specific password for that Apple ID
 #   APPLE_TEAM_ID               the team the certificate belongs to
 # Without them the job says so and stops: an unsigned build would never update itself.
+#
+# It can also be started by hand (Actions > Release > Run workflow) on main, for the version main already holds:
+# the first release after the secrets are added needs no new commit.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    # A run started by hand on another branch would release code that never went through dev and alpha.
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,14 +35,16 @@ jobs:
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-          HAS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_ID != '' }}
+          HAS_SIGNING: >-
+            ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' &&
+            secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         run: |
           version="$(node -p "require('./package.json').version")"
           if gh release view "v$version" > /dev/null 2>&1; then
             echo "v$version already has a release."
             echo "release=false" >> "$GITHUB_OUTPUT"
           elif [ "$HAS_SIGNING" != "true" ]; then
-            echo "::warning::v$version is not released: the Apple Developer ID secrets are not set."
+            echo "::warning::v$version is not released: one or more of the five Apple Developer ID secrets is not set."
             echo "release=false" >> "$GITHUB_OUTPUT"
           else
             echo "release=true" >> "$GITHUB_OUTPUT"
@@ -69,11 +77,32 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
-      - name: Sign, notarize, make and publish the draft
+      # `pnpm release` in two halves, so nothing is uploaded before the signature and the ticket are checked.
+      - name: Sign, notarize and make
         if: steps.decide.outputs.release == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm prepare-run && pnpm exec electron-forge publish --dry-run
+
+      # What Gatekeeper will judge on a user's Mac: a valid Developer ID signature, notarized, with the ticket stapled.
+      - name: Check the signature and the notarization
+        if: steps.decide.outputs.release == 'true'
+        run: |
+          app="$(find out -maxdepth 2 -name '*.app' -type d | head -n 1)"
+          test -n "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Authority=Developer ID Application|TeamIdentifier|flags'
+          spctl --assess --type execute --verbose=4 "$app"
+          xcrun stapler validate "$app"
+
+      - name: Publish the draft
+        if: steps.decide.outputs.release == 'true'
+        env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm release
+        run: pnpm exec electron-forge publish --from-dry-run
+
+      - name: Remove the signing keychain
+        if: always() && steps.decide.outputs.release == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
