@@ -13,14 +13,31 @@ const signing =
   process.env.APPLE_PASSWORD !== undefined &&
   process.env.APPLE_TEAM_ID !== undefined
 
+// Electron's helper apps keep @electron/osx-sign's own entitlements for them; every other file, the app itself
+// included, gets only what build/entitlements.mac.plist explains. Returning null leaves osx-sign's default.
+const HELPER = /\((GPU|Renderer|Plugin)\)\.app/
+const ENTITLEMENTS = join(__dirname, 'build', 'entitlements.mac.plist')
+
 module.exports = {
   packagerConfig: {
+    // CFBundleIdentifier, proposed from stjosephworks.org and to be confirmed before the first signed release:
+    // once one is out, changing it makes macOS see another app. Unset, Packager writes com.electron.prumo-desktop.
+    appBundleId: 'org.stjosephworks.prumo-desktop',
+    appCategoryType: 'public.app-category.developer-tools',
+    appCopyright: 'Copyright © 2026 Leonardo Freitas',
     asar: { unpack: '**/node_modules/node-pty/**' },
     // spawn cannot run files inside app.asar, so the embedded CLI sits next to it, in Contents/Resources/prumo.
     extraResource: ['resources/prumo'],
     ...(signing
       ? {
-          osxSign: {},
+          // The identity is the Developer ID Application certificate the release workflow imports; osx-sign signs
+          // every file of the bundle with the Hardened Runtime and a secure timestamp, as notarization requires.
+          osxSign: {
+            // Electron Packager otherwise only warns when codesign fails, and an unsigned app would be released.
+            continueOnError: false,
+            optionsForFile: (filePath) =>
+              HELPER.test(filePath) ? null : { entitlements: ENTITLEMENTS, hardenedRuntime: true },
+          },
           osxNotarize: {
             appleId: process.env.APPLE_ID,
             appleIdPassword: process.env.APPLE_PASSWORD,
@@ -44,14 +61,17 @@ module.exports = {
     },
   ],
   hooks: {
-    packageAfterCopy: async (_config, buildPath) => {
+    packageAfterCopy: async (_config, buildPath, _electronVersion, platform, arch) => {
       for (const name of NATIVE) {
         cpSync(join(__dirname, 'node_modules', name), join(buildPath, 'node_modules', name), {
           recursive: true,
           // Without sources or binding.gyp, Forge does not try to rebuild it: its N-API prebuilds already match.
+          // Only the prebuild of the platform and arch being packaged: node-pty loads
+          // prebuilds/<platform>-<arch>, and Windows binaries have no business inside a signed Mac app.
           filter: (source) =>
             !/node-pty\/(src|deps|scripts|typings|third_party)(\/|$)/.test(source) &&
-            !source.endsWith('binding.gyp'),
+            !source.endsWith('binding.gyp') &&
+            !new RegExp(`node-pty/prebuilds/(?!${platform}-${arch}(/|$))[^/]+`).test(source),
         })
       }
       // node-pty 1.1.0 installs its prebuilt spawn-helper without the executable bit: posix_spawnp then fails.
