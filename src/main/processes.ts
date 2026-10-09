@@ -75,7 +75,7 @@ export class Apps extends EventEmitter<Events> {
    * QR code and its shortcuts, keeps colours, and lets the user answer a question the app asks.
    * node-pty makes the child a session leader, so its whole tree shares one process group.
    */
-  start({ project, script, cols = 110, rows = 30 }: StartApp): RunningApp {
+  start({ project, script, cols = 110, rows = 30, port }: StartApp): RunningApp {
     const id = appId(project, script)
     const current = this.entries.get(id)
 
@@ -95,7 +95,7 @@ export class Apps extends EventEmitter<Events> {
     })
 
     const entry: Entry = {
-      app: { id, project, script, state: 'starting' },
+      app: { id, project, script, state: 'starting', port },
       terminal,
       buffer: '',
     }
@@ -129,7 +129,7 @@ export class Apps extends EventEmitter<Events> {
 
   /**
    * Stops an app by signalling its **whole process group**, not only `pnpm`: killing the parent alone leaves
-   * Vite, Nest or Metro holding their ports. SIGTERM first, SIGKILL for whatever is still there.
+   * Vite, Fastify or Metro holding their ports. SIGTERM first, SIGKILL for whatever is still there.
    */
   async stop(id: string): Promise<RunningApp | undefined> {
     const entry = this.entries.get(id)

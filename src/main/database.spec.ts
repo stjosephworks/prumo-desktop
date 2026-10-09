@@ -7,7 +7,14 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import type { Project } from '../shared/ipc.ts'
 import { createProject } from './create.ts'
-import { createDatabase, databaseState, dockerState, startDocker, stopDocker } from './database.ts'
+import {
+  createDatabase,
+  databaseState,
+  dockerState,
+  openDocker,
+  startDocker,
+  stopDocker,
+} from './database.ts'
 import { Projects } from './projects.ts'
 
 const cli = join(import.meta.dirname, '..', '..', 'resources', 'prumo', 'dist', 'cli.js')
@@ -32,7 +39,16 @@ beforeAll(async () => {
   parent = mkdtempSync(join(tmpdir(), 'prumo-desktop-db-'))
   const projects = new Projects(join(parent, 'projects.json'))
   const result = await createProject(
-    { parent, name: 'spec-api', types: ['api'], architecture: 'alone', multiTenant: false },
+    {
+      parent,
+      name: 'spec-api',
+      types: ['api'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
     projects,
     { cli },
   )
@@ -59,7 +75,14 @@ whenDocker('a project without an API has no database part', async () => {
     path: '/tmp/none',
     name: 'none',
     found: true,
-    config: { types: ['web'], architecture: 'alone', multiTenant: false },
+    config: {
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
   }
 
   expect(await databaseState(none, { cli })).toEqual({ part: false })
@@ -70,13 +93,17 @@ whenDocker(
   'creating the database makes it exist, run in Docker, and stop when asked',
   async () => {
     const created = await createDatabase(project, 'spec_api', { cli })
-    expect(created).toEqual({ ok: true })
+    expect(created).toMatchObject({ ok: true, database: 'spec_api', created: true, migrated: true })
 
     expect(await databaseState(project, { cli })).toEqual({ part: true, created: true })
 
     const running = await dockerState(project)
     expect(running).toMatchObject({ part: true, docker: 'running' })
     if (running.part) expect(running.services.some((one) => one.state === 'running')).toBe(true)
+    // The port Docker publishes is the one the command chose.
+    if (running.part && created.ok) {
+      expect(running.services.find((one) => one.port !== undefined)?.port).toBe(created.port)
+    }
 
     expect(await stopDocker(project)).toBe(true)
     const stopped = await dockerState(project)
@@ -88,3 +115,8 @@ whenDocker(
   },
   600_000,
 )
+
+// Docker is already running here, so opening it again is a no-op that must still report an engine that answers.
+whenDocker('opening Docker resolves once its engine answers', async () => {
+  expect(await openDocker(10_000)).toBe(process.platform === 'darwin')
+})

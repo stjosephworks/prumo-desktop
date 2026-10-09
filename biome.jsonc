@@ -4,5 +4,6 @@
   "files": { "includes": ["**", "!spike", "!resources", "!out", "!.vite"] },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": { "rules": { "preset": "recommended" } },
-  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" } }
+  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" } },
+  "css": { "parser": { "tailwindDirectives": true } }
 }

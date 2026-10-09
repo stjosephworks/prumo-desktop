@@ -3,7 +3,7 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { promisify } from 'node:util'
-import type { DatabaseState, DockerState, Project } from '../shared/ipc.ts'
+import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../shared/ipc.ts'
 import { apiDirectory } from '../shared/parts.ts'
 import { type CliOptions, runCli } from './cli.ts'
 
@@ -35,20 +35,38 @@ export async function createDatabase(
   project: Project,
   name: string,
   options: Omit<CliOptions, 'cwd'>,
-): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
-  const { envelope } = await runCli(['db', '--name', name], { ...options, cwd: project.path })
+): Promise<DatabaseCreated> {
+  const { envelope } = await runCli<{
+    database: string
+    port: number
+    created: boolean
+    migrated: boolean
+  }>(['db', '--name', name], { ...options, cwd: project.path })
 
-  return envelope.ok ? { ok: true } : { ok: false, ...envelope.error }
+  return envelope.ok ? { ok: true, ...envelope.data } : { ok: false, ...envelope.error }
 }
 
-async function docker(args: string[], cwd?: string): Promise<{ ok: boolean; stdout: string }> {
+async function docker(
+  args: string[],
+  cwd?: string,
+  timeout = 0,
+): Promise<{ ok: boolean; stdout: string }> {
   try {
-    const { stdout } = await run('docker', args, { cwd, env: process.env })
+    const { stdout } = await run('docker', args, { cwd, env: process.env, timeout })
 
     return { ok: true, stdout }
   } catch {
     return { ok: false, stdout: '' }
   }
+}
+
+/**
+ * Whether Docker's engine answers. With Docker Desktop quit, `docker info` was measured taking 62 seconds to fail,
+ * which kept the database section from appearing for a minute; an engine that has not answered in five seconds is
+ * a stopped one.
+ */
+async function engineAnswers(): Promise<boolean> {
+  return (await docker(['info'], undefined, 5_000)).ok
 }
 
 /**
@@ -60,7 +78,7 @@ export async function dockerState(project: Project): Promise<DockerState> {
 
   if (api === undefined || !existsSync(`${api}/docker-compose.yml`)) return { part: false }
   if (!(await docker(['--version'])).ok) return { part: true, docker: 'missing', services: [] }
-  if (!(await docker(['info'])).ok) return { part: true, docker: 'stopped', services: [] }
+  if (!(await engineAnswers())) return { part: true, docker: 'stopped', services: [] }
 
   const { stdout } = await docker(['compose', 'ps', '--all', '--format', 'json'], api)
   // Compose prints one JSON object per line, and nothing at all when it has no services.
@@ -69,15 +87,44 @@ export async function dockerState(project: Project): Promise<DockerState> {
     .filter((line) => line.trim() !== '')
     .flatMap((line) => {
       try {
-        const service = JSON.parse(line) as { Service?: string; State?: string }
+        const service = JSON.parse(line) as {
+          Service?: string
+          State?: string
+          Publishers?: { PublishedPort?: number }[]
+        }
+        // Published once per address family (0.0.0.0 and ::), always the same port; empty while stopped.
+        const port = service.Publishers?.find((one) => one.PublishedPort)?.PublishedPort
 
-        return [{ name: service.Service ?? '?', state: service.State ?? 'unknown' }]
+        return [{ name: service.Service ?? '?', state: service.State ?? 'unknown', port }]
       } catch {
         return []
       }
     })
 
   return { part: true, docker: 'running', services }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Opens Docker Desktop and waits for its engine to answer, which takes a while after the window appears.
+ * Only on macOS for now, where the app is `Docker`; elsewhere it answers false and the screen keeps its message.
+ */
+export async function openDocker(waitMs = 90_000): Promise<boolean> {
+  if (process.platform !== 'darwin') return false
+
+  try {
+    await run('open', ['-a', 'Docker'])
+  } catch {
+    return false
+  }
+
+  for (let waited = 0; waited < waitMs; waited += 2_000) {
+    if (await engineAnswers()) return true
+    await sleep(2_000)
+  }
+
+  return false
 }
 
 export async function startDocker(project: Project): Promise<boolean> {

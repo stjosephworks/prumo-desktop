@@ -11,7 +11,14 @@ const project = (config: Project['config']): Project => ({
 
 test('a workspace has one part per type, each with its own root script', () => {
   const parts = partsFor(
-    project({ types: ['api', 'web', 'mobile'], architecture: 'monorepo', multiTenant: false }),
+    project({
+      types: ['api', 'web', 'mobile'],
+      architecture: 'monorepo',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    }),
   )
 
   expect(parts).toEqual([
@@ -22,7 +29,16 @@ test('a workspace has one part per type, each with its own root script', () => {
 })
 
 test('an alone project is one part, started by pnpm dev', () => {
-  const parts = partsFor(project({ types: ['web'], architecture: 'alone', multiTenant: false }))
+  const parts = partsFor(
+    project({
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    }),
+  )
 
   expect(parts).toEqual([{ type: 'web', script: 'dev' }])
 })

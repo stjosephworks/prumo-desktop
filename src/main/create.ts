@@ -1,10 +1,12 @@
 // Creating a project: the form's answers become flags, and the CLI decides everything else.
 import { join } from 'node:path'
 import type { CreateResult, NewProject } from '../shared/ipc.ts'
+import { newFlags } from '../shared/questions.ts'
 import { CliError, type CliOptions, runCli } from './cli.ts'
 import type { Projects } from './projects.ts'
 
-type Created = { name: string; target: string; installed: boolean }
+/** What `prumo new --json` answers; `warnings` since 0.4.0, so an older CLI's answer has none. */
+type Created = { name: string; target: string; installed: boolean; warnings?: string[] }
 
 /**
  * Runs `prumo new` with every flag and `--json`, as a plain child process: inside a pseudo terminal the CLI's
@@ -16,14 +18,8 @@ export async function createProject(
   projects: Projects,
   options: Omit<CliOptions, 'cwd'>,
 ): Promise<CreateResult> {
-  const args = [
-    'new',
-    input.name,
-    '--types',
-    input.types.join(','),
-    input.architecture === 'alone' ? '--alone' : '--monorepo',
-    input.multiTenant ? '--multi-tenant' : '--single-tenant',
-  ]
+  // Only the flags of questions the CLI asks: it refuses `--mcp`, `--email` or `--social` for types without them.
+  const args = ['new', input.name, ...newFlags(input)]
 
   try {
     const { envelope } = await runCli<Created>(args, { ...options, cwd: input.parent })
@@ -36,6 +32,7 @@ export async function createProject(
     return {
       ok: true,
       project: projects.add(envelope.data.target ?? join(input.parent, input.name)),
+      warnings: envelope.data.warnings ?? [],
     }
   } catch (problem) {
     if (problem instanceof CliError) {
