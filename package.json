@@ -14,6 +14,7 @@
     "start": "pnpm prepare-run && electron-forge start",
     "package": "pnpm prepare-run && electron-forge package",
     "release": "pnpm prepare-run && electron-forge publish",
+    "icon": "electron scripts/make-icon.mjs",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "test": "pnpm prepare-run && vitest run",

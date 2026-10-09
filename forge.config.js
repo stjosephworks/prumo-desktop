@@ -17,6 +17,7 @@ const signing =
 // included, gets only what build/entitlements.mac.plist explains. Returning null leaves osx-sign's default.
 const HELPER = /\((GPU|Renderer|Plugin)\)\.app/
 const ENTITLEMENTS = join(__dirname, 'build', 'entitlements.mac.plist')
+const ICON = join(__dirname, 'build', 'icon.icns')
 
 module.exports = {
   packagerConfig: {
@@ -25,6 +26,8 @@ module.exports = {
     appBundleId: 'org.stjosephworks.prumo-desktop',
     appCategoryType: 'public.app-category.developer-tools',
     appCopyright: 'Copyright © 2026 Leonardo Freitas',
+    // build/icon.icns, rendered from build/icon.svg by scripts/make-icon.mjs; Packager adds the extension.
+    icon: join(__dirname, 'build', 'icon'),
     asar: { unpack: '**/node_modules/node-pty/**' },
     // spawn cannot run files inside app.asar, so the embedded CLI sits next to it, in Contents/Resources/prumo.
     extraResource: ['resources/prumo'],
@@ -50,7 +53,7 @@ module.exports = {
     // The zip is what Squirrel.Mac, behind update.electronjs.org, downloads to update an installed app.
     { name: '@electron-forge/maker-zip', platforms: ['darwin'] },
     // The dmg is what a person downloads to install it.
-    { name: '@electron-forge/maker-dmg', platforms: ['darwin'] },
+    { name: '@electron-forge/maker-dmg', platforms: ['darwin'], config: { icon: ICON } },
   ],
   publishers: [
     {
