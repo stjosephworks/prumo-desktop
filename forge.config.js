@@ -20,6 +20,9 @@ const ENTITLEMENTS = join(__dirname, 'build', 'entitlements.mac.plist')
 const ICON = join(__dirname, 'build', 'icon.icns')
 
 module.exports = {
+  // One output folder per arch in a release: Forge makes the arches concurrently, and the dmg maker writes every
+  // arch to the same temporary name before renaming it, so two arches in one run collide ("Target already exists").
+  outDir: process.env.FORGE_OUT_DIR,
   packagerConfig: {
     // CFBundleIdentifier, proposed from stjosephworks.org and to be confirmed before the first signed release:
     // once one is out, changing it makes macOS see another app. Unset, Packager writes com.electron.prumo-desktop.

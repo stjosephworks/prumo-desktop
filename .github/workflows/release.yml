@@ -1,7 +1,8 @@
 name: Release
 
-# A push to main whose package.json version has no GitHub release yet becomes one: the app is signed with the
-# Developer ID, notarized, packaged as a dmg and a zip, and published as a draft. A person publishes the draft on
+# A push to main whose package.json version has no GitHub release yet becomes one: the app is built for Apple
+# silicon (arm64) and Intel (x64), signed with the Developer ID, notarized, packaged as a dmg and a zip per arch, and
+# published as a draft. update.electronjs.org serves each Mac the zip whose name carries its arch. A person publishes the draft on
 # GitHub; only then does update.electronjs.org offer it to installed apps.
 #
 # Secrets it needs, all from the Apple Developer account:
@@ -84,24 +85,39 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm prepare-run && pnpm exec electron-forge publish --dry-run
+        # One arch at a time, each in its own folder: see outDir in forge.config.js.
+        run: |
+          pnpm prepare-run
+          for arch in arm64 x64; do
+            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --dry-run --arch="$arch"
+          done
 
       # What Gatekeeper will judge on a user's Mac: a valid Developer ID signature, notarized, with the ticket stapled.
       - name: Check the signature and the notarization
         if: steps.decide.outputs.release == 'true'
         run: |
-          app="$(find out -maxdepth 2 -name '*.app' -type d | head -n 1)"
-          test -n "$app"
-          codesign --verify --deep --strict --verbose=2 "$app"
-          codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Authority=Developer ID Application|TeamIdentifier|flags'
-          spctl --assess --type execute --verbose=4 "$app"
-          xcrun stapler validate "$app"
+          checked=0
+          while IFS= read -r app; do
+            echo "::group::$app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Authority=Developer ID Application|TeamIdentifier|flags'
+            spctl --assess --type execute --verbose=4 "$app"
+            xcrun stapler validate "$app"
+            echo "::endgroup::"
+            checked=$((checked + 1))
+          done < <(find out/arm64 out/x64 -maxdepth 2 -name '*.app' -type d)
+          # One app per arch: arm64 and x64.
+          test "$checked" -eq 2
 
       - name: Publish the draft
         if: steps.decide.outputs.release == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm exec electron-forge publish --from-dry-run
+        # Both go to the same draft: the publisher finds the release the first one created by its tag.
+        run: |
+          for arch in arm64 x64; do
+            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --from-dry-run
+          done
 
       - name: Remove the signing keychain
         if: always() && steps.decide.outputs.release == 'true'

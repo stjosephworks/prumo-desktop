@@ -13,7 +13,7 @@
     "prepare-run": "node scripts/fix-spawn-helper.mjs && node scripts/embed-cli.mjs",
     "start": "pnpm prepare-run && electron-forge start",
     "package": "pnpm prepare-run && electron-forge package",
-    "release": "pnpm prepare-run && electron-forge publish",
+    "release": "pnpm prepare-run && FORGE_OUT_DIR=out/arm64 electron-forge publish --arch=arm64 && FORGE_OUT_DIR=out/x64 electron-forge publish --arch=x64",
     "icon": "electron scripts/make-icon.mjs",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
