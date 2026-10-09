@@ -7,7 +7,8 @@ changing anything.
 
 The Desktop is a **consumer** of Prumo, never a second implementation of it. It ships a pinned copy of the
 `@stjoseph/prumo` CLI and runs it; everything it knows about a project comes from what that CLI exposes and from
-the files a generated project carries.
+the files a generated project carries. The user can update that CLI from inside the app, but only within the minor
+version the Desktop ships (`src/main/cli-update.ts`): a new minor arrives with a new Desktop, tested against it.
 
 **The rule that follows from it:** when something is missing, the answer is to expose it in Prumo, not to
 reimplement it here.

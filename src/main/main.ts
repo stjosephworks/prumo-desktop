@@ -1,7 +1,9 @@
 // The Electron side: the window, the IPC handlers, and the promise that nothing the Desktop started outlives it.
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog } from 'electron'
+import type { CliStatus } from '../shared/ipc.ts'
 import { doctor } from './cli.ts'
+import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, findNode } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
@@ -24,10 +26,56 @@ const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
  * In development it sits in `resources/`, written by `scripts/embed-cli.mjs`.
  */
-function cliPath(): string {
+function shippedCli(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'prumo', 'dist', 'cli.js')
     : join(app.getAppPath(), 'resources', 'prumo', 'dist', 'cli.js')
+}
+
+/** Where a newer CLI of the same minor is installed, since the one in the bundle cannot change. */
+const cliUpdates = join(app.getPath('userData'), 'prumo')
+
+/** Decided on every call, so a CLI updated a moment ago is the one the next command runs. */
+function cliPath(): string {
+  return activeCli(shippedCli(), cliUpdates).path
+}
+
+// The registry is asked once per launch: each screen that shows the status would otherwise ask again.
+let published: Promise<string[]> | undefined
+
+async function cliStatus(): Promise<CliStatus> {
+  const active = activeCli(shippedCli(), cliUpdates)
+  published ??= publishedVersions()
+
+  try {
+    return statusOf(active, await published)
+  } catch (problem) {
+    published = undefined
+    return { version: active.version, source: active.source, error: (problem as Error).message }
+  }
+}
+
+let updating: Promise<{ ok: true; status: CliStatus } | { ok: false; message: string }> | undefined
+
+/** One update at a time: a second click joins the one already running. */
+function cliUpdate() {
+  updating ??= (async () => {
+    const { available } = await cliStatus()
+
+    if (available === undefined)
+      return { ok: false as const, message: 'There is nothing to update to.' }
+
+    try {
+      await installCli(available, cliUpdates)
+      return { ok: true as const, status: await cliStatus() }
+    } catch (problem) {
+      return { ok: false as const, message: (problem as Error).message }
+    }
+  })().finally(() => {
+    updating = undefined
+  })
+
+  return updating
 }
 
 function createWindow(): BrowserWindow {
@@ -59,6 +107,8 @@ app.whenReady().then(() => {
     apps,
     projects,
     cli: cliPath,
+    cliStatus,
+    cliUpdate,
     windows: () => BrowserWindow.getAllWindows(),
     environment: async () => {
       const node = await findNode()
@@ -80,7 +130,7 @@ app.whenReady().then(() => {
 
 let stopping = false
 
-// Quitting stops every app, killing whole process trees: leaving Vite, Nest or Metro behind would
+// Quitting stops every app, killing whole process trees: leaving Vite, Fastify or Metro behind would
 // occupy ports the Desktop can no longer recognise when it reopens.
 app.on('before-quit', async (event) => {
   if (stopping) return

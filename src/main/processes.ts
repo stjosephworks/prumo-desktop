@@ -129,7 +129,7 @@ export class Apps extends EventEmitter<Events> {
 
   /**
    * Stops an app by signalling its **whole process group**, not only `pnpm`: killing the parent alone leaves
-   * Vite, Nest or Metro holding their ports. SIGTERM first, SIGKILL for whatever is still there.
+   * Vite, Fastify or Metro holding their ports. SIGTERM first, SIGKILL for whatever is still there.
    */
   async stop(id: string): Promise<RunningApp | undefined> {
     const entry = this.entries.get(id)

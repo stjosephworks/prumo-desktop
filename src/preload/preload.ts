@@ -11,6 +11,10 @@ import {
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  cli: {
+    status: () => ipcRenderer.invoke(CHANNELS.cliStatus),
+    update: () => ipcRenderer.invoke(CHANNELS.cliUpdate),
+  },
   projects: {
     list: () => ipcRenderer.invoke(CHANNELS.projectsList),
     add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),
@@ -46,6 +50,8 @@ const bridge: Bridge = {
   },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),
+    checkPort: (project, type, answer) =>
+      ipcRenderer.invoke(CHANNELS.checkPort, project, type, answer),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),
     stop: (id: string) => ipcRenderer.invoke(CHANNELS.stop, id),
     buffer: (id: string) => ipcRenderer.invoke(CHANNELS.buffer, id),

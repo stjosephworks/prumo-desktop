@@ -23,16 +23,19 @@ export function partsFor(project: Project): Part[] {
   }))
 }
 
+/** Where an app sits: the project itself when it is alone, `apps/<type>` in a workspace. */
+export function appDirectory(project: Project, type: Part['type']): string {
+  return project.config?.architecture === 'alone' ? project.path : `${project.path}/apps/${type}`
+}
+
 /**
- * Where the API sits, which is where its `docker-compose.yml`, its `.env` and its `db:migrate` script live:
- * the project itself when it is alone, `apps/api` in a workspace. Undefined when the project has no API.
+ * Where the API sits, which is where its `docker-compose.yml`, its `.env` and its `db:migrate` script live.
+ * Undefined when the project has no API.
  */
 export function apiDirectory(project: Project): string | undefined {
-  const config = project.config
+  if (project.config === undefined || !project.config.types.includes('api')) return undefined
 
-  if (config === undefined || !config.types.includes('api')) return undefined
-
-  return config.architecture === 'alone' ? project.path : `${project.path}/apps/api`
+  return appDirectory(project, 'api')
 }
 
 /** The id the process layer gives an app, so a screen can find its state without starting anything. */

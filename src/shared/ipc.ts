@@ -20,6 +20,21 @@ export type ProjectConfig = {
   types: ('api' | 'web' | 'mobile' | 'site')[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean
+  /** An MCP server on the api. A project from a CLI older than 0.1.0 has no such field, and is read as false. */
+  mcp: boolean
+}
+
+/**
+ * The Prumo CLI the Desktop runs. `shipped` is the copy inside the app; `updated` is a newer one of the same
+ * minor, installed beside the app's data. `available` is the newest the Desktop can update to; `needsDesktop`
+ * is a newer minor, which only a newer Desktop runs. Both are undefined when the registry could not be asked.
+ */
+export type CliStatus = {
+  version: string
+  source: 'shipped' | 'updated'
+  available?: string
+  needsDesktop?: string
+  error?: string
 }
 
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
@@ -38,11 +53,15 @@ export type NewProject = {
   types: ProjectConfig['types']
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
+  /** Only asked, and only passed, when the types hold both api and web. */
+  mcp: boolean
 }
 
 /**
  * A failed creation carries the CLI's own error code, which the Desktop branches on:
- * `invalid_input` belongs beside the name, `target_not_empty` beside the folder.
+ * `invalid_input` belongs beside the name, `target_not_empty` beside the folder. The CLI also answers
+ * `invalid_input` for a combination of flags, but the form never sends one (`src/shared/questions.ts`), so what
+ * reaches it is about the name.
  */
 export type CreateResult =
   | { ok: true; project: Project }
@@ -76,11 +95,24 @@ export type RunningApp = {
 
 export type StartApp = { project: string; script: string; cols?: number; rows?: number }
 
+/**
+ * Whether an app's port is free, from the app's own `scripts/ports.mjs --check`. `port_busy` carries the
+ * script's message, which names what holds the port; `kill` stops that, `change` moves the app to a free port.
+ */
+export type PortCheck = { ok: true } | { ok: false; code: string; message: string }
+export type PortAnswer = 'kill' | 'change'
+
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
   openExternal: (url: string) => Promise<void>
+  cli: {
+    /** The CLI in use, and what the npm registry has that is newer. */
+    status: () => Promise<CliStatus>
+    /** Installs `available` and switches to it; the new status on success. */
+    update: () => Promise<{ ok: true; status: CliStatus } | { ok: false; message: string }>
+  }
   projects: {
     list: () => Promise<Project[]>
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
@@ -117,6 +149,12 @@ export type Bridge = {
   }
   apps: {
     list: () => Promise<RunningApp[]>
+    /** Frees the part's port before it starts; without an answer it only reports who holds it. */
+    checkPort: (
+      project: Project,
+      type: ProjectConfig['types'][number],
+      answer?: PortAnswer,
+    ) => Promise<PortCheck>
     start: (app: StartApp) => Promise<RunningApp>
     stop: (id: string) => Promise<RunningApp | undefined>
     /** Everything the app has written so far, to fill a terminal that was opened late. */
@@ -130,6 +168,8 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  cliStatus: 'prumo:cli:status',
+  cliUpdate: 'prumo:cli:update',
   projectsList: 'prumo:projects:list',
   projectsAdd: 'prumo:projects:add',
   projectsRemove: 'prumo:projects:remove',
@@ -146,6 +186,7 @@ export const CHANNELS = {
   databaseStop: 'prumo:database:stop',
   databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
+  checkPort: 'prumo:apps:check-port',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',
   buffer: 'prumo:apps:buffer',

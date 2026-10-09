@@ -1,54 +1,143 @@
 import { Link, useSearch } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import type { Project, RunningApp } from '../../shared/ipc.ts'
+import {
+  ArrowUpRight,
+  BookOpen,
+  FolderOpen,
+  Globe,
+  Play,
+  Server,
+  Smartphone,
+  Square,
+  TriangleAlert,
+} from 'lucide-react'
+import { type ReactNode, useState } from 'react'
+import type { PortAnswer, PortCheck, Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
 import { browserUrl } from '../../shared/urls.ts'
 import { Database } from '../components/database.tsx'
 import { Terminal } from '../components/terminal.tsx'
+import {
+  Button,
+  buttonClass,
+  cx,
+  Notice,
+  PageHeader,
+  ProgressBar,
+  Section,
+  StatusDot,
+  Tag,
+  TerminalToggle,
+  useOutputPanel,
+} from '../components/ui.tsx'
 import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
+import { useProjects } from '../use-projects.ts'
 
-const STATE_LABEL: Record<RunningApp['state'], string> = {
-  starting: 'starting',
-  running: 'running',
-  stopped: 'stopped',
-  failed: 'failed',
+const STATE_TEXT: Record<RunningApp['state'], string> = {
+  starting: 'text-warning',
+  running: 'text-success',
+  stopped: 'text-muted-foreground',
+  failed: 'text-destructive',
 }
 
-const STATE_COLOUR: Record<RunningApp['state'], string> = {
-  starting: 'bg-amber-400',
-  running: 'bg-emerald-500',
-  stopped: 'bg-neutral-300',
-  failed: 'bg-red-500',
+const ICON: Record<Part['type'], ReactNode> = {
+  api: <Server />,
+  web: <Globe />,
+  site: <Globe />,
+  mobile: <Smartphone />,
 }
 
-const ACTION = 'rounded-md border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50'
+type Refused = Extract<PortCheck, { ok: false }>
 
-function PartPanel({ project, part, app }: { project: Project; part: Part; app?: RunningApp }) {
+function PortBusy({
+  refused,
+  onAnswer,
+  onCancel,
+}: {
+  refused: Refused
+  onAnswer: (answer: PortAnswer) => void
+  onCancel: () => void
+}) {
+  return (
+    <Notice
+      tone="warning"
+      icon={<TriangleAlert className="text-warning" />}
+      className="mx-5 mb-4"
+      action={
+        refused.code === 'port_busy' && (
+          <div className="flex gap-1.5">
+            <Button size="sm" onClick={() => onAnswer('kill')}>
+              Stop it
+            </Button>
+            <Button size="sm" onClick={() => onAnswer('change')}>
+              Move this app
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          </div>
+        )
+      }
+    >
+      {/* The script's own words: it names the process, so nothing is stopped unnamed. */}
+      {refused.message}
+    </Notice>
+  )
+}
+
+function PartPanel({
+  project,
+  part,
+  app,
+  refused,
+  onStart,
+  onCancel,
+}: {
+  project: Project
+  part: Part
+  app?: RunningApp
+  refused?: Refused
+  onStart: (answer?: PortAnswer) => void
+  onCancel: () => void
+}) {
   const id = partId(project, part)
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
   // Only the apps that serve a page are watched for an address; mobile answers on a phone, not in a browser.
-  const output = useAppOutput(id, busy && (part.type === 'web' || part.type === 'site'))
+  const serves = part.type === 'web' || part.type === 'site'
+  const output = useAppOutput(id, busy && serves)
   const url = browserUrl(output)
+  // A page server is still starting until it prints its address; the rest are started once they print anything.
+  const shown = state === 'running' && serves && url === undefined ? 'starting' : state
+  const [open, toggle] = useOutputPanel(state === 'failed')
 
   return (
-    <li className="py-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className={`size-2 rounded-full ${STATE_COLOUR[state]}`} />
-          <span className="font-medium">{part.type}</span>
-          <span className="text-xs text-neutral-500">
-            pnpm {part.script} — {STATE_LABEL[state]}
-            {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
+    <li className="overflow-hidden rounded-md border border-rule bg-card">
+      <div className="relative flex items-center justify-between gap-4 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-rule bg-paper text-navy [&_svg]:size-4">
+            {ICON[part.type]}
           </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
+              <span className={cx('flex items-center gap-1.5 text-xs', STATE_TEXT[shown])}>
+                <StatusDot state={shown} />
+                {shown}
+                {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
+              </span>
+            </div>
+            <p className="font-mono text-[0.72rem] text-muted-foreground">pnpm {part.script}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* The address comes from what the app printed, so a dev server that moved port still opens. */}
           {url !== undefined && (
-            <button type="button" onClick={() => window.prumo.openExternal(url)} className={ACTION}>
+            <Button size="sm" onClick={() => window.prumo.openExternal(url)}>
+              <ArrowUpRight />
               Open {url.replace(/^https?:\/\//, '')}
-            </button>
+            </Button>
           )}
 
           {/*
@@ -57,40 +146,41 @@ function PartPanel({ project, part, app }: { project: Project; part: Part; app?:
           */}
           {part.type === 'mobile' && busy && (
             <>
-              <button
-                type="button"
-                onClick={() => window.prumo.apps.write(id, 'i')}
-                className={ACTION}
-              >
+              <Button size="sm" onClick={() => window.prumo.apps.write(id, 'i')}>
                 iOS simulator
-              </button>
-              <button
-                type="button"
-                onClick={() => window.prumo.apps.write(id, 'a')}
-                className={ACTION}
-              >
+              </Button>
+              <Button size="sm" onClick={() => window.prumo.apps.write(id, 'a')}>
                 Android emulator
-              </button>
+              </Button>
             </>
           )}
 
-          <button
-            type="button"
-            onClick={() =>
-              busy
-                ? window.prumo.apps.stop(id)
-                : window.prumo.apps.start({ project: project.path, script: part.script })
-            }
-            className={ACTION}
+          {app !== undefined && (
+            <TerminalToggle open={open} onToggle={toggle} failed={state === 'failed'} />
+          )}
+
+          <Button
+            size="sm"
+            variant={busy ? 'secondary' : 'primary'}
+            onClick={() => (busy ? window.prumo.apps.stop(id) : onStart())}
           >
+            {busy ? <Square /> : <Play />}
             {busy ? 'Stop' : 'Start'}
-          </button>
+          </Button>
         </div>
+
+        {shown === 'starting' && (
+          <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
+        )}
       </div>
 
-      {/* The panel exists once an app has run: its log is worth reading after a failure too. */}
-      {app !== undefined && (
-        <div className="mt-3">
+      {refused !== undefined && (
+        <PortBusy refused={refused} onAnswer={(answer) => onStart(answer)} onCancel={onCancel} />
+      )}
+
+      {/* Out of sight unless asked for, or unless the app failed: then its log is what matters. */}
+      {app !== undefined && open && (
+        <div className="border-t border-rule">
           <Terminal id={id} />
         </div>
       )}
@@ -100,20 +190,23 @@ function PartPanel({ project, part, app }: { project: Project; part: Part; app?:
 
 export function ProjectScreen() {
   const { path } = useSearch({ from: '/project' })
-  const [project, setProject] = useState<Project>()
+  const projects = useProjects()
+  const [refusals, setRefusals] = useState<Record<string, Refused>>({})
   const apps = useApps()
+  const project = projects?.find((one) => one.path === path)
 
-  useEffect(() => {
-    window.prumo.projects.list().then((all) => setProject(all.find((one) => one.path === path)))
-  }, [path])
+  if (projects === undefined) return null
 
   if (project === undefined) {
     return (
-      <main className="mx-auto max-w-3xl px-8 py-12">
-        <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
-          ← Projects
-        </Link>
-        <p className="mt-6 text-sm text-neutral-500">This project is no longer in the list.</p>
+      <main className="mx-auto max-w-4xl px-10 pb-16">
+        <PageHeader eyebrow="Project" title="Not in the list" />
+        <p className="text-sm text-muted-foreground">
+          This project is no longer in the list.{' '}
+          <Link to="/" className="text-navy underline decoration-brass underline-offset-4">
+            Back to projects
+          </Link>
+        </p>
       </main>
     )
   }
@@ -125,60 +218,116 @@ export function ProjectScreen() {
     return state === 'running' || state === 'starting'
   })
 
+  const forget = (part: Part) => setRefusals(({ [part.script]: _, ...rest }) => rest)
+
+  /**
+   * The port first, then the app. A port in use comes back as a question beside the app instead of a prompt
+   * waiting inside its terminal, where the app would already look like it is running.
+   */
+  const start = async (part: Part, answer?: PortAnswer) => {
+    const check = await window.prumo.apps.checkPort(project, part.type, answer)
+
+    if (!check.ok) {
+      setRefusals((current) => ({ ...current, [part.script]: check }))
+      return
+    }
+
+    forget(part)
+    window.prumo.apps.start({ project: project.path, script: part.script })
+  }
+
   return (
-    <main className="mx-auto max-w-3xl px-8 py-12">
-      <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
-        ← Projects
-      </Link>
-
-      <header className="mt-4 flex items-start justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">{project.name}</h1>
-          <p className="truncate text-xs text-neutral-500">{project.path}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <Link
-            to="/docs"
-            search={{ path: project.path, doc: 'INDEX.md' }}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-          >
-            Conventions
+    <main className="mx-auto max-w-4xl px-10 pb-16">
+      <PageHeader
+        eyebrow={
+          <Link to="/" className="hover:text-navy">
+            Projects /
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              // "Run all" starts each app separately: one mixed log cannot be stopped app by app.
-              for (const part of parts) {
-                window.prumo.apps.start({ project: project.path, script: part.script })
-              }
-            }}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
-          >
-            Run all
-          </button>
-          {running.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                for (const part of parts) window.prumo.apps.stop(partId(project, part))
-              }}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+        }
+        title={project.name}
+        description={
+          <div className="space-y-2.5">
+            <p className="truncate font-mono text-[0.72rem]">{project.path}</p>
+            {project.config !== undefined && (
+              <div className="flex flex-wrap gap-1.5">
+                {project.config.types.map((type) => (
+                  <Tag key={type}>{type}</Tag>
+                ))}
+                <Tag>{project.config.architecture}</Tag>
+                {project.config.multiTenant && <Tag>multi-tenant</Tag>}
+                {project.config.mcp && <Tag tone="brass">MCP</Tag>}
+              </div>
+            )}
+          </div>
+        }
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => window.prumo.projects.reveal(project.path)}>
+              <FolderOpen />
+              Open folder
+            </Button>
+            <Link
+              to="/docs"
+              search={{ path: project.path, doc: 'INDEX.md' }}
+              className={buttonClass('secondary')}
             >
-              Stop all
-            </button>
-          )}
-        </div>
-      </header>
+              <BookOpen />
+              Conventions
+            </Link>
+          </>
+        }
+      />
 
-      <p className="mt-4 text-sm text-neutral-500">
-        {running.length} of {parts.length} running
-      </p>
-
-      <ul className="mt-2 divide-y divide-neutral-200">
-        {parts.map((part) => (
-          <PartPanel key={part.script} project={project} part={part} app={appOf(part)} />
-        ))}
-      </ul>
+      <Section
+        title="Apps"
+        aside={
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              {running.length} of {parts.length} running
+            </span>
+            {running.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  for (const part of parts) window.prumo.apps.stop(partId(project, part))
+                }}
+              >
+                <Square />
+                Stop all
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={running.length === parts.length}
+              onClick={() => {
+                // "Run all" starts each app separately: one mixed log cannot be stopped app by app.
+                // An app already running holds its own port, so it is left out of the check.
+                for (const part of parts) {
+                  if (!running.includes(part)) start(part)
+                }
+              }}
+            >
+              <Play />
+              Run all
+            </Button>
+          </div>
+        }
+      >
+        <ul className="space-y-3">
+          {parts.map((part) => (
+            <PartPanel
+              key={part.script}
+              project={project}
+              part={part}
+              app={appOf(part)}
+              refused={refusals[part.script]}
+              onStart={(answer) => start(part, answer)}
+              onCancel={() => forget(part)}
+            />
+          ))}
+        </ul>
+      </Section>
 
       <Database project={project} />
     </main>
