@@ -97,6 +97,10 @@ try {
     socket.addEventListener('error', fail, { once: true })
   })
 
+  // The checks below read English words; the app follows the system's language, so pin it first.
+  await evaluate(socket, "localStorage.setItem('prumo.locale', 'en'); location.reload(); true", 90)
+  await sleep(1500)
+
   const environment = await evaluate(socket, 'window.prumo.environment()', 1)
   const projects = await evaluate(socket, 'window.prumo.projects.list()', 2)
   // The registry asked from the packaged app: the CLI in use, and whether a newer one exists.
@@ -261,6 +265,9 @@ try {
       2,
     ),
   )
+
+  // The language pinned above belongs to the user, not to this check.
+  await evaluate(socket, "localStorage.removeItem('prumo.locale'); true", 91)
 
   if (failures.length > 0) {
     console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}`)

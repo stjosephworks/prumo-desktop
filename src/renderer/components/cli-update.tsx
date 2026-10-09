@@ -1,6 +1,7 @@
 import { ArrowDownToLine } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { CliStatus } from '../../shared/ipc.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { Button, Notice } from './ui.tsx'
 
 /**
@@ -9,6 +10,7 @@ import { Button, Notice } from './ui.tsx'
  * one is not offered.
  */
 export function CliUpdate({ detailed = false }: { detailed?: boolean }) {
+  const t = useT()
   const [status, setStatus] = useState<CliStatus>()
   const [updating, setUpdating] = useState(false)
   const [problem, setProblem] = useState<string>()
@@ -36,11 +38,11 @@ export function CliUpdate({ detailed = false }: { detailed?: boolean }) {
       icon={<ArrowDownToLine className="text-brass-ink" />}
       action={
         <Button variant="primary" size="sm" onClick={update} disabled={updating}>
-          {updating ? 'Updating…' : 'Update'}
+          {updating ? t.cli.updating : t.cli.update}
         </Button>
       }
     >
-      Prumo CLI <span className="font-mono">{status.available}</span> is available; this app runs{' '}
+      Prumo CLI <span className="font-mono">{status.available}</span> {t.cli.available}{' '}
       <span className="font-mono">{status.version}</span>.
     </Notice>
   )
@@ -50,7 +52,7 @@ export function CliUpdate({ detailed = false }: { detailed?: boolean }) {
       <div className="space-y-2">
         {offer}
         {problem !== undefined && (
-          <p className="text-sm text-destructive">The update failed: {problem}</p>
+          <p className="text-sm text-destructive">{t.cli.failed(problem)}</p>
         )}
       </div>
     )
@@ -61,31 +63,22 @@ export function CliUpdate({ detailed = false }: { detailed?: boolean }) {
       <div className="flex items-center gap-4 rounded-md border border-rule bg-card px-5 py-4">
         <span className="font-mono text-2xl font-medium text-navy">{status.version}</span>
         <div className="text-sm">
-          <p className="text-ink">
-            {status.source === 'updated'
-              ? 'Updated from the one this app ships'
-              : 'Shipped with this app'}
-          </p>
+          <p className="text-ink">{status.source === 'updated' ? t.cli.updated : t.cli.shipped}</p>
           <p className="text-muted-foreground">
             {status.error !== undefined
-              ? `Could not check for a newer one: ${status.error}`
+              ? t.cli.couldNotCheck(status.error)
               : status.available === undefined && status.needsDesktop === undefined
-                ? 'Up to date.'
-                : 'A newer version exists.'}
+                ? t.cli.upToDate
+                : t.cli.newerExists}
           </p>
         </div>
       </div>
 
       {offer}
-      {problem !== undefined && (
-        <p className="text-sm text-destructive">The update failed: {problem}</p>
-      )}
+      {problem !== undefined && <p className="text-sm text-destructive">{t.cli.failed(problem)}</p>}
 
       {status.needsDesktop !== undefined && (
-        <p className="text-sm text-muted-foreground">
-          Prumo <span className="font-mono">{status.needsDesktop}</span> is out. It may change what
-          this app relies on, so it comes with a newer Prumo Desktop.
-        </p>
+        <p className="text-sm text-muted-foreground">{t.cli.needsDesktop(status.needsDesktop)}</p>
       )}
     </div>
   )

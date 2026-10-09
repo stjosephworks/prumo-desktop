@@ -1,13 +1,15 @@
 import {
   ArrowUpFromLine,
+  Check,
   Database as DatabaseIcon,
   Play,
   Square,
   TriangleAlert,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import type { DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
+import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../../shared/ipc.ts'
 import { apiDirectory } from '../../shared/parts.ts'
+import { useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { Terminal } from './terminal.tsx'
 import {
@@ -23,18 +25,18 @@ import {
   useOutputPanel,
 } from './ui.tsx'
 
-const DOCKER_MESSAGE = {
-  missing: 'Docker is not installed, and the database runs in it.',
-  stopped: 'Docker is installed but not running. Open Docker Desktop and try again.',
-  running: '',
-} as const
+/** Where the project's own database script sends someone without Docker (scripts/database.mjs). */
+const DOCKER_DOWNLOAD = 'https://www.docker.com/products/docker-desktop/'
 
 /** The database part of a project: created through `prumo db`, run by Docker, migrated on request. */
 export function Database({ project }: { project: Project }) {
+  const t = useT()
   const [state, setState] = useState<{ database: DatabaseState; docker: DockerState }>()
   const [name, setName] = useState(project.name.replaceAll('-', '_'))
   const [working, setWorking] = useState<string>()
   const [error, setError] = useState<string>()
+  const [errorCode, setErrorCode] = useState<string>()
+  const [created, setCreated] = useState<Extract<DatabaseCreated, { ok: true }>>()
   const [log, setLog] = useState('')
 
   const api = apiDirectory(project)
@@ -55,10 +57,20 @@ export function Database({ project }: { project: Project }) {
     docker.part &&
     docker.docker === 'running' &&
     docker.services.some((one) => one.state === 'running')
+  // Docker's own answer for the host port, so the Desktop never reads the API's .env for it.
+  const port = docker.part ? docker.services.find((one) => one.port !== undefined)?.port : undefined
+
+  const openDocker = () =>
+    act('open-docker', async () => {
+      if (!(await window.prumo.database.openDocker())) {
+        setError(t.database.didNotStart)
+      }
+    })
 
   const act = async (label: string, action: () => Promise<unknown>) => {
     setWorking(label)
     setError(undefined)
+    setErrorCode(undefined)
     await action()
     setWorking(undefined)
     refresh()
@@ -67,7 +79,7 @@ export function Database({ project }: { project: Project }) {
   return (
     <Section
       className="mt-10"
-      title="Database"
+      title={t.database.title}
       aside={
         state.database.created &&
         docker.part &&
@@ -85,7 +97,7 @@ export function Database({ project }: { project: Project }) {
               }
             >
               {containerRunning ? <Square /> : <Play />}
-              {containerRunning ? 'Stop' : 'Start'}
+              {containerRunning ? t.common.stop : t.common.start}
             </Button>
             {/* Migrations never run by themselves: they are asked for, and their output is a terminal like any other. */}
             <Button
@@ -95,7 +107,7 @@ export function Database({ project }: { project: Project }) {
               }
             >
               <ArrowUpFromLine />
-              Migrate
+              {t.database.migrate}
             </Button>
           </div>
         )
@@ -111,35 +123,50 @@ export function Database({ project }: { project: Project }) {
               <span className="font-serif text-base font-semibold text-navy">PostgreSQL</span>
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <StatusDot state={containerRunning ? 'running' : 'stopped'} />
-                {state.database.created ? 'created' : 'not created yet'}
+                {state.database.created ? t.database.created : t.database.notCreated}
                 {docker.part &&
                   docker.docker === 'running' &&
-                  ` · Docker ${containerRunning ? 'up' : 'down'}`}
+                  ` · ${t.database.docker(containerRunning)}`}
+                {port !== undefined && ` · ${t.database.port(port)}`}
               </span>
             </div>
-            <p className="font-mono text-[0.72rem] text-muted-foreground">prumo db, in Docker</p>
+            <p className="font-mono text-[0.72rem] text-muted-foreground">{t.database.subtitle}</p>
           </div>
         </div>
 
         <div className="space-y-4 px-5 pb-5 empty:hidden">
           {docker.part && docker.docker !== 'running' && (
-            <Notice tone="warning" icon={<TriangleAlert className="text-warning" />}>
-              {DOCKER_MESSAGE[docker.docker]}
+            <Notice
+              tone="warning"
+              icon={<TriangleAlert className="text-warning" />}
+              action={
+                docker.docker === 'stopped' && (
+                  <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
+                    {working === 'open-docker' ? t.database.openingButton : t.database.openDocker}
+                  </Button>
+                )
+              }
+            >
+              {working === 'open-docker'
+                ? t.database.opening
+                : docker.docker === 'missing'
+                  ? t.database.missing
+                  : t.database.stopped}
             </Notice>
           )}
 
           {!state.database.created && (
             <div>
               <p className="text-sm text-muted-foreground">
-                The API starts with{' '}
-                <code className="font-mono text-[0.8rem] text-ink">DATABASE_URL=MISSING</code>.
-                Creating the database writes its URL and runs the migrations.
+                {t.database.introBefore}{' '}
+                <code className="font-mono text-[0.8rem] text-ink">DATABASE_URL=MISSING</code>
+                {t.database.introAfter}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  aria-label="Database name"
+                  aria-label={t.database.nameLabel}
                   className={`${INPUT} max-w-xs font-mono`}
                 />
                 <Button
@@ -148,12 +175,18 @@ export function Database({ project }: { project: Project }) {
                   onClick={() =>
                     act('create', async () => {
                       setLog('')
+                      setCreated(undefined)
                       const result = await window.prumo.database.create(project, name)
-                      if (!result.ok) setError(result.message)
+                      if (result.ok) {
+                        setCreated(result)
+                      } else {
+                        setError(result.message)
+                        setErrorCode(result.code)
+                      }
                     })
                   }
                 >
-                  {working === 'create' ? 'Creating…' : 'Create database'}
+                  {working === 'create' ? t.database.creating : t.database.create}
                 </Button>
               </div>
             </div>
@@ -162,14 +195,50 @@ export function Database({ project }: { project: Project }) {
           {state.database.error !== undefined && (
             <p className="text-sm text-destructive">{state.database.error.message}</p>
           )}
-          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          {created !== undefined && (
+            <Notice tone="info" icon={<Check className="text-success" />}>
+              <span className="font-mono">{created.database}</span>{' '}
+              {created.created ? t.database.wasCreated : t.database.alreadyExisted}{' '}
+              {t.database.onPort} <span className="font-mono">{created.port}</span>
+              {created.migrated ? t.database.migrated : t.database.notMigrated}
+            </Notice>
+          )}
+
+          {/* Docker's two failures have a way out; anything else is the command's own words. */}
+          {error !== undefined && errorCode === 'docker_not_running' && (
+            <Notice
+              tone="error"
+              icon={<TriangleAlert />}
+              action={
+                <Button size="sm" disabled={working !== undefined} onClick={openDocker}>
+                  {working === 'open-docker' ? t.database.openingButton : t.database.openDocker}
+                </Button>
+              }
+            >
+              {t.database.notRunningRetry}
+            </Notice>
+          )}
+          {error !== undefined && errorCode === 'docker_missing' && (
+            <Notice
+              tone="error"
+              icon={<TriangleAlert />}
+              action={
+                <Button size="sm" onClick={() => window.prumo.openExternal(DOCKER_DOWNLOAD)}>
+                  {t.database.getDocker}
+                </Button>
+              }
+            >
+              {t.database.missing}
+            </Notice>
+          )}
+          {error !== undefined &&
+            errorCode !== 'docker_not_running' &&
+            errorCode !== 'docker_missing' && <p className="text-sm text-destructive">{error}</p>}
 
           {working === 'create' && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Creating the database in Docker and running the migrations…
-              </p>
-              <ProgressBar label="Creating the database" />
+              <p className="text-xs text-muted-foreground">{t.database.creatingProgress}</p>
+              <ProgressBar label={t.database.creatingLabel} />
             </div>
           )}
 
@@ -188,15 +257,9 @@ export function Database({ project }: { project: Project }) {
   )
 }
 
-const MIGRATION_TEXT = {
-  starting: 'running…',
-  running: 'running…',
-  stopped: 'done',
-  failed: 'failed',
-} as const
-
 /** The migration, once it has run: a bar while it works, and its terminal only when asked for or when it failed. */
 function MigrationPanel({ id }: { id: string }) {
+  const t = useT()
   const app = useApps().find((one) => one.id === id)
   const failed = app?.state === 'failed'
   const [open, toggle] = useOutputPanel(failed)
@@ -216,12 +279,14 @@ function MigrationPanel({ id }: { id: string }) {
               failed ? 'text-destructive' : working ? 'text-warning' : 'text-success',
             )}
           >
-            {MIGRATION_TEXT[app.state]}
-            {failed && app.exitCode !== undefined && ` (exit ${app.exitCode})`}
+            {t.database.migration[app.state]}
+            {failed && app.exitCode !== undefined && ` (${t.common.exit(app.exitCode)})`}
           </span>
         </span>
         <TerminalToggle open={open} onToggle={toggle} failed={failed} />
-        {working && <ProgressBar label="Migrating" className="absolute inset-x-0 bottom-0" />}
+        {working && (
+          <ProgressBar label={t.database.migrating} className="absolute inset-x-0 bottom-0" />
+        )}
       </div>
       {open && <Terminal id={id} />}
     </div>

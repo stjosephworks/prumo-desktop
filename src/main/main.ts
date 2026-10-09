@@ -1,13 +1,15 @@
 // The Electron side: the window, the IPC handlers, and the promise that nothing the Desktop started outlives it.
-import { join } from 'node:path'
-import { app, BrowserWindow, dialog } from 'electron'
-import type { CliStatus } from '../shared/ipc.ts'
+import { basename, join } from 'node:path'
+import { app, BrowserWindow, dialog, Notification } from 'electron'
+import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
+import { CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, findNode } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
+import { createTray } from './tray.ts'
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
 declare const MAIN_WINDOW_VITE_NAME: string
@@ -102,7 +104,63 @@ function createWindow(): BrowserWindow {
   return window
 }
 
+/** Brings the window forward, making one if none is open, on a project when one is given. */
+function showWindow(project?: string): void {
+  const window = BrowserWindow.getAllWindows()[0] ?? createWindow()
+  window.show()
+  window.focus()
+  if (project !== undefined) window.webContents.send(CHANNELS.navigate, project)
+}
+
+// Held for the app's lifetime: a tray nothing refers to can be collected, and its icon would vanish.
+const held: object[] = []
+
+/**
+ * What happens outside the window: the Dock badge counts what runs, and a process that fails while the window is
+ * in the background says so in a notification, which brings the window back on that project when clicked.
+ */
+function watchApps(): void {
+  const failed = new Set<string>()
+
+  apps.on('state', (changed: RunningApp) => {
+    const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
+    app.setBadgeCount(running.length)
+
+    if (changed.state !== 'failed') {
+      failed.delete(changed.id)
+      return
+    }
+    // One notification per failure, and none while the user is looking at the window.
+    if (failed.has(changed.id) || BrowserWindow.getFocusedWindow() !== null) return
+    failed.add(changed.id)
+
+    if (!Notification.isSupported()) return
+
+    const project = projects.list().find((one) => changed.project.startsWith(one.path))
+    const notice = new Notification({
+      title: `pnpm ${changed.script} failed`,
+      body: `${project?.name ?? basename(changed.project)} · exit ${changed.exitCode ?? '?'}`,
+    })
+
+    notice.on('click', () => showWindow(project?.path))
+    notice.show()
+  })
+}
+
+// A packaged app updates itself from GitHub Releases through update.electronjs.org, which serves only signed macOS
+// builds of a public repository: it checks at launch and every ten minutes, then asks to restart.
+if (app.isPackaged) {
+  updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'stjosephworks/prumo-desktop',
+    },
+  })
+}
+
 app.whenReady().then(() => {
+  watchApps()
+  if (process.platform === 'darwin') held.push(createTray({ apps, projects, show: showWindow }))
   register({
     apps,
     projects,

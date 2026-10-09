@@ -75,7 +75,7 @@ export class Apps extends EventEmitter<Events> {
    * QR code and its shortcuts, keeps colours, and lets the user answer a question the app asks.
    * node-pty makes the child a session leader, so its whole tree shares one process group.
    */
-  start({ project, script, cols = 110, rows = 30 }: StartApp): RunningApp {
+  start({ project, script, cols = 110, rows = 30, port }: StartApp): RunningApp {
     const id = appId(project, script)
     const current = this.entries.get(id)
 
@@ -95,7 +95,7 @@ export class Apps extends EventEmitter<Events> {
     })
 
     const entry: Entry = {
-      app: { id, project, script, state: 'starting' },
+      app: { id, project, script, state: 'starting', port },
       terminal,
       buffer: '',
     }

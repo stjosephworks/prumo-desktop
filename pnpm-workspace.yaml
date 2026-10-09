@@ -2,7 +2,10 @@
 nodeLinker: hoisted
 # @electron/rebuild (used by Forge) depends on @electron/node-gyp straight from a git repository.
 blockExoticSubdeps: false
-# electron downloads its binary; node-pty picks a prebuild or compiles.
+# electron downloads its binary; node-pty picks a prebuild or compiles; fs-xattr and macos-alias are native parts of
+# appdmg, which the dmg maker uses to lay out the disk image.
 allowBuilds:
   electron: true
+  fs-xattr: true
+  macos-alias: true
   node-pty: true

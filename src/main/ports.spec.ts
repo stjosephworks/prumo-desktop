@@ -66,10 +66,12 @@ afterEach(() => {
   holder = undefined
 })
 
-test('a free port lets the app start', async () => {
-  setWebPort(await freePort())
+test('a free port lets the app start, on the port the script settled', async () => {
+  const port = await freePort()
+  setWebPort(port)
 
-  expect(await checkPort(project, 'web')).toEqual({ ok: true })
+  // The port the app will start on, as the script settled it.
+  expect(await checkPort(project, 'web')).toEqual({ ok: true, port })
 })
 
 test('a port in use comes back as port_busy, naming what holds it', async () => {
@@ -88,7 +90,7 @@ test('change moves the app to a free port, written to its .env', async () => {
   setWebPort(port)
   holder = await hold(port)
 
-  expect(await checkPort(project, 'web', 'change')).toEqual({ ok: true })
+  expect(await checkPort(project, 'web', 'change')).toMatchObject({ ok: true })
   expect(webPort()).not.toBe(String(port))
 })
 
@@ -99,7 +101,7 @@ test('kill stops what held the port, and the app keeps its port', async () => {
   holder = held
   const exited = new Promise((done) => held.once('exit', done))
 
-  expect(await checkPort(project, 'web', 'kill')).toEqual({ ok: true })
+  expect(await checkPort(project, 'web', 'kill')).toEqual({ ok: true, port })
   await exited
   expect(webPort()).toBe(String(port))
 })

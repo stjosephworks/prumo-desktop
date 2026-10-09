@@ -2,7 +2,6 @@ import { Link, useSearch } from '@tanstack/react-router'
 import {
   ArrowUpRight,
   BookOpen,
-  FolderOpen,
   Globe,
   Play,
   Server,
@@ -13,8 +12,14 @@ import {
 import { type ReactNode, useState } from 'react'
 import type { PortAnswer, PortCheck, Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
-import { browserUrl } from '../../shared/urls.ts'
+import { browserUrl, expoUrl } from '../../shared/urls.ts'
+import { Checks } from '../components/checks.tsx'
 import { Database } from '../components/database.tsx'
+import { ExpoQr } from '../components/expo-qr.tsx'
+import { GitBadge } from '../components/git-badge.tsx'
+import { McpPanel } from '../components/mcp.tsx'
+import { OpenIn } from '../components/open-in.tsx'
+import { ProjectVersion } from '../components/project-version.tsx'
 import { Terminal } from '../components/terminal.tsx'
 import {
   Button,
@@ -29,15 +34,70 @@ import {
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
+import type { Dictionary } from '../i18n/en.ts'
+import { useT } from '../i18n/i18n.tsx'
+import { type ApiStatus, useApiHealth } from '../use-api-health.ts'
 import { useAppOutput } from '../use-app-output.ts'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 
-const STATE_TEXT: Record<RunningApp['state'], string> = {
-  starting: 'text-warning',
-  running: 'text-success',
-  stopped: 'text-muted-foreground',
-  failed: 'text-destructive',
+/** What a card says about its app: a dot, a word, its colour, and whether it is still on its way. */
+type Display = {
+  dot: 'running' | 'starting' | 'stopped' | 'failed' | 'warning'
+  label: (t: Dictionary) => string
+  tone: string
+  working: boolean
+  failed: boolean
+}
+
+const DISPLAY: Record<RunningApp['state'], Display> = {
+  starting: {
+    dot: 'starting',
+    label: (t) => t.common.states.starting,
+    tone: 'text-warning',
+    working: true,
+    failed: false,
+  },
+  running: {
+    dot: 'running',
+    label: (t) => t.common.states.running,
+    tone: 'text-success',
+    working: false,
+    failed: false,
+  },
+  stopped: {
+    dot: 'stopped',
+    label: (t) => t.common.states.stopped,
+    tone: 'text-muted-foreground',
+    working: false,
+    failed: false,
+  },
+  failed: {
+    dot: 'failed',
+    label: (t) => t.common.states.failed,
+    tone: 'text-destructive',
+    working: false,
+    failed: true,
+  },
+}
+
+const API_DISPLAY: Record<ApiStatus, Display> = {
+  starting: DISPLAY.starting,
+  ready: DISPLAY.running,
+  database_down: {
+    dot: 'warning',
+    label: (t) => t.project.databaseDown,
+    tone: 'text-warning',
+    working: false,
+    failed: false,
+  },
+  not_responding: {
+    dot: 'failed',
+    label: (t) => t.project.notResponding,
+    tone: 'text-destructive',
+    working: false,
+    failed: true,
+  },
 }
 
 const ICON: Record<Part['type'], ReactNode> = {
@@ -58,6 +118,8 @@ function PortBusy({
   onAnswer: (answer: PortAnswer) => void
   onCancel: () => void
 }) {
+  const t = useT()
+
   return (
     <Notice
       tone="warning"
@@ -67,13 +129,13 @@ function PortBusy({
         refused.code === 'port_busy' && (
           <div className="flex gap-1.5">
             <Button size="sm" onClick={() => onAnswer('kill')}>
-              Stop it
+              {t.project.stopIt}
             </Button>
             <Button size="sm" onClick={() => onAnswer('change')}>
-              Move this app
+              {t.project.moveApp}
             </Button>
             <Button size="sm" variant="ghost" onClick={onCancel}>
-              Cancel
+              {t.common.cancel}
             </Button>
           </div>
         )
@@ -100,16 +162,28 @@ function PartPanel({
   onStart: (answer?: PortAnswer) => void
   onCancel: () => void
 }) {
+  const t = useT()
   const id = partId(project, part)
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
-  // Only the apps that serve a page are watched for an address; mobile answers on a phone, not in a browser.
+  // A page server's address opens in a browser; mobile answers on a phone, through Expo's address below.
   const serves = part.type === 'web' || part.type === 'site'
-  const output = useAppOutput(id, busy && serves)
-  const url = browserUrl(output)
+  // Page servers are read for the address to open, Expo for the one a phone scans.
+  const output = useAppOutput(id, busy && (serves || part.type === 'mobile'))
+  const url = serves ? browserUrl(output) : undefined
+  const phoneUrl = part.type === 'mobile' ? expoUrl(output) : undefined
   // A page server is still starting until it prints its address; the rest are started once they print anything.
-  const shown = state === 'running' && serves && url === undefined ? 'starting' : state
-  const [open, toggle] = useOutputPanel(state === 'failed')
+  // An API is judged by its readiness route; a process that lives is not a server that answers.
+  // The port the app was started on, kept with it in the main process, wherever it was started from.
+  const apiPort = part.type === 'api' ? app?.port : undefined
+  const health = useApiHealth(apiPort, busy)
+  const display =
+    health !== undefined
+      ? API_DISPLAY[health]
+      : state === 'running' && serves && url === undefined
+        ? DISPLAY.starting
+        : DISPLAY[state]
+  const [open, toggle] = useOutputPanel(display.failed)
 
   return (
     <li className="overflow-hidden rounded-md border border-rule bg-card">
@@ -121,10 +195,12 @@ function PartPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
-              <span className={cx('flex items-center gap-1.5 text-xs', STATE_TEXT[shown])}>
-                <StatusDot state={shown} />
-                {shown}
-                {state === 'failed' && app?.exitCode !== undefined && ` (exit ${app.exitCode})`}
+              <span className={cx('flex items-center gap-1.5 text-xs', display.tone)}>
+                <StatusDot state={display.dot} />
+                {display.label(t)}
+                {state === 'failed' &&
+                  app?.exitCode !== undefined &&
+                  ` (${t.common.exit(app.exitCode)})`}
               </span>
             </div>
             <p className="font-mono text-[0.72rem] text-muted-foreground">pnpm {part.script}</p>
@@ -136,7 +212,18 @@ function PartPanel({
           {url !== undefined && (
             <Button size="sm" onClick={() => window.prumo.openExternal(url)}>
               <ArrowUpRight />
-              Open {url.replace(/^https?:\/\//, '')}
+              {t.common.open(url.replace(/^https?:\/\//, ''))}
+            </Button>
+          )}
+
+          {/* Every generated API serves its OpenAPI reference here outside production; shown once it answers. */}
+          {health === 'ready' && apiPort !== undefined && (
+            <Button
+              size="sm"
+              onClick={() => window.prumo.openExternal(`http://localhost:${apiPort}/api/docs`)}
+            >
+              <BookOpen />
+              {t.project.apiDocs}
             </Button>
           )}
 
@@ -147,16 +234,16 @@ function PartPanel({
           {part.type === 'mobile' && busy && (
             <>
               <Button size="sm" onClick={() => window.prumo.apps.write(id, 'i')}>
-                iOS simulator
+                {t.project.ios}
               </Button>
               <Button size="sm" onClick={() => window.prumo.apps.write(id, 'a')}>
-                Android emulator
+                {t.project.android}
               </Button>
             </>
           )}
 
           {app !== undefined && (
-            <TerminalToggle open={open} onToggle={toggle} failed={state === 'failed'} />
+            <TerminalToggle open={open} onToggle={toggle} failed={display.failed} />
           )}
 
           <Button
@@ -165,14 +252,19 @@ function PartPanel({
             onClick={() => (busy ? window.prumo.apps.stop(id) : onStart())}
           >
             {busy ? <Square /> : <Play />}
-            {busy ? 'Stop' : 'Start'}
+            {busy ? t.common.stop : t.common.start}
           </Button>
         </div>
 
-        {shown === 'starting' && (
-          <ProgressBar label={`Starting ${part.type}`} className="absolute inset-x-0 bottom-0" />
+        {display.working && (
+          <ProgressBar
+            label={t.project.startingWhat(part.type)}
+            className="absolute inset-x-0 bottom-0"
+          />
         )}
       </div>
+
+      {busy && phoneUrl !== undefined && <ExpoQr url={phoneUrl} />}
 
       {refused !== undefined && (
         <PortBusy refused={refused} onAnswer={(answer) => onStart(answer)} onCancel={onCancel} />
@@ -193,6 +285,7 @@ export function ProjectScreen() {
   const projects = useProjects()
   const [refusals, setRefusals] = useState<Record<string, Refused>>({})
   const apps = useApps()
+  const t = useT()
   const project = projects?.find((one) => one.path === path)
 
   if (projects === undefined) return null
@@ -200,11 +293,11 @@ export function ProjectScreen() {
   if (project === undefined) {
     return (
       <main className="mx-auto max-w-4xl px-10 pb-16">
-        <PageHeader eyebrow="Project" title="Not in the list" />
+        <PageHeader eyebrow={t.project.eyebrowMissing} title={t.project.missingTitle} />
         <p className="text-sm text-muted-foreground">
-          This project is no longer in the list.{' '}
+          {t.project.missingBody}{' '}
           <Link to="/" className="text-navy underline decoration-brass underline-offset-4">
-            Back to projects
+            {t.project.back}
           </Link>
         </p>
       </main>
@@ -217,6 +310,9 @@ export function ProjectScreen() {
     const state = appOf(part)?.state
     return state === 'running' || state === 'starting'
   })
+
+  const apiPart = parts.find((part) => part.type === 'api')
+  const runningType = (type: Part['type']) => running.some((part) => part.type === type)
 
   const forget = (part: Part) => setRefusals(({ [part.script]: _, ...rest }) => rest)
 
@@ -233,7 +329,7 @@ export function ProjectScreen() {
     }
 
     forget(part)
-    window.prumo.apps.start({ project: project.path, script: part.script })
+    window.prumo.apps.start({ project: project.path, script: part.script, port: check.port })
   }
 
   return (
@@ -241,13 +337,16 @@ export function ProjectScreen() {
       <PageHeader
         eyebrow={
           <Link to="/" className="hover:text-navy">
-            Projects /
+            {t.project.eyebrow}
           </Link>
         }
         title={project.name}
         description={
           <div className="space-y-2.5">
-            <p className="truncate font-mono text-[0.72rem]">{project.path}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="truncate font-mono text-[0.72rem]">{project.path}</p>
+              <GitBadge path={project.path} />
+            </div>
             {project.config !== undefined && (
               <div className="flex flex-wrap gap-1.5">
                 {project.config.types.map((type) => (
@@ -256,34 +355,32 @@ export function ProjectScreen() {
                 <Tag>{project.config.architecture}</Tag>
                 {project.config.multiTenant && <Tag>multi-tenant</Tag>}
                 {project.config.mcp && <Tag tone="brass">MCP</Tag>}
+                <ProjectVersion made={project.config.prumo} />
               </div>
             )}
           </div>
         }
         actions={
           <>
-            <Button variant="ghost" onClick={() => window.prumo.projects.reveal(project.path)}>
-              <FolderOpen />
-              Open folder
-            </Button>
+            <OpenIn path={project.path} />
             <Link
               to="/docs"
               search={{ path: project.path, doc: 'INDEX.md' }}
               className={buttonClass('secondary')}
             >
               <BookOpen />
-              Conventions
+              {t.project.conventions}
             </Link>
           </>
         }
       />
 
       <Section
-        title="Apps"
+        title={t.project.apps}
         aside={
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
-              {running.length} of {parts.length} running
+              {t.projects.running(running.length, parts.length)}
             </span>
             {running.length > 0 && (
               <Button
@@ -293,7 +390,7 @@ export function ProjectScreen() {
                 }}
               >
                 <Square />
-                Stop all
+                {t.project.stopAll}
               </Button>
             )}
             <Button
@@ -309,7 +406,7 @@ export function ProjectScreen() {
               }}
             >
               <Play />
-              Run all
+              {t.project.runAll}
             </Button>
           </div>
         }
@@ -328,6 +425,17 @@ export function ProjectScreen() {
           ))}
         </ul>
       </Section>
+
+      <Checks project={project} />
+
+      {project.config?.mcp === true && (
+        <McpPanel
+          name={project.name}
+          apiPort={apiPart === undefined ? undefined : appOf(apiPart)?.port}
+          apiRunning={runningType('api')}
+          webRunning={runningType('web')}
+        />
+      )}
 
       <Database project={project} />
     </main>

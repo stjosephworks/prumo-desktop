@@ -6,12 +6,43 @@ const { VitePlugin } = require('@electron-forge/plugin-vite')
 // so it is copied in by hand, and left outside app.asar: its spawn-helper must be a real file to be executed.
 const NATIVE = ['node-pty']
 
+// Signing and notarizing need an Apple Developer ID, given only through the environment, as Forge's guide asks.
+// Without it, `pnpm package` still makes an unsigned app for local use; the release workflow always has it.
+const signing =
+  process.env.APPLE_ID !== undefined &&
+  process.env.APPLE_PASSWORD !== undefined &&
+  process.env.APPLE_TEAM_ID !== undefined
+
 module.exports = {
   packagerConfig: {
     asar: { unpack: '**/node_modules/node-pty/**' },
     // spawn cannot run files inside app.asar, so the embedded CLI sits next to it, in Contents/Resources/prumo.
     extraResource: ['resources/prumo'],
+    ...(signing
+      ? {
+          osxSign: {},
+          osxNotarize: {
+            appleId: process.env.APPLE_ID,
+            appleIdPassword: process.env.APPLE_PASSWORD,
+            teamId: process.env.APPLE_TEAM_ID,
+          },
+        }
+      : {}),
   },
+  makers: [
+    // The zip is what Squirrel.Mac, behind update.electronjs.org, downloads to update an installed app.
+    { name: '@electron-forge/maker-zip', platforms: ['darwin'] },
+    // The dmg is what a person downloads to install it.
+    { name: '@electron-forge/maker-dmg', platforms: ['darwin'] },
+  ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      // A draft until someone publishes it on GitHub: update.electronjs.org only serves published releases, so
+      // nothing reaches users before a person has looked at it. GITHUB_TOKEN authenticates.
+      config: { repository: { owner: 'stjosephworks', name: 'prumo-desktop' }, draft: true },
+    },
+  ],
   hooks: {
     packageAfterCopy: async (_config, buildPath) => {
       for (const name of NATIVE) {

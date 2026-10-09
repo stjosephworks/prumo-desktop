@@ -17,6 +17,8 @@ export type Environment =
 
 /** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
 export type ProjectConfig = {
+  /** The Prumo version that generated the project; written since 0.1.1, so absent from an older project. */
+  prumo?: string
   types: ('api' | 'web' | 'mobile' | 'site')[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean
@@ -36,6 +38,12 @@ export type CliStatus = {
   needsDesktop?: string
   error?: string
 }
+
+/** The editors and terminals found on this machine, by their app names; empty where the Desktop cannot open one. */
+export type Openers = { editors: string[]; terminals: string[] }
+
+/** A project's Git state: its branch (undefined when detached) and how many paths have changes. */
+export type GitState = { branch?: string; changes: number }
 
 /** A project in the list. `found` is false when the folder, or its `.prumo/config.json`, is gone. */
 export type Project = {
@@ -72,13 +80,22 @@ export type DatabaseState =
   | { part: false }
   | { part: true; created: boolean; error?: { code: string; message: string } }
 
+/**
+ * What `prumo db --name` answers. `created` is false when the database already existed; the codes the Desktop
+ * branches on are `docker_missing` and `docker_not_running`.
+ */
+export type DatabaseCreated =
+  | { ok: true; database: string; port: number; created: boolean; migrated: boolean }
+  | { ok: false; code: string; message: string }
+
 /** What Docker says about the project's own compose service. `missing` and `stopped` are told apart. */
 export type DockerState =
   | { part: false }
   | {
       part: true
       docker: 'missing' | 'stopped' | 'running'
-      services: { name: string; state: string }[]
+      /** `port` is the host port Docker publishes, known only while the service runs. */
+      services: { name: string; state: string; port?: number }[]
     }
 
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
@@ -91,20 +108,38 @@ export type RunningApp = {
   script: string
   state: AppState
   exitCode?: number
+  /** The port its check settled before it started, when there was one: where an API's health is asked. */
+  port?: number
 }
 
-export type StartApp = { project: string; script: string; cols?: number; rows?: number }
+export type StartApp = {
+  project: string
+  script: string
+  cols?: number
+  rows?: number
+  port?: number
+}
 
 /**
  * Whether an app's port is free, from the app's own `scripts/ports.mjs --check`. `port_busy` carries the
  * script's message, which names what holds the port; `kill` stops that, `change` moves the app to a free port.
  */
-export type PortCheck = { ok: true } | { ok: false; code: string; message: string }
+export type PortCheck = { ok: true; port?: number } | { ok: false; code: string; message: string }
+
+/**
+ * What an API's `/api/health/ready` answers: `ready` (200), `database_down` (503, the server runs but cannot
+ * reach its database) or `unreachable` (nothing answers on the port).
+ */
+export type ApiHealth = 'ready' | 'database_down' | 'unreachable'
 export type PortAnswer = 'kill' | 'change'
 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
   environment: () => Promise<Environment>
+  /** The main process asking to show a project, as when a notification about it is clicked. */
+  onNavigate: (listener: (project: string) => void) => () => void
+  /** Puts text on the system clipboard, through the main process, whether or not the window has focus. */
+  copy: (text: string) => Promise<void>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
   openExternal: (url: string) => Promise<void>
   cli: {
@@ -118,8 +153,14 @@ export type Bridge = {
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
     add: () => Promise<Project | undefined>
     remove: (path: string) => Promise<void>
-    /** Opens the project in Finder, the editor or a terminal. */
+    /** Opens the project's folder in Finder. */
     reveal: (path: string) => Promise<void>
+    /** The project's branch and uncommitted changes; undefined when it is not a Git repository. */
+    git: (path: string) => Promise<GitState | undefined>
+    /** The editors and terminals the project can be opened in. */
+    openers: () => Promise<Openers>
+    /** Opens the project in one of `openers()`; false when that app is unknown or would not open. */
+    openIn: (app: string, path: string) => Promise<boolean>
     /** Runs `prumo new`; the log arrives through `onCreateLog` while it runs. */
     create: (input: NewProject) => Promise<CreateResult>
     /** Opens the folder picker for where a new project goes. */
@@ -138,12 +179,11 @@ export type Bridge = {
   database: {
     state: (project: Project) => Promise<{ database: DatabaseState; docker: DockerState }>
     /** Runs `prumo db --name <name>`: it creates the database in Docker and migrates it. */
-    create: (
-      project: Project,
-      name: string,
-    ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>
+    create: (project: Project, name: string) => Promise<DatabaseCreated>
     startDocker: (project: Project) => Promise<boolean>
     stopDocker: (project: Project) => Promise<boolean>
+    /** Opens Docker Desktop and resolves once its engine answers; false where the Desktop cannot open it. */
+    openDocker: () => Promise<boolean>
     /** The log of `prumo db`, while it runs. */
     onLog: (listener: (chunk: string) => void) => () => void
   }
@@ -155,6 +195,8 @@ export type Bridge = {
       type: ProjectConfig['types'][number],
       answer?: PortAnswer,
     ) => Promise<PortCheck>
+    /** Asks a running API, on the port its check settled, whether it is ready. */
+    health: (port: number) => Promise<ApiHealth>
     start: (app: StartApp) => Promise<RunningApp>
     stop: (id: string) => Promise<RunningApp | undefined>
     /** Everything the app has written so far, to fill a terminal that was opened late. */
@@ -174,19 +216,26 @@ export const CHANNELS = {
   projectsAdd: 'prumo:projects:add',
   projectsRemove: 'prumo:projects:remove',
   projectsReveal: 'prumo:projects:reveal',
+  projectsOpeners: 'prumo:projects:openers',
+  projectsGit: 'prumo:projects:git',
+  projectsOpenIn: 'prumo:projects:open-in',
   projectsCreate: 'prumo:projects:create',
   projectsChooseParent: 'prumo:projects:choose-parent',
   projectsCreateLog: 'prumo:projects:create-log',
   docsRead: 'prumo:docs:read',
   docsOpenInEditor: 'prumo:docs:open-in-editor',
   openExternal: 'prumo:open-external',
+  copy: 'prumo:copy',
+  navigate: 'prumo:navigate',
   databaseState: 'prumo:database:state',
   databaseCreate: 'prumo:database:create',
   databaseStart: 'prumo:database:start',
   databaseStop: 'prumo:database:stop',
+  databaseOpenDocker: 'prumo:database:open-docker',
   databaseLog: 'prumo:database:log',
   list: 'prumo:apps:list',
   checkPort: 'prumo:apps:check-port',
+  health: 'prumo:apps:health',
   start: 'prumo:apps:start',
   stop: 'prumo:apps:stop',
   buffer: 'prumo:apps:buffer',

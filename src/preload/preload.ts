@@ -10,6 +10,14 @@ import {
 
 const bridge: Bridge = {
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
+  copy: (text: string) => ipcRenderer.invoke(CHANNELS.copy, text),
+  onNavigate: (listener) => {
+    const handler = (_event: unknown, project: string) => listener(project)
+    ipcRenderer.on(CHANNELS.navigate, handler)
+    return () => {
+      ipcRenderer.off(CHANNELS.navigate, handler)
+    }
+  },
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
   cli: {
     status: () => ipcRenderer.invoke(CHANNELS.cliStatus),
@@ -20,6 +28,9 @@ const bridge: Bridge = {
     add: () => ipcRenderer.invoke(CHANNELS.projectsAdd),
     remove: (path: string) => ipcRenderer.invoke(CHANNELS.projectsRemove, path),
     reveal: (path: string) => ipcRenderer.invoke(CHANNELS.projectsReveal, path),
+    openers: () => ipcRenderer.invoke(CHANNELS.projectsOpeners),
+    git: (path: string) => ipcRenderer.invoke(CHANNELS.projectsGit, path),
+    openIn: (app: string, path: string) => ipcRenderer.invoke(CHANNELS.projectsOpenIn, app, path),
     create: (input: NewProject) => ipcRenderer.invoke(CHANNELS.projectsCreate, input),
     chooseParent: () => ipcRenderer.invoke(CHANNELS.projectsChooseParent),
     onCreateLog: (listener) => {
@@ -40,6 +51,7 @@ const bridge: Bridge = {
     create: (project, name) => ipcRenderer.invoke(CHANNELS.databaseCreate, project, name),
     startDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStart, project),
     stopDocker: (project) => ipcRenderer.invoke(CHANNELS.databaseStop, project),
+    openDocker: () => ipcRenderer.invoke(CHANNELS.databaseOpenDocker),
     onLog: (listener) => {
       const handler = (_event: unknown, chunk: string) => listener(chunk)
       ipcRenderer.on(CHANNELS.databaseLog, handler)
@@ -52,6 +64,7 @@ const bridge: Bridge = {
     list: () => ipcRenderer.invoke(CHANNELS.list),
     checkPort: (project, type, answer) =>
       ipcRenderer.invoke(CHANNELS.checkPort, project, type, answer),
+    health: (port: number) => ipcRenderer.invoke(CHANNELS.health, port),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),
     stop: (id: string) => ipcRenderer.invoke(CHANNELS.stop, id),
     buffer: (id: string) => ipcRenderer.invoke(CHANNELS.buffer, id),

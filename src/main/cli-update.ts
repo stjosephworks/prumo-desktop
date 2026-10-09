@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } 
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { CliStatus } from '../shared/ipc.ts'
+import { compareVersions, parseVersion, sameMinor } from '../shared/versions.ts'
 import { findNode, findOnPath } from './environment.ts'
 
 const run = promisify(execFile)
@@ -17,30 +18,6 @@ const PACKAGE = '@stjoseph/prumo'
 // The abbreviated document npm itself installs from: every version and the dist-tags, without the readmes.
 const REGISTRY = `https://registry.npmjs.org/${PACKAGE}`
 const ABBREVIATED = 'application/vnd.npm.install-v1+json'
-
-type Version = [number, number, number]
-
-/** A plain release, `x.y.z`. A prerelease is never offered as an update. */
-export function parseVersion(text: string): Version | undefined {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(text.trim())
-
-  return match === null ? undefined : [Number(match[1]), Number(match[2]), Number(match[3])]
-}
-
-export function compareVersions(a: string, b: string): number {
-  const [left, right] = [parseVersion(a), parseVersion(b)]
-
-  if (left === undefined || right === undefined) return 0
-
-  return left[0] - right[0] || left[1] - right[1] || left[2] - right[2]
-}
-
-/** Whether the Desktop can run `candidate`, having been built with `shipped`: the same major and minor. */
-export function sameMinor(shipped: string, candidate: string): boolean {
-  const [left, right] = [parseVersion(shipped), parseVersion(candidate)]
-
-  return left !== undefined && right !== undefined && left[0] === right[0] && left[1] === right[1]
-}
 
 /** Where a CLI installed by `npm install --prefix <folder>` keeps its entry point. */
 function entryIn(folder: string): string {

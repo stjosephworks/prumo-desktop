@@ -3,14 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { expect, test } from 'vitest'
-import {
-  activeCli,
-  compareVersions,
-  installCli,
-  publishedVersions,
-  sameMinor,
-  statusOf,
-} from './cli-update.ts'
+import { compareVersions, sameMinor } from '../shared/versions.ts'
+import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 
 /** A CLI package as it sits on disk, with only what the rules read: its version. */
 function fakeCli(folder: string, version: string): string {

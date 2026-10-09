@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Button } from '../components/ui.tsx'
+import { useT } from '../i18n/i18n.tsx'
 
 /** A link inside a document, resolved against the document it came from. */
 function resolveLink(from: string, href: string): string {
@@ -26,6 +27,7 @@ function resolveLink(from: string, href: string): string {
 export function Docs() {
   const { path, doc } = useSearch({ from: '/docs' })
   const navigate = useNavigate()
+  const t = useT()
   const [text, setText] = useState<string>()
   const [error, setError] = useState<string>()
 
@@ -60,7 +62,7 @@ export function Docs() {
         </nav>
         <Button size="sm" onClick={() => window.prumo.docs.openInEditor(path, doc)}>
           <SquarePen />
-          Open in editor
+          {t.docs.openInEditor}
         </Button>
       </div>
 
