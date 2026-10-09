@@ -1,44 +1,86 @@
 name: Release
 
-# A push to main whose package.json version has no GitHub release yet becomes one: the app is signed with the
-# Developer ID, notarized, packaged as a dmg and a zip, and published as a draft. A person publishes the draft on
-# GitHub; only then does update.electronjs.org offer it to installed apps.
+# A push to main whose package.json version has no GitHub release yet becomes one: the app is built for Apple
+# silicon (arm64) and Intel (x64), packaged as a dmg and a zip per arch, and published to GitHub as a draft that a
+# person then publishes. update.electronjs.org serves each Mac the zip whose name carries its arch.
 #
-# Secrets it needs, all from the Apple Developer account:
+# How it is signed depends only on which secrets exist; adding them is the whole switch, no code changes:
+#
+#   all five  Developer ID: signed with the certificate, Hardened Runtime, notarized and stapled, checked with
+#             codesign, spctl and stapler, and drafted as a normal release. Installed apps update themselves.
+#   none      Ad-hoc: signed with `codesign --sign -`, not notarized, drafted as a pre-release whose notes
+#             (.github/release-notes/unsigned.md) explain macOS's Open Anyway. These apps never update themselves,
+#             and update.electronjs.org never serves a pre-release.
+#   some      The job fails and names what is missing: a typo must never ship an unsigned build quietly.
+#
+# The secrets, all from the Apple Developer account:
 #   APPLE_CERTIFICATE           the Developer ID Application certificate, exported as .p12, base64-encoded
 #   APPLE_CERTIFICATE_PASSWORD  the password the .p12 was exported with
 #   APPLE_ID                    the Apple ID that notarizes
 #   APPLE_PASSWORD              an app-specific password for that Apple ID
 #   APPLE_TEAM_ID               the team the certificate belongs to
-# Without them the job says so and stops: an unsigned build would never update itself.
+#
+# A version is released once: the first signed release needs a version with no release yet, and people on an ad-hoc
+# build install it by hand, once.
+#
+# Before publishing a signed draft, a person checks what the job cannot: download each dmg from the draft onto a Mac
+# that has never run Prumo Desktop (one Apple silicon, one Intel or under Rosetta), open it, drag the app to
+# Applications and launch it. Gatekeeper must open it without a warning; only the app inside the dmg is notarized and
+# stapled, the dmg itself is not signed.
+#
+# It can also be started by hand (Actions > Release > Run workflow) on main, for the version main already holds.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    # A run started by hand on another branch would release code that never went through dev and alpha.
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
 
-      - name: Decide whether this version needs a release
+      - name: Decide whether this version needs a release, and how it is signed
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
-          HAS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_ID != '' }}
+          # Whether each secret exists, never its value.
+          HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          HAS_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD != '' }}
+          HAS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
         run: |
           version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          set_=() missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            flag="HAS_$name"
+            if [ "${!flag}" = "true" ]; then set_+=("$name"); else missing+=("$name"); fi
+          done
+
+          if [ "${#set_[@]}" -eq 5 ]; then
+            mode=developer-id
+          elif [ "${#set_[@]}" -eq 0 ]; then
+            mode=ad-hoc
+          else
+            echo "::error::Signing needs all five Apple secrets, or none for an ad-hoc pre-release. Set: ${set_[*]}. Missing: ${missing[*]}."
+            exit 1
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
           if gh release view "v$version" > /dev/null 2>&1; then
             echo "v$version already has a release."
             echo "release=false" >> "$GITHUB_OUTPUT"
-          elif [ "$HAS_SIGNING" != "true" ]; then
-            echo "::warning::v$version is not released: the Apple Developer ID secrets are not set."
-            echo "release=false" >> "$GITHUB_OUTPUT"
           else
+            echo "v$version will be released, signed $mode."
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -54,7 +96,7 @@ jobs:
 
       # A keychain of its own for this job, holding only the certificate, unlocked for codesign.
       - name: Import the Developer ID certificate
-        if: steps.decide.outputs.release == 'true'
+        if: steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'developer-id'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -69,11 +111,64 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
-      - name: Sign, notarize, make and publish the draft
+      # `pnpm release` in two halves, so nothing is uploaded before the signatures are checked. build/signing.cjs
+      # reads the same three variables: empty, as GitHub passes a missing secret, means ad-hoc.
+      - name: Sign, notarize when signed with a Developer ID, and make
         if: steps.decide.outputs.release == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # One arch at a time, each in its own folder: see outDir in forge.config.js.
+        run: |
+          pnpm prepare-run
+          for arch in arm64 x64; do
+            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --dry-run --arch="$arch"
+          done
+
+      # Every app is checked: its whole bundle signed, and, with a Developer ID, what Gatekeeper will judge on a user's
+      # Mac: the Developer ID authority, notarized, with the ticket stapled.
+      - name: Check the signatures
+        if: steps.decide.outputs.release == 'true'
+        env:
+          MODE: ${{ steps.decide.outputs.mode }}
+        run: |
+          checked=0
+          while IFS= read -r app; do
+            echo "::group::$app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            if [ "$MODE" = "developer-id" ]; then
+              codesign --display --verbose=2 "$app" 2>&1 | grep -E 'Authority=Developer ID Application|TeamIdentifier|flags'
+              spctl --assess --type execute --verbose=4 "$app"
+              xcrun stapler validate "$app"
+            else
+              codesign --display --verbose=2 "$app" 2>&1 | grep -x 'Signature=adhoc'
+            fi
+            echo "::endgroup::"
+            checked=$((checked + 1))
+          done < <(find out/arm64 out/x64 -maxdepth 2 -name '*.app' -type d)
+          # One app per arch: arm64 and x64.
+          test "$checked" -eq 2
+
+      - name: Publish the draft
+        if: steps.decide.outputs.release == 'true'
+        env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pnpm release
+        # Both go to the same draft: the publisher finds the release the first one created by its tag.
+        run: |
+          for arch in arm64 x64; do
+            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --from-dry-run
+          done
+
+      - name: Explain how to open an unsigned pre-release
+        if: steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'ad-hoc'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.decide.outputs.version }}
+        run: |
+          sed "s/<version>/$VERSION/g" .github/release-notes/unsigned.md > "$RUNNER_TEMP/notes.md"
+          gh release edit "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+
+      - name: Remove the signing keychain
+        if: always() && steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'developer-id'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

@@ -59,7 +59,8 @@ pnpm test        # real processes and the embedded CLI, no mocks
 pnpm lint
 pnpm typecheck
 pnpm smoke       # packages the app and checks it with the PATH an app opened from Finder gets
-pnpm release     # what .github/workflows/release.yml runs: signs, notarizes, makes and drafts a GitHub release
+pnpm release     # what .github/workflows/release.yml runs: signs (Developer ID or ad-hoc), makes and drafts a release
+pnpm icon        # renders build/icon.svg into build/icon.icns
 ```
 
 **Tests use the real thing.** The process layer starts real processes and checks that stopping one frees its port;

@@ -32,9 +32,26 @@ pnpm typecheck
 pnpm smoke       # packages the app and checks it with the PATH an app opened from Finder gets
 ```
 
+## Releases
+
+`.github/workflows/release.yml` turns a new `package.json` version on `main` into a GitHub draft, with a dmg and a zip
+for Apple silicon (arm64) and for Intel (x64). How the app is signed depends only on which secrets the repository
+has:
+
+| Secrets | Build | Release |
+|---|---|---|
+| None | Ad-hoc signature (`codesign --sign -`), not notarized; the app never updates itself | A pre-release, with first-launch instructions from `.github/release-notes/unsigned.md` |
+| All five: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signature with the Hardened Runtime, notarized and stapled | A release; installed apps update themselves through update.electronjs.org |
+| Only some | The job fails and names what is missing | None |
+
+**Switching to signed releases takes nothing but adding the five secrets.** The first signed version has to be a
+version with no release yet, and anyone on an ad-hoc build installs it by hand, once: an ad-hoc build does not
+update itself. `pnpm package` locally makes an ad-hoc build too.
+
 ## Requirements (for users)
 
-Node 22.17 or later and pnpm. The Desktop checks them; it never installs them.
+Node 22.18 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
+`prumo doctor`; it never installs them.
 
 ## License
 

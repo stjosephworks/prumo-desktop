@@ -10,9 +10,12 @@ import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
 import { createTray } from './tray.ts'
+import { updaterEnabled } from './updates.ts'
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
 declare const MAIN_WINDOW_VITE_NAME: string
+/** Baked in by vite.main.config.mjs from build/signing.cjs: whether this build is signed with a Developer ID. */
+declare const DEVELOPER_ID_BUILD: boolean
 
 // Forge builds the main process as CommonJS, where `import.meta.dirname` is undefined: use `__dirname`.
 const here = __dirname
@@ -148,8 +151,9 @@ function watchApps(): void {
 }
 
 // A packaged app updates itself from GitHub Releases through update.electronjs.org, which serves only signed macOS
-// builds of a public repository: it checks at launch and every ten minutes, then asks to restart.
-if (app.isPackaged) {
+// builds of a public repository: it checks at launch and every ten minutes, then asks to restart. An ad-hoc build
+// never starts it (src/main/updates.ts).
+if (updaterEnabled({ packaged: app.isPackaged, developerId: DEVELOPER_ID_BUILD })) {
   updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,

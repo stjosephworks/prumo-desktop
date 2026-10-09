@@ -16,7 +16,7 @@ import { refreshProjects, useProjects } from '../use-projects.ts'
 function Shape({ project }: { project: Project }) {
   if (project.config === undefined) return null
 
-  const { types, architecture, multiTenant, mcp } = project.config
+  const { types, architecture, multiTenant, mcp, email, social } = project.config
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -26,6 +26,10 @@ function Shape({ project }: { project: Project }) {
       <Tag>{architecture}</Tag>
       {multiTenant && <Tag>multi-tenant</Tag>}
       {mcp && <Tag tone="brass">MCP</Tag>}
+      {email && <Tag>email</Tag>}
+      {social.map((provider) => (
+        <Tag key={provider}>{provider}</Tag>
+      ))}
     </div>
   )
 }

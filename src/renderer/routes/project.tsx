@@ -355,6 +355,10 @@ export function ProjectScreen() {
                 <Tag>{project.config.architecture}</Tag>
                 {project.config.multiTenant && <Tag>multi-tenant</Tag>}
                 {project.config.mcp && <Tag tone="brass">MCP</Tag>}
+                {project.config.email && <Tag>email</Tag>}
+                {project.config.social.map((provider) => (
+                  <Tag key={provider}>{provider}</Tag>
+                ))}
                 <ProjectVersion made={project.config.prumo} />
               </div>
             )}

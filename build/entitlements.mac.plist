@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The Hardened Runtime exceptions of the app's own executables, which notarization requires the runtime for.
+  V8 compiles JavaScript just in time, so the main process needs MAP_JIT memory. Nothing else is asked for:
+  @electron/osx-sign's default for these files also grants the camera, microphone, Bluetooth, location, USB and
+  printing, which Prumo Desktop never uses. Electron's helper apps keep osx-sign's own defaults (forge.config.js).
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+  </dict>
+</plist>

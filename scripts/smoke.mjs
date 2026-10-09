@@ -123,6 +123,8 @@ try {
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      email: false,
+      social: [],
     })})`,
     3,
   )

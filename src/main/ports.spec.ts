@@ -57,7 +57,14 @@ beforeAll(async () => {
     path: join(parent, 'spec-ports'),
     name: 'spec-ports',
     found: true,
-    config: { types: ['web'], architecture: 'alone', multiTenant: false, mcp: false },
+    config: {
+      types: ['web'],
+      architecture: 'alone',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
   }
 })
 

@@ -1,14 +1,33 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Check, Folder, Globe, type LucideIcon, Server, Smartphone, Sparkles } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  Folder,
+  Globe,
+  KeyRound,
+  type LucideIcon,
+  Mail,
+  Server,
+  Smartphone,
+  Sparkles,
+} from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import type { ProjectConfig } from '../../shared/ipc.ts'
-import { allowsAlone, asksMcp, asksTenancy } from '../../shared/questions.ts'
+import type { Project, ProjectConfig, SocialProvider } from '../../shared/ipc.ts'
+import {
+  allowsAlone,
+  asksEmail,
+  asksMcp,
+  asksSocial,
+  asksTenancy,
+  SOCIAL_PROVIDERS,
+} from '../../shared/questions.ts'
 import {
   Button,
   cx,
   INPUT,
   Label,
   LogBlock,
+  Notice,
   PageHeader,
   ProgressBar,
   Section,
@@ -81,6 +100,44 @@ function Field({
   )
 }
 
+/** A yes-or-no question about a feature, as a card that is ticked. */
+function Toggle({
+  icon: Icon,
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label
+      className={cx(
+        'flex cursor-pointer items-start gap-3 rounded-md border bg-card p-4 transition-colors',
+        checked ? 'border-brass bg-brass/[0.06]' : 'border-rule hover:border-brass',
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1"
+      />
+      <span>
+        <span className="flex items-center gap-1.5 font-serif font-semibold text-navy">
+          <Icon className="size-3.5 text-brass-ink" />
+          {title}
+        </span>
+        <span className="block text-sm text-muted-foreground">{description}</span>
+      </span>
+    </label>
+  )
+}
+
 /**
  * Every question the CLI asks, as a form. The name is judged by `prumo new`, and its answer is shown beside the
  * field. Which questions apply to the chosen types follows the CLI (`src/shared/questions.ts`), so the form only
@@ -95,6 +152,10 @@ export function NewProject() {
   const [architecture, setArchitecture] = useState<ProjectConfig['architecture']>('monorepo')
   const [multiTenant, setMultiTenant] = useState(false)
   const [mcp, setMcp] = useState(false)
+  const [email, setEmail] = useState(false)
+  const [social, setSocial] = useState<SocialProvider[]>([])
+  // A project the CLI created with warnings: they are read here before going on, since the list would hide them.
+  const [created, setCreated] = useState<{ project: Project; warnings: string[] }>()
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<{ code: string; message: string }>()
   const [log, setLog] = useState('')
@@ -116,6 +177,12 @@ export function NewProject() {
     )
   }
 
+  const toggleProvider = (provider: SocialProvider, on: boolean) => {
+    setSocial((current) =>
+      on ? [...current, provider] : current.filter((one) => one !== provider),
+    )
+  }
+
   const create = async () => {
     if (parent === undefined || name === '' || types.length === 0) return
 
@@ -130,12 +197,18 @@ export function NewProject() {
       architecture: shape,
       multiTenant: asksTenancy(types) && multiTenant,
       mcp: asksMcp(types) && mcp,
+      email: asksEmail(types) && email,
+      social: asksSocial(types) ? social : [],
     })
 
     setCreating(false)
 
     if (result.ok) {
       await refreshProjects()
+      if (result.warnings.length > 0) {
+        setCreated({ project: result.project, warnings: result.warnings })
+        return
+      }
       navigate({ to: '/' })
       return
     }
@@ -153,7 +226,7 @@ export function NewProject() {
         description={t.newProject.description}
       />
 
-      <fieldset disabled={creating} className="space-y-10">
+      <fieldset disabled={creating || created !== undefined} className="space-y-10">
         <Section title={t.newProject.where}>
           <div className="grid grid-cols-[1fr_1.2fr] gap-5">
             <Field
@@ -271,27 +344,55 @@ export function NewProject() {
             )}
           </div>
 
-          {asksMcp(types) && (
-            <label
-              className={cx(
-                'mt-6 flex cursor-pointer items-start gap-3 rounded-md border bg-card p-4 transition-colors',
-                mcp ? 'border-brass bg-brass/[0.06]' : 'border-rule hover:border-brass',
+          {(asksMcp(types) || asksEmail(types)) && (
+            <div className="mt-6 space-y-3">
+              {asksMcp(types) && (
+                <Toggle
+                  icon={Sparkles}
+                  title="MCP"
+                  description={t.newProject.mcp}
+                  checked={mcp}
+                  onChange={setMcp}
+                />
               )}
-            >
-              <input
-                type="checkbox"
-                checked={mcp}
-                onChange={(event) => setMcp(event.target.checked)}
-                className="mt-1"
-              />
-              <span>
-                <span className="flex items-center gap-1.5 font-serif font-semibold text-navy">
-                  <Sparkles className="size-3.5 text-brass-ink" />
-                  MCP
-                </span>
-                <span className="block text-sm text-muted-foreground">{t.newProject.mcp}</span>
-              </span>
-            </label>
+              {asksEmail(types) && (
+                <Toggle
+                  icon={Mail}
+                  title={t.newProject.emailTitle}
+                  description={t.newProject.email}
+                  checked={email}
+                  onChange={setEmail}
+                />
+              )}
+            </div>
+          )}
+
+          {asksSocial(types) && (
+            <div className="mt-6">
+              <Field label={t.newProject.socialTitle} hint={t.newProject.social}>
+                <div className="flex flex-wrap gap-3">
+                  {SOCIAL_PROVIDERS.map((provider) => (
+                    <label
+                      key={provider}
+                      className={cx(
+                        'flex cursor-pointer items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm transition-colors',
+                        social.includes(provider)
+                          ? 'border-brass bg-brass/[0.06]'
+                          : 'border-rule hover:border-brass',
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={social.includes(provider)}
+                        onChange={(event) => toggleProvider(provider, event.target.checked)}
+                      />
+                      <KeyRound className="size-3.5 text-brass-ink" />
+                      {t.newProject.providers[provider]}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            </div>
           )}
         </Section>
       </fieldset>
@@ -300,7 +401,13 @@ export function NewProject() {
         <Button
           variant="primary"
           onClick={create}
-          disabled={creating || parent === undefined || name === '' || types.length === 0}
+          disabled={
+            creating ||
+            created !== undefined ||
+            parent === undefined ||
+            name === '' ||
+            types.length === 0
+          }
           className="h-9 px-5"
         >
           {creating ? t.newProject.creating : t.newProject.create}
@@ -316,6 +423,23 @@ export function NewProject() {
       </div>
 
       {creating && <ProgressBar label={t.newProject.creatingLabel} className="relative mt-4" />}
+
+      {/* The CLI's own words: it judged these answers worth a warning, not a refusal. */}
+      {created !== undefined && (
+        <div className="mt-6 space-y-3">
+          <p className="text-sm text-ink">
+            {t.newProject.createdWithWarnings(created.project.name)}
+          </p>
+          {created.warnings.map((warning) => (
+            <Notice key={warning} tone="warning" icon={<AlertTriangle className="text-warning" />}>
+              {warning}
+            </Notice>
+          ))}
+          <Button variant="primary" className="h-9 px-5" onClick={() => navigate({ to: '/' })}>
+            {t.newProject.continue}
+          </Button>
+        </div>
+      )}
 
       {/* An error the CLI did not tie to a field still has to be seen. */}
       {error !== undefined && !['invalid_input', 'target_not_empty'].includes(error.code) && (

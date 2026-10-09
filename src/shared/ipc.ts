@@ -24,7 +24,14 @@ export type ProjectConfig = {
   multiTenant: boolean
   /** An MCP server on the api. A project from a CLI older than 0.1.0 has no such field, and is read as false. */
   mcp: boolean
+  /** Email verification and password reset. Written since 0.4.0; an older project is read as false. */
+  email: boolean
+  /** The social sign-in providers. Written since 0.4.0; an older project is read as none. */
+  social: SocialProvider[]
 }
+
+/** The providers `prumo new --social` accepts. */
+export type SocialProvider = 'google' | 'apple'
 
 /**
  * The Prumo CLI the Desktop runs. `shipped` is the copy inside the app; `updated` is a newer one of the same
@@ -63,6 +70,10 @@ export type NewProject = {
   multiTenant: boolean
   /** Only asked, and only passed, when the types hold both api and web. */
   mcp: boolean
+  /** Only asked, and only passed, when the types hold api. */
+  email: boolean
+  /** Only asked, and only passed, when the types hold api and a web or mobile app; empty means none. */
+  social: SocialProvider[]
 }
 
 /**
@@ -70,9 +81,10 @@ export type NewProject = {
  * `invalid_input` belongs beside the name, `target_not_empty` beside the folder. The CLI also answers
  * `invalid_input` for a combination of flags, but the form never sends one (`src/shared/questions.ts`), so what
  * reaches it is about the name.
+ * A created project carries the CLI's `warnings`: consequences of the answers it did not refuse, in its words.
  */
 export type CreateResult =
-  | { ok: true; project: Project }
+  | { ok: true; project: Project; warnings: string[] }
   | { ok: false; code: string; message: string }
 
 /** Whether the project has a database to create, and whether it already has one. */

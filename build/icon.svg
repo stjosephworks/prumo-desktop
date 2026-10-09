@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Prumo Desktop's app icon, the source of build/icon.icns (scripts/make-icon.mjs renders it).
+    The artwork is Prumo's logo redrawn from its 683 x 683 PNG, in that PNG's own coordinates, and placed on the
+    macOS icon grid: an 824 x 824 rounded rectangle, 100 px in from each side of the 1024 canvas.
+  -->
+  <title>Prumo Desktop</title>
+  <defs>
+    <clipPath id="body">
+      <rect x="100" y="100" width="824" height="824" rx="185.4" ry="185.4"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#body)">
+    <g transform="translate(100 100) scale(1.206442)">
+      <rect width="683" height="683" fill="#f2f2f2"/>
+      <g stroke="#1b365d" stroke-width="9.69" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="341.5" y1="97.09" x2="341.5" y2="270"/>
+        <polygon points="293.06,295.53 389.94,295.53 426.19,363.33 341.5,556.64 256.81,363.33" fill="#1b365d"/>
+        <line x1="244.9" y1="585.97" x2="438.1" y2="585.97"/>
+      </g>
+      <rect x="317.3" y="261.6" width="48.4" height="35" rx="10" fill="#1b365d"/>
+      <polygon points="341.5,326.96 401.99,375.35 341.5,520.58" fill="#495e7d"/>
+    </g>
+  </g>
+</svg>
