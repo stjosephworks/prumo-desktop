@@ -12,7 +12,7 @@ on:
 
 jobs:
   checks:
-    # macOS is what 0.0.1 targets; Ubuntu is where Docker exists, so the database tests actually run somewhere.
+    # macOS is what the 0.0.x previews target; Ubuntu is where Docker exists, so the database tests actually run somewhere.
     strategy:
       fail-fast: false
       matrix:

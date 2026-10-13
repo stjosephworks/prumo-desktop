@@ -9,11 +9,11 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 
 ## Status
 
-**Version 0.0.1 runs on macOS, unsigned.** It creates and lists projects, runs their apps and their database,
+**Version 0.0.2 runs on macOS, unsigned.** It creates and lists projects, runs their apps and their database,
 and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
 was built.
 
-Next is the first signed and notarised build, well before any public release. Version 0.0.1 targets macOS only,
+Next is the first signed and notarised build, well before any public release. The 0.0.x previews target macOS only,
 and every technology choice must also work on Windows and Linux.
 
 ## Branches
