@@ -1,7 +1,7 @@
 {
   "name": "prumo-desktop",
   "productName": "Prumo Desktop",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": "github:stjosephworks/prumo-desktop",
   "private": true,
   "description": "Desktop app for Prumo: create, follow and run Prumo projects",
