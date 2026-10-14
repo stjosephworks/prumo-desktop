@@ -54,3 +54,44 @@ jobs:
           env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -lc 'node --version && pnpm --version'
       - run: pnpm install
       - run: pnpm smoke
+
+  packaged-linux:
+    # The same path on Linux: a packaged app under a virtual display, opened with the bare system PATH, which it must
+    # extend from the login shell as fix-path does. Then the deb and rpm the release ships, made and read back.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install what the makers and the virtual display need
+        run: sudo apt-get update && sudo apt-get install -y rpm xvfb
+      # On a runner node and pnpm live in the tool cache, on the job's PATH only. A developer's machine puts them on
+      # the login shell's PATH, through nvm or a profile line; so does this, and the app must find them there.
+      - name: Put pnpm and node where a login shell finds them
+        run: |
+          profile="$HOME/.profile"
+          [ -f "$HOME/.bash_profile" ] && profile="$HOME/.bash_profile"
+          echo "export PATH=\"$(dirname "$(command -v node)"):$(dirname "$(command -v pnpm)"):\$PATH\"" >> "$profile"
+          env -i HOME="$HOME" PATH=/usr/bin:/bin bash -ilc 'node --version && pnpm --version'
+      - run: pnpm install
+      - run: pnpm package
+      # Packaged but not installed, Chromium's sandbox helper is not setuid root, and Ubuntu restricts the user
+      # namespaces it would fall back to. The deb and rpm set it on install; this does what they do.
+      - name: Make chrome-sandbox setuid root, as installing the package does
+        run: |
+          sandbox="$(find out -maxdepth 2 -name chrome-sandbox -type f)"
+          sudo chown root:root "$sandbox"
+          sudo chmod 4755 "$sandbox"
+      - run: xvfb-run -a node scripts/smoke.mjs
+      - name: Make the deb and the rpm, and read them back
+        run: |
+          pnpm exec electron-forge make --skip-package
+          deb="$(find out/make -name '*.deb')"
+          rpm="$(find out/make -name '*.rpm')"
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'
+          rpm -qip "$rpm"
+          rpm -qlp "$rpm" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'

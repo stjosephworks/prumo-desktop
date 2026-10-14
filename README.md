@@ -29,7 +29,7 @@ pnpm start       # development
 pnpm test        # real processes and the embedded CLI, no mocks
 pnpm lint        # biome
 pnpm typecheck
-pnpm smoke       # packages the app and checks it with the PATH an app opened from Finder gets
+pnpm smoke       # packages the app and checks it with the PATH an app opened from the desktop gets
 ```
 
 ## Releases

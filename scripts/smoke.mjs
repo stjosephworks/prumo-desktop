@@ -2,15 +2,19 @@
 //
 //   pnpm package && node scripts/smoke.mjs
 //
-// It starts the app with the environment an app opened from Finder receives (launchd's PATH, nothing else),
-// then asks the renderer itself what the bridge returned and what the window shows. The app is closed at the end.
+// It starts the app with the environment an app opened from the desktop receives: on macOS launchd's PATH from
+// Finder, on Linux the bare system PATH a desktop entry may start with, and nothing else. Then it asks the renderer
+// itself what the bridge returned and what the window shows. The app is closed at the end.
 // Anything that needs a native dialog, such as adding a folder, is not reachable from here on purpose.
-import { execFileSync, spawn } from 'node:child_process'
+// On Linux it needs a display: in CI it runs under xvfb-run.
+import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const FINDER_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+const LINUX_PATH = '/usr/bin:/bin'
 // Built from the character code: an escape written into a regular expression is a control character.
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[a-zA-Z]`, 'g')
 const PORT = 9333
@@ -20,24 +24,52 @@ const bundle = readdirSync(out).find((entry) => entry.startsWith('Prumo Desktop-
 
 if (bundle === undefined) throw new Error('No packaged app in out/. Run `pnpm package` first.')
 
-const binary = join(out, bundle, 'Prumo Desktop.app', 'Contents', 'MacOS', 'Prumo Desktop')
+// Where Packager puts the binary: inside the bundle on macOS, named by executableName on Linux (forge.config.js).
+const binary = {
+  darwin: join(out, bundle, 'Prumo Desktop.app', 'Contents', 'MacOS', 'Prumo Desktop'),
+  linux: join(out, bundle, 'prumo-desktop'),
+  win32: join(out, bundle, 'Prumo Desktop.exe'),
+}[process.platform]
 
-if (!existsSync(binary)) throw new Error(`No binary at ${binary}`)
+if (binary === undefined || !existsSync(binary)) throw new Error(`No binary at ${binary}`)
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-function portHeld(port) {
-  try {
-    execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' })
-    return true
-  } catch {
-    return false
-  }
+/** Whether a port answers on either loopback address, asked over TCP: the same on every system, no lsof. */
+async function portHeld(port) {
+  const answers = (host) =>
+    new Promise((done) => {
+      const socket = connect({ host, port })
+      const finish = (open) => {
+        socket.destroy()
+        done(open)
+      }
+      socket.setTimeout(1_000, () => finish(false))
+      socket.once('connect', () => finish(true))
+      socket.once('error', () => finish(false))
+    })
+
+  return (await answers('127.0.0.1')) || (await answers('::1'))
 }
 
-// `env -i` on purpose: inheriting this shell's PATH would hide exactly the bug fix-path exists for.
+/**
+ * Nothing but what the desktop hands an app: inheriting this shell's PATH would hide exactly the bug fix-path
+ * exists for. Linux also passes on the display, which the app cannot open a window without. Windows keeps the
+ * whole environment until the Desktop has a PATH strategy of its own there.
+ */
+const environment =
+  {
+    darwin: { PATH: FINDER_PATH, HOME: process.env.HOME },
+    linux: {
+      PATH: LINUX_PATH,
+      HOME: process.env.HOME,
+      DISPLAY: process.env.DISPLAY,
+      XAUTHORITY: process.env.XAUTHORITY,
+    },
+  }[process.platform] ?? process.env
+
 const child = spawn(binary, [`--remote-debugging-port=${PORT}`], {
-  env: { PATH: FINDER_PATH, HOME: process.env.HOME },
+  env: Object.fromEntries(Object.entries(environment).filter(([, value]) => value !== undefined)),
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let log = ''
@@ -174,7 +206,7 @@ try {
       if (!run.ready) await sleep(1000)
     }
 
-    run.portWhileRunning = run.ready && portHeld(run.port)
+    run.portWhileRunning = run.ready && (await portHeld(run.port))
 
     // The project screen, with the app running: the address button comes from what the app printed.
     await evaluate(
@@ -190,7 +222,7 @@ try {
 
     await evaluate(socket, `window.prumo.apps.stop(${JSON.stringify(id)})`, 7)
     await sleep(1500)
-    run.portAfterStop = run.ready && portHeld(run.port)
+    run.portAfterStop = run.ready && (await portHeld(run.port))
     run.state = await evaluate(
       socket,
       `(async () => (await window.prumo.apps.list()).find((one) => one.id === ${JSON.stringify(id)}))()`,
@@ -225,7 +257,8 @@ try {
   rmSync(parent, { recursive: true, force: true })
 
   const failures = []
-  if (environment?.node === undefined) failures.push('the app found no Node with the Finder PATH')
+  if (environment?.node === undefined)
+    failures.push("the app found no Node with the desktop's PATH")
   if (!Array.isArray(environment?.checks) || environment.checks.length === 0) {
     failures.push('`prumo doctor` returned no checks')
   }
@@ -275,7 +308,7 @@ try {
     console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}`)
     process.exitCode = 1
   } else {
-    console.log('\nSmoke passed: packaged app, Finder PATH, bridge and screen.')
+    console.log("\nSmoke passed: packaged app, the desktop's PATH, bridge and screen.")
   }
 } finally {
   child.kill('SIGTERM')
