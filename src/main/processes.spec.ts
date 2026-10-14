@@ -59,13 +59,6 @@ function waitFor(condition: () => boolean | Promise<boolean>, timeoutMs = 30_000
   })
 }
 
-/**
- * The process layer runs `pnpm` in a pseudo terminal and stops it by signalling its process group. Windows has no
- * process groups, and node-pty looks a command up there without PATHEXT, so `pnpm` is not even found: these tests
- * run on Windows once the process layer has a Windows implementation.
- */
-const posixOnly = test.skipIf(process.platform === 'win32')
-
 // A fresh instance per test: state left by one test would otherwise answer another test's question.
 let apps = new Apps()
 
@@ -77,7 +70,7 @@ afterEach(async () => {
   await apps.stopAll()
 })
 
-posixOnly('starts an app, reports its output, and stops its whole process tree', async () => {
+test('starts an app, reports its output, and stops its whole process tree', async () => {
   const directory = project({ dev: 'node server.mjs' })
   let output = ''
   apps.on('output', (_id, data) => {
@@ -101,7 +94,7 @@ posixOnly('starts an app, reports its output, and stops its whole process tree',
   expect(await portHeld(PORT)).toBe(false)
 })
 
-posixOnly('an app that exits with an error is failed, not stopped', async () => {
+test('an app that exits with an error is failed, not stopped', async () => {
   const directory = project({ dev: 'node --eval "process.exit(3)"' })
 
   const started = apps.start({ project: directory, script: 'dev' })
@@ -110,7 +103,7 @@ posixOnly('an app that exits with an error is failed, not stopped', async () => 
   expect(apps.get(started.id)?.exitCode).toBe(3)
 })
 
-posixOnly('quitting stops everything that is still running', async () => {
+test('quitting stops everything that is still running', async () => {
   const directory = project({ dev: 'node server.mjs' })
 
   const started = apps.start({ project: directory, script: 'dev' })
@@ -122,7 +115,7 @@ posixOnly('quitting stops everything that is still running', async () => {
   expect(apps.get(started.id)?.state).toBe('stopped')
 })
 
-/** The pseudo terminal's own pid, which is the group leader. */
+/** The pseudo terminal's own pid: the group leader on macOS and Linux, cmd.exe on Windows. */
 function processTreeRoot(instance: Apps, id: string): number {
   const entries = instance as unknown as { entries: Map<string, { terminal: { pid: number } }> }
   const entry = entries.entries.get(id)
