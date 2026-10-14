@@ -42,3 +42,16 @@ export function apiDirectory(project: Project): string | undefined {
 export function partId(project: Project, part: Part): string {
   return `${project.path}#${part.script}`
 }
+
+/**
+ * The last segment of a path, for the renderer, which has no `node:path`. Either separator counts: a path the main
+ * process hands over on Windows is written with backslashes.
+ */
+export function folderName(path: string): string {
+  return (
+    path
+      .split(/[\\/]/)
+      .filter((segment) => segment !== '')
+      .at(-1) ?? path
+  )
+}

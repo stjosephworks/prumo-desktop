@@ -9,6 +9,8 @@ import type { AppState, RunningApp, StartApp } from '../shared/ipc.ts'
 const BUFFER_LIMIT = 200_000
 const SIGKILL_AFTER_MS = 5_000
 
+const windows = process.platform === 'win32'
+
 type Entry = {
   app: RunningApp
   terminal: pty.IPty
@@ -24,35 +26,99 @@ export function appId(project: string, script: string): string {
   return `${project}#${script}`
 }
 
-/** Every process alive right now, as `ps` sees it. */
-function processes(): { pid: number; ppid: number; pgid: number; command: string }[] {
-  return execFileSync('ps', ['-A', '-o', 'pid=,ppid=,pgid=,command='], { encoding: 'utf8' })
+/** A process as the system lists it. `started` is its creation time on Windows (a FILETIME), and 0 elsewhere. */
+type Proc = { pid: number; ppid: number; started: number }
+
+/** Every process alive right now: `ps` on macOS and Linux, Win32_Process on Windows. */
+function processes(): Proc[] {
+  if (windows) {
+    // The creation time is what tells a real child from a process that reused its parent's number (below).
+    const listed = execFileSync(
+      'powershell',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $(if ($_.CreationDate) { $_.CreationDate.ToFileTimeUtc() } else { 0 })" }',
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
+    )
+
+    return listed
+      .split('\n')
+      .map((line) => line.trim().split(/\s+/).map(Number))
+      .filter(([pid, ppid]) => Number.isInteger(pid) && Number.isInteger(ppid))
+      .map(([pid = 0, ppid = 0, started = 0]) => ({ pid, ppid, started }))
+  }
+
+  return execFileSync('ps', ['-A', '-o', 'pid=,ppid='], { encoding: 'utf8' })
     .split('\n')
-    .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/))
+    .map((line) => line.trim().match(/^(\d+)\s+(\d+)$/))
     .filter((match) => match !== null)
-    .map((match) => ({
-      pid: Number(match[1]),
-      ppid: Number(match[2]),
-      pgid: Number(match[3]),
-      command: match[4] ?? '',
-    }))
+    .map((match) => ({ pid: Number(match[1]), ppid: Number(match[2]), started: 0 }))
 }
 
-/** A process and everything it started, however deep: `pnpm` is never the only one holding a port. */
-export function processTree(root: number): number[] {
+/**
+ * A process and everything it started, however deep, with when each started: `pnpm` is never the only one holding a
+ * port.
+ *
+ * On Windows a process keeps its parent's id after the parent exits, and the id is then given to the next process
+ * that starts, so a tree followed by ids alone can adopt a stranger, even a system process. A child is therefore
+ * only taken as one when it started after its parent, as Prumo's own scripts/ports.mjs does since 0.5.0.
+ */
+function tree(root: number): Map<number, number> {
   const all = processes()
-  const found = all.filter((proc) => proc.pid === root).map((proc) => proc.pid)
+  const started = new Map(all.map((proc) => [proc.pid, proc.started]))
+  const found = new Map<number, number>()
 
-  for (let index = 0; index < found.length; index++) {
+  if (!started.has(root)) return found
+  found.set(root, started.get(root) ?? 0)
+
+  for (const parent of found.keys()) {
+    const parentStarted = found.get(parent) ?? 0
     for (const proc of all) {
-      if (proc.ppid === found[index] && !found.includes(proc.pid)) found.push(proc.pid)
+      const honest = !windows || proc.started >= parentStarted
+      if (proc.ppid === parent && proc.pid !== parent && honest && !found.has(proc.pid)) {
+        found.set(proc.pid, proc.started)
+      }
     }
   }
 
   return found
 }
 
+/** A process and everything it started, however deep: `pnpm` is never the only one holding a port. */
+export function processTree(root: number): number[] {
+  return [...tree(root).keys()]
+}
+
+/**
+ * How `pnpm <script>` is started in the pseudo terminal. node-pty looks a command up on Windows without PATHEXT, so
+ * `pnpm` alone, a `pnpm.cmd`, is not found, and a batch file is only run through cmd.exe anyway. `/d` skips cmd's
+ * AutoRun commands, and `/s /c` runs the quoted command line as it is (cmd /?).
+ */
+function command(script: string): { file: string; args: string[] } {
+  if (windows) {
+    return {
+      file: process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe',
+      args: ['/d', '/s', '/c', `pnpm ${script}`],
+    }
+  }
+
+  return { file: 'pnpm', args: [script] }
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Whether a process is still there: signal 0 tests without sending anything (kill(2), and Node on Windows). */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 export class Apps extends EventEmitter<Events> {
   private readonly entries = new Map<string, Entry>()
@@ -73,7 +139,7 @@ export class Apps extends EventEmitter<Events> {
   /**
    * Starts `pnpm <script>` in the project, inside a pseudo terminal. The terminal is what makes Expo print its
    * QR code and its shortcuts, keeps colours, and lets the user answer a question the app asks.
-   * node-pty makes the child a session leader, so its whole tree shares one process group.
+   * On macOS and Linux node-pty makes the child a session leader, so its whole tree shares one process group.
    */
   start({ project, script, cols = 110, rows = 30, port }: StartApp): RunningApp {
     const id = appId(project, script)
@@ -86,7 +152,8 @@ export class Apps extends EventEmitter<Events> {
       return { ...current.app }
     }
 
-    const terminal = pty.spawn('pnpm', [script], {
+    const { file, args } = command(script)
+    const terminal = pty.spawn(file, args, {
       name: 'xterm-256color',
       cols,
       rows,
@@ -128,8 +195,15 @@ export class Apps extends EventEmitter<Events> {
   }
 
   /**
-   * Stops an app by signalling its **whole process group**, not only `pnpm`: killing the parent alone leaves
-   * Vite, Fastify or Metro holding their ports. SIGTERM first, SIGKILL for whatever is still there.
+   * Stops an app with its **whole process tree**, not only `pnpm`: killing the parent alone leaves Vite, Fastify or
+   * Metro holding their ports.
+   *
+   * macOS and Linux: SIGTERM to the process group, SIGKILL for whatever is still there.
+   * Windows has no process groups. Ctrl+C goes into the terminal first, as a person would type it, so a generated
+   * project's scripts/ports.mjs stops what it started; then the pseudo console is closed, which ends every process
+   * attached to it; then whatever is left of the tree read before the first step is ended by its own id, and only
+   * when that id still belongs to the process that was read, by its creation time. `taskkill /T` is never used: it
+   * follows parent ids, which Windows does not keep honest.
    */
   async stop(id: string): Promise<RunningApp | undefined> {
     const entry = this.entries.get(id)
@@ -137,19 +211,59 @@ export class Apps extends EventEmitter<Events> {
     if (entry === undefined) return undefined
     if (entry.app.state === 'stopped' || entry.app.state === 'failed') return { ...entry.app }
 
-    const members = processTree(entry.terminal.pid)
+    const members = tree(entry.terminal.pid)
     this.change(entry, 'stopped')
+
+    if (windows) {
+      await this.stopOnWindows(entry, members)
+      return { ...entry.app }
+    }
+
     this.signal(entry.terminal.pid, 'SIGTERM')
 
     for (let waited = 0; waited < SIGKILL_AFTER_MS; waited += 200) {
       await sleep(200)
-      if (!this.anyAlive(members)) return { ...entry.app }
+      if (!this.anyAlive([...members.keys()])) return { ...entry.app }
     }
 
     this.signal(entry.terminal.pid, 'SIGKILL')
     await sleep(500)
 
     return { ...entry.app }
+  }
+
+  private async stopOnWindows(entry: Entry, members: Map<number, number>): Promise<void> {
+    // cmd.exe itself waits on "Terminate batch job (Y/N)?" after a Ctrl+C, so only what it started is waited for.
+    const started = [...members.keys()].filter((pid) => pid !== entry.terminal.pid)
+
+    entry.terminal.write('\x03')
+    for (let waited = 0; waited < SIGKILL_AFTER_MS; waited += 250) {
+      await sleep(250)
+      if (!started.some(running)) break
+    }
+
+    try {
+      entry.terminal.kill()
+    } catch {
+      // The terminal had already closed.
+    }
+    await sleep(500)
+
+    const now = new Map(processes().map((proc) => [proc.pid, proc.started]))
+    const left = [...members].filter(([pid, at]) => now.get(pid) === at).map(([pid]) => pid)
+
+    if (left.length > 0) {
+      try {
+        execFileSync('taskkill', ['/F', ...left.flatMap((pid) => ['/PID', String(pid)])], {
+          stdio: 'ignore',
+          windowsHide: true,
+          timeout: 60_000,
+        })
+      } catch {
+        // Some had exited in between, which taskkill reports as a failure.
+      }
+      await sleep(500)
+    }
   }
 
   /** Used when the Desktop quits: nothing it started may outlive it. */
@@ -162,7 +276,14 @@ export class Apps extends EventEmitter<Events> {
     for (const entry of this.entries.values()) {
       if (entry.app.state === 'running' || entry.app.state === 'starting') {
         this.change(entry, 'stopped')
-        this.signal(entry.terminal.pid, 'SIGTERM')
+        if (windows) {
+          // Closing the pseudo console ends every process attached to it.
+          try {
+            entry.terminal.kill()
+          } catch {}
+        } else {
+          this.signal(entry.terminal.pid, 'SIGTERM')
+        }
       }
     }
   }
@@ -172,6 +293,7 @@ export class Apps extends EventEmitter<Events> {
     return pids.some((pid) => alive.has(pid))
   }
 
+  /** Signals a process group; macOS and Linux only. */
   private signal(pid: number, signal: 'SIGTERM' | 'SIGKILL'): void {
     try {
       // A negative pid is the process group: on macOS and Linux the pseudo terminal's child leads its own.

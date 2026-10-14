@@ -3,6 +3,7 @@ import { SquarePen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { folderName } from '../../shared/parts.ts'
 import { Button } from '../components/ui.tsx'
 import { useT } from '../i18n/i18n.tsx'
 
@@ -40,7 +41,7 @@ export function Docs() {
     })
   }, [path, doc])
 
-  const project = path.split('/').at(-1)
+  const project = folderName(path)
 
   return (
     <main className="mx-auto max-w-3xl px-10 pb-16">

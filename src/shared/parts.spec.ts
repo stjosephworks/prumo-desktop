@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { Project } from './ipc.ts'
-import { partsFor } from './parts.ts'
+import { folderName, partsFor } from './parts.ts'
 
 const project = (config: Project['config']): Project => ({
   path: '/tmp/example',
@@ -45,4 +45,10 @@ test('an alone project is one part, started by pnpm dev', () => {
 
 test('a project that was not found has no parts to show', () => {
   expect(partsFor({ path: '/gone', name: 'gone', found: false })).toEqual([])
+})
+
+test('a folder name comes from either separator', () => {
+  expect(folderName('/Users/someone/code/shop')).toBe('shop')
+  expect(folderName('C:\\Users\\someone\\code\\shop')).toBe('shop')
+  expect(folderName('/Users/someone/code/shop/')).toBe('shop')
 })
