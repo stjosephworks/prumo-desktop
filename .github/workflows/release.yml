@@ -17,8 +17,9 @@ name: Release
 #             explain macOS's Open Anyway.
 #   some      The job fails and names what is missing: a typo must never ship an unsigned build quietly.
 #
-# The release is a pre-release while any system's build is unsigned, and Linux always is: update.electronjs.org
-# never serves a pre-release, so no installed app updates itself from it. Every build that does not update itself
+# The release is a pre-release while the macOS build is ad-hoc, and a normal release once it is signed with a
+# Developer ID, so update.electronjs.org serves it to installed Macs (it never serves a pre-release). Linux packages
+# are unsigned either way, and the notes say so (build/signing.cjs, prerelease). Every build that does not update itself
 # says when a newer release exists (src/main/updates.ts).
 #
 # The secrets, all from the Apple Developer account:
@@ -230,9 +231,14 @@ jobs:
           # Two Macs, a dmg and a zip each, then a deb and an rpm.
           test "${#files[@]}" -eq 6
 
-          # Linux ships unsigned, so the release is a pre-release whatever macOS is signed with.
+          # A pre-release while macOS is ad-hoc, a normal release once it is signed (build/signing.cjs).
+          kind=()
+          if [ "$(node -p "require('./build/signing.cjs').prerelease(process.argv[1])" "$MODE")" = "true" ]; then
+            kind=(--prerelease)
+          fi
+
           gh release create "v$VERSION" "${files[@]}" \
-            --draft --prerelease \
+            --draft "${kind[@]}" \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
             --notes-file "$notes"

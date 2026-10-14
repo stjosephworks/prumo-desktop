@@ -26,4 +26,16 @@ function signingMode(env = process.env) {
   )
 }
 
-module.exports = { NOTARIZE, signingMode }
+/**
+ * Whether a release is a pre-release, from how its macOS build is signed. An ad-hoc build is a preview, and so is
+ * the release that carries it. A Developer ID build makes a normal release, which update.electronjs.org serves to
+ * installed Macs; the Linux packages in it are unsigned, by decision, and its notes say so.
+ * .github/workflows/release.yml asks this; src/main/updates.ts offers pre-releases only to unsigned builds.
+ * @param {'developer-id' | 'ad-hoc'} mode
+ * @returns {boolean}
+ */
+function prerelease(mode) {
+  return mode !== 'developer-id'
+}
+
+module.exports = { NOTARIZE, prerelease, signingMode }

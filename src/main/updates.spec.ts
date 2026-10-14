@@ -2,7 +2,8 @@ import { createRequire } from 'node:module'
 import { expect, test } from 'vitest'
 import { noticeEnabled, signedBuild, updaterEnabled } from './updates.ts'
 
-const { signingMode } = createRequire(import.meta.url)('../../build/signing.cjs') as {
+const { prerelease, signingMode } = createRequire(import.meta.url)('../../build/signing.cjs') as {
+  prerelease: (mode: 'developer-id' | 'ad-hoc') => boolean
   signingMode: (env: Record<string, string | undefined>) => 'developer-id' | 'ad-hoc'
 }
 
@@ -60,4 +61,19 @@ test('only a Developer ID build counts as signed, so every other one is offered 
   expect(signedBuild(mac)).toBe(true)
   expect(signedBuild({ ...mac, developerId: false })).toBe(false)
   expect(signedBuild({ ...mac, platform: 'linux' })).toBe(false)
+})
+
+test('a release is a pre-release while macOS is ad-hoc, and a normal one once it is signed', () => {
+  expect(prerelease('ad-hoc')).toBe(true)
+  expect(prerelease('developer-id')).toBe(false)
+})
+
+test('the notice agrees: a signed Mac skips pre-releases, every unsigned build is offered them', () => {
+  const signed = { packaged: true, platform: 'darwin' as const, developerId: true }
+
+  // A signed Mac reads only what a Developer ID release is: a normal release.
+  expect(signedBuild(signed)).toBe(!prerelease('developer-id'))
+  // An ad-hoc Mac and Linux are offered pre-releases, so the ad-hoc previews reach them as well.
+  expect(signedBuild({ ...signed, developerId: false })).toBe(!prerelease('ad-hoc'))
+  expect(signedBuild({ ...signed, platform: 'linux', developerId: false })).toBe(false)
 })

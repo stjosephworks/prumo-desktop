@@ -40,12 +40,13 @@ Linux builds are unsigned. How the macOS build is signed depends only on which s
 
 | Secrets | macOS build | Installed Macs |
 |---|---|---|
-| None | Ad-hoc signature (`codesign --sign -`), not notarized; first-launch instructions in the notes, from `.github/release-notes/unsigned.md` | Never update themselves; they say when a newer release is out |
-| All five: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signature with the Hardened Runtime, notarized and stapled | Update themselves through update.electronjs.org, from published releases only |
+| None | Ad-hoc signature (`codesign --sign -`), not notarized, in a pre-release; first-launch instructions in the notes, from `.github/release-notes/unsigned.md` | Never update themselves; they say when a newer release is out |
+| All five: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signature with the Hardened Runtime, notarized and stapled, in a normal release | Update themselves through update.electronjs.org, from published releases only |
 | Only some | The job fails and names what is missing | |
 
-**The release is a pre-release while any system's build is unsigned, and Linux always is.** update.electronjs.org
-never serves a pre-release. Every build that does not update itself, Linux included, checks GitHub Releases and says
+**The release is a pre-release while the macOS build is ad-hoc, and a normal release once it is signed with a
+Developer ID**, which update.electronjs.org then serves to installed Macs; it never serves a pre-release. The Linux
+packages are unsigned either way, and the notes say so. Every build that does not update itself, Linux included, checks GitHub Releases and says
 when a newer version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locally makes an ad-hoc build.
 
 ## Requirements (for users)
