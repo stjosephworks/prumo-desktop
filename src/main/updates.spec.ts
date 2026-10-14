@@ -35,19 +35,16 @@ test('only a packaged macOS build signed with a Developer ID starts the updater'
   expect(updaterEnabled(mac)).toBe(true)
   expect(updaterEnabled({ ...mac, developerId: false })).toBe(false)
   expect(updaterEnabled({ ...mac, packaged: false })).toBe(false)
-  // Linux has no updater in Electron, and Windows builds are unsigned pre-releases or the Store's to update.
+  // Linux has no updater in Electron, and the Windows Setup.exe is unsigned.
   expect(updaterEnabled({ ...mac, platform: 'linux' })).toBe(false)
   expect(updaterEnabled({ ...mac, platform: 'win32' })).toBe(false)
 })
 
-test('every other packaged build shows the notice instead, and a Store build shows neither', () => {
+test('every other packaged build shows the notice instead', () => {
   expect(noticeEnabled(mac, {})).toBe(false)
   expect(noticeEnabled({ ...mac, developerId: false }, {})).toBe(true)
   expect(noticeEnabled({ ...mac, platform: 'linux', developerId: false }, {})).toBe(true)
   expect(noticeEnabled({ ...mac, platform: 'win32', developerId: false }, {})).toBe(true)
-  expect(
-    noticeEnabled({ ...mac, platform: 'win32', developerId: false, windowsStore: true }, {}),
-  ).toBe(false)
 })
 
 test('the notice is off in development, unless asked for', () => {

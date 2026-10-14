@@ -11,8 +11,6 @@ export type Build = {
   platform: NodeJS.Platform
   /** Baked in at build time from build/signing.cjs. Only macOS has a signing mode. */
   developerId: boolean
-  /** `process.windowsStore`: a Microsoft Store build, which the Store updates. */
-  windowsStore?: boolean
 }
 
 /**
@@ -20,8 +18,8 @@ export type Build = {
  * signed app ("Your application must be signed for automatic updates on macOS. This is a requirement of
  * Squirrel.Mac.", https://www.electronjs.org/docs/latest/api/auto-updater), and update.electronjs.org serves only
  * published releases, never the pre-releases an ad-hoc build ships as.
- * Not on Windows: an unsigned Squirrel.Windows build ships as a pre-release, which update.electronjs.org never
- * serves, and a Store build is updated by the Store. Not on Linux: "There is no built-in support for auto-updater
+ * Not on Windows: the Squirrel.Windows Setup.exe is unsigned, and Squirrel.Windows on GitHub Releases is its only
+ * channel, so it is offered the notice instead, as Linux is. Not on Linux: "There is no built-in support for auto-updater
  * on Linux" (same page).
  */
 export function updaterEnabled(build: Build): boolean {
@@ -37,11 +35,11 @@ export function signedBuild(build: Build): boolean {
 }
 
 /**
- * Whether the notice checks GitHub Releases: wherever the updater does not run and no store updates the app. Off
+ * Whether the notice checks GitHub Releases: wherever the updater does not run. Off
  * in development unless asked for (`PRUMO_UPDATE_NOTICE=1`), so a dev build never says it is outdated.
  */
 export function noticeEnabled(build: Build, env: Record<string, string | undefined>): boolean {
-  if (updaterEnabled(build) || build.windowsStore === true) return false
+  if (updaterEnabled(build)) return false
 
   return build.packaged || env.PRUMO_UPDATE_NOTICE === '1'
 }

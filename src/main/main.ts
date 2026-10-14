@@ -201,7 +201,6 @@ const build: Build = {
   packaged: app.isPackaged,
   platform: process.platform,
   developerId: DEVELOPER_ID_BUILD,
-  windowsStore: process.windowsStore,
 }
 
 // A packaged macOS app signed with a Developer ID updates itself from GitHub Releases through update.electronjs.org:
