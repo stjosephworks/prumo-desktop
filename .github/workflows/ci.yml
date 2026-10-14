@@ -99,3 +99,29 @@ jobs:
       - run: xvfb-run -a node scripts/smoke.mjs
         env:
           SMOKE_BINARY: /usr/bin/prumo-desktop
+
+  packaged-windows:
+    # The same path on Windows: the packaged app opened with System32 alone on PATH, which must find Node and pnpm
+    # through the registry as a fresh login would. pnpm is installed globally, as a user has it, rather than only on
+    # this job's PATH. Then the Squirrel.Windows Setup.exe the release ships. No database: Windows runners run no
+    # Linux containers.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install pnpm where a user's machine has it
+        run: npm install --global pnpm@12.3.4
+      - run: pnpm install
+      - run: pnpm package
+      - run: node scripts/smoke.mjs
+      - name: Make the Setup.exe
+        shell: bash
+        run: |
+          pnpm exec electron-forge make --skip-package
+          ls -la out/make/squirrel.windows/x64
+          test -f out/make/squirrel.windows/x64/RELEASES
+          ls out/make/squirrel.windows/x64/*Setup.exe out/make/squirrel.windows/x64/*-full.nupkg

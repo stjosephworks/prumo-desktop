@@ -61,22 +61,47 @@ async function portHeld(port) {
 
 /**
  * Nothing but what the desktop hands an app: inheriting this shell's PATH would hide exactly the bug fix-path
- * exists for. Linux also passes on the display, which the app cannot open a window without. Windows keeps the
- * whole environment until the Desktop has a PATH strategy of its own there.
+ * exists for. Linux also passes on the display, which the app cannot open a window without. Windows gets the
+ * variables every session has and a PATH of System32 alone, so Node and pnpm must come from the registry or a usual
+ * install folder (src/main/windows-path.ts).
  */
-const environment =
-  {
-    darwin: { PATH: FINDER_PATH, HOME: process.env.HOME },
-    linux: {
-      PATH: LINUX_PATH,
-      HOME: process.env.HOME,
-      DISPLAY: process.env.DISPLAY,
-      XAUTHORITY: process.env.XAUTHORITY,
-    },
-  }[process.platform] ?? process.env
+const environment = {
+  darwin: { PATH: FINDER_PATH, HOME: process.env.HOME },
+  linux: {
+    PATH: LINUX_PATH,
+    HOME: process.env.HOME,
+    DISPLAY: process.env.DISPLAY,
+    XAUTHORITY: process.env.XAUTHORITY,
+  },
+  win32: {
+    ...Object.fromEntries(
+      [
+        'SystemRoot',
+        'windir',
+        'SystemDrive',
+        'ComSpec',
+        'PATHEXT',
+        'USERPROFILE',
+        'USERNAME',
+        'HOMEDRIVE',
+        'HOMEPATH',
+        'APPDATA',
+        'LOCALAPPDATA',
+        'ProgramFiles',
+        'ProgramFiles(x86)',
+        'ProgramData',
+        'TEMP',
+        'TMP',
+      ].map((name) => [name, process.env[name]]),
+    ),
+    PATH: join(process.env.SystemRoot ?? 'C:\\Windows', 'System32'),
+  },
+}[process.platform]
 
 const child = spawn(binary, [`--remote-debugging-port=${PORT}`], {
-  env: Object.fromEntries(Object.entries(environment).filter(([, value]) => value !== undefined)),
+  env: Object.fromEntries(
+    Object.entries(environment ?? {}).filter(([, value]) => value !== undefined),
+  ),
   stdio: ['ignore', 'pipe', 'pipe'],
 })
 let log = ''
