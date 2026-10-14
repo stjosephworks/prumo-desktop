@@ -4,7 +4,7 @@ import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test } from 'vitest'
-import { Apps, appId, processTree } from './processes.ts'
+import { Apps, appId, endTree, processTree } from './processes.ts'
 
 const PORT = 45_231
 
@@ -124,3 +124,31 @@ function processTreeRoot(instance: Apps, id: string): number {
 
   return entry.terminal.pid
 }
+
+test('ending a tree ends the process and what it started', async () => {
+  const { spawn } = await import('node:child_process')
+  const parent = spawn(
+    process.execPath,
+    [
+      '-e',
+      `const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' }); console.log(c.pid); setInterval(() => {}, 1000)`,
+    ],
+    { stdio: ['ignore', 'pipe', 'ignore'] },
+  )
+  const child = await new Promise<number>((done) =>
+    parent.stdout.once('data', (chunk: Buffer) => done(Number(chunk.toString().trim()))),
+  )
+  const alive = (pid: number) => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  expect(alive(child)).toBe(true)
+
+  endTree(parent.pid ?? 0)
+
+  await waitFor(() => !alive(child) && !alive(parent.pid ?? 0))
+}, 60_000)

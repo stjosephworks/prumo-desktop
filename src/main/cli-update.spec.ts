@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { expect, test } from 'vitest'
 import { compareVersions, sameMinor } from '../shared/versions.ts'
-import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
+import {
+  activeCli,
+  DeadlineError,
+  INSTALL_DEADLINE_MS,
+  installCli,
+  publishedVersions,
+  statusOf,
+} from './cli-update.ts'
 
 /** A CLI package as it sits on disk, with only what the rules read: its version. */
 function fakeCli(folder: string, version: string): string {
@@ -78,16 +85,37 @@ test('the registry lists the published versions, newest first', async () => {
   expect(compareVersions(versions[0] ?? '', versions.at(-1) ?? '')).toBeGreaterThanOrEqual(0)
 })
 
-test('installing puts a working CLI in place, and a failed one leaves the previous untouched', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'prumo-desktop-install-'))
+test(
+  'installing puts a working CLI in place, and a failed one leaves the previous untouched',
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), 'prumo-desktop-install-'))
+    const updates = join(root, 'prumo')
+
+    await installCli('0.1.0', updates)
+    const cli = join(updates, 'node_modules', '@stjoseph', 'prumo', 'dist', 'cli.js')
+    expect(existsSync(cli)).toBe(true)
+
+    await expect(installCli('99.0.0', updates)).rejects.toThrow()
+    expect(existsSync(cli)).toBe(true)
+    // Neither the failed download nor the swap leaves a folder behind.
+    expect(readdirSync(root)).toEqual(['prumo'])
+    // Each install has its own deadline (INSTALL_DEADLINE_MS), so this test ends with an answer, never a hang; its
+    // budget is the two deadlines and a margin.
+  },
+  2 * INSTALL_DEADLINE_MS + 60_000,
+)
+
+test('an install past its deadline is stopped, fails as an error, and leaves the previous CLI as it was', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'prumo-desktop-deadline-'))
   const updates = join(root, 'prumo')
+  const previous = fakeCli(join(updates, 'node_modules', '@stjoseph', 'prumo'), '0.1.0')
+  const started = Date.now()
 
-  await installCli('0.1.0', updates)
-  const cli = join(updates, 'node_modules', '@stjoseph', 'prumo', 'dist', 'cli.js')
-  expect(existsSync(cli)).toBe(true)
+  // A deadline npm cannot meet: it is stopped while it still loads.
+  await expect(installCli('0.1.0', updates, 50)).rejects.toBeInstanceOf(DeadlineError)
+  expect(Date.now() - started).toBeLessThan(60_000)
 
-  await expect(installCli('99.0.0', updates)).rejects.toThrow()
-  expect(existsSync(cli)).toBe(true)
-  // Neither the failed download nor the swap leaves a folder behind.
+  expect(existsSync(previous)).toBe(true)
+  expect(activeCli(previous, updates).version).toBe('0.1.0')
   expect(readdirSync(root)).toEqual(['prumo'])
-}, 300_000)
+}, 120_000)

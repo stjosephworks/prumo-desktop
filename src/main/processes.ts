@@ -93,6 +93,37 @@ export function processTree(root: number): number[] {
 }
 
 /**
+ * Ends a process and everything it started, at once and without asking: for a command that ran past its deadline.
+ * The tree is read as above, so on Windows only true descendants are ended, each by its own id; never `taskkill /T`.
+ */
+export function endTree(root: number): void {
+  const members = [...tree(root).keys()]
+
+  if (members.length === 0) return
+
+  if (windows) {
+    try {
+      execFileSync('taskkill', ['/F', ...members.flatMap((pid) => ['/PID', String(pid)])], {
+        stdio: 'ignore',
+        windowsHide: true,
+        timeout: 60_000,
+      })
+    } catch {
+      // Some had exited in between, which taskkill reports as a failure.
+    }
+    return
+  }
+
+  for (const pid of members.reverse()) {
+    try {
+      process.kill(pid, 'SIGKILL')
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
+/**
  * How `pnpm <script>` is started in the pseudo terminal. node-pty looks a command up on Windows without PATHEXT, so
  * `pnpm` alone, a `pnpm.cmd`, is not found, and a batch file is only run through cmd.exe anyway. `/d` skips cmd's
  * AutoRun commands, and `/s /c` runs the quoted command line as it is (cmd /?).
