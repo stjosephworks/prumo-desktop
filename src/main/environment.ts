@@ -5,6 +5,7 @@ import { delimiter, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import fixPath from 'fix-path'
 import {
+  gitLocations,
   loginEnvironment,
   nodeLocations,
   pnpmLocations,
@@ -42,23 +43,34 @@ function appendToPath(folders: string[]): void {
   if (extra.length > 0) process.env.PATH = [process.env.PATH ?? '', ...extra].join(delimiter)
 }
 
+/** Why the PATH could not be read from the registry, for the This machine screen; undefined when it was. */
+let registryProblem: string | undefined
+
+export function pathProblem(): string | undefined {
+  return registryProblem
+}
+
 /**
- * The registry's environment over the inherited one, then the usual install folders for whichever of Node and pnpm
- * is still missing. A registry that cannot be read leaves the inherited environment as it was.
+ * The registry's environment over the inherited one, then the usual install folders for whichever of Node, pnpm and
+ * git is still missing. A registry that cannot be read, twice, leaves the inherited environment as it was, and the
+ * reason is kept for the screen.
  */
 export async function applyWindowsPath(
   read: () => Promise<RegistryEnvironment> | RegistryEnvironment = readRegistryEnvironment,
 ): Promise<void> {
   try {
     Object.assign(process.env, loginEnvironment(await read(), process.env))
+    registryProblem = undefined
   } catch (problem) {
-    // PowerShell missing, refused or too slow: the inherited PATH and the folders below are what is left. Said in
-    // the log, since a Node found only through a folder hides that the registry was never read.
-    console.warn(`The PATH could not be read from the registry: ${(problem as Error).message}`)
+    // The inherited PATH and the folders below are what is left. Said in the log and kept for the screen, since a
+    // Node found only through a folder hides that the registry was never read.
+    registryProblem = (problem as Error).message
+    console.warn(registryProblem)
   }
 
   if (findOnPath('node') === undefined) appendToPath(nodeLocations(process.env))
   if (findOnPath('pnpm') === undefined) appendToPath(pnpmLocations(process.env))
+  if (findOnPath('git') === undefined) appendToPath(gitLocations(process.env))
 }
 
 /**

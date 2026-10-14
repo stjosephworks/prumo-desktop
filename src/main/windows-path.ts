@@ -4,7 +4,7 @@
 // version manager added since, is missing from it; fix-path does nothing on Windows, and a version manager that
 // lives in a PowerShell profile (fnm) is never run, by decision. So, in order:
 //   1. the user's and the system's environment, read from the registry, `%VAR%` expanded, as a new login would;
-//   2. if Node or pnpm is still missing, the folders the usual installers put them in;
+//   2. if Node, pnpm or git is still missing, the folders the usual installers put them in;
 //   3. if Node is still missing, the one the user picked by hand (src/main/environment.ts, src/main/settings.ts).
 import { execFile } from 'node:child_process'
 import { win32 } from 'node:path'
@@ -20,24 +20,26 @@ export type RegistryEnvironment = { system: Variables; user: Variables }
 /**
  * Both environment keys, read through .NET's registry API with `DoNotExpandEnvironmentNames`, so every value comes
  * back as stored and is expanded here, in one place. PowerShell runs with `-NoProfile`: no profile is ever run.
- * UTF-8 output, because a user folder can hold any character and the console's code page cannot.
+ *
+ * Only .NET, no cmdlet: a cmdlet such as ConvertTo-Json loads its module first, and with the bare environment an app
+ * may start with (no PSModulePath) that took 12 to 56 seconds on GitHub's Windows runners, against 0.2 to 2 seconds
+ * for this script, measured side by side. One line per value: the scope, then the name and the value in base64 of
+ * their UTF-8, so no character of a user's folder depends on the console's code page and no line can break the
+ * format.
  */
 const READ_ENVIRONMENT = `
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
-$read = {
-  param($key)
-  $values = @{}
-  if ($null -ne $key) {
-    foreach ($name in $key.GetValueNames()) {
-      $values[$name] = [string]$key.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-    }
+$keys = @(
+  @('system', [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment')),
+  @('user', [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment'))
+)
+foreach ($pair in $keys) {
+  $key = $pair[1]
+  if ($null -eq $key) { continue }
+  foreach ($name in $key.GetValueNames()) {
+    $value = [string]$key.GetValue($name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    [Console]::Out.WriteLine($pair[0] + ' ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($name)) + ' ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($value)))
   }
-  $values
 }
-@{
-  system = & $read ([Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'))
-  user = & $read ([Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment'))
-} | ConvertTo-Json -Compress
 `
 
 /** Windows PowerShell where every Windows has it: an inherited PATH may not name its folder. */
@@ -51,16 +53,75 @@ function powershell(): string {
   )
 }
 
-/** Asynchronous: PowerShell takes seconds to start on a cold machine, and the window must not wait for it. */
-export async function readRegistryEnvironment(): Promise<RegistryEnvironment> {
-  const { stdout } = await run(
-    powershell(),
-    ['-NoProfile', '-NonInteractive', '-Command', READ_ENVIRONMENT],
-    { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
-  )
-  const parsed = JSON.parse(stdout) as Partial<RegistryEnvironment>
+/** The script's lines back into both scopes. A line that is not one of its own is skipped. */
+export function parseRegistryOutput(output: string): RegistryEnvironment {
+  const environment: RegistryEnvironment = { system: {}, user: {} }
+  const decode = (text: string) => Buffer.from(text, 'base64').toString('utf8')
 
-  return { system: parsed.system ?? {}, user: parsed.user ?? {} }
+  for (const line of output.split(/\r?\n/)) {
+    const [scope, name, value = ''] = line.trim().split(' ')
+    if ((scope === 'system' || scope === 'user') && name !== undefined && name !== '') {
+      environment[scope][decode(name)] = decode(value)
+    }
+  }
+
+  return environment
+}
+
+/** Whether a read can be used: every Windows has a system Path, so a read without one went wrong. */
+export function usable(environment: RegistryEnvironment): boolean {
+  return Object.keys(environment.system).some((name) => name.toLowerCase() === 'path')
+}
+
+/** Runs the script once, within `timeoutMs`, and returns what it printed. */
+export type RunScript = (timeoutMs: number) => Promise<string>
+
+const runScript: RunScript = async (timeoutMs) =>
+  (
+    await run(powershell(), ['-NoProfile', '-NonInteractive', '-Command', READ_ENVIRONMENT], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: timeoutMs,
+    })
+  ).stdout
+
+/**
+ * Thirty seconds, then sixty: the script answered within two seconds on every runner measured, so the first limit
+ * only cuts off a machine that is stuck, and the second gives a cold, loaded one all the time it may need.
+ */
+export const ATTEMPTS_MS = [30_000, 60_000]
+
+export class RegistryReadError extends Error {}
+
+/**
+ * Asynchronous, since the window must not wait for it, and tried twice: a read that fails or comes back without a
+ * system Path is tried once more. Each attempt is said in the log; when both fail, the error names both reasons.
+ */
+export async function readRegistryEnvironment(
+  script: RunScript = runScript,
+  log: (line: string) => void = console.warn,
+): Promise<RegistryEnvironment> {
+  const reasons: string[] = []
+
+  for (const [index, timeoutMs] of ATTEMPTS_MS.entries()) {
+    const attempt = `Reading the PATH from the registry, attempt ${index + 1} of ${ATTEMPTS_MS.length}`
+    const started = Date.now()
+    try {
+      const environment = parseRegistryOutput(await script(timeoutMs))
+      if (usable(environment)) {
+        log(`${attempt}: read in ${Date.now() - started} ms.`)
+        return environment
+      }
+      reasons.push('it named no system Path')
+    } catch (problem) {
+      reasons.push((problem as Error).message.split('\n')[0] ?? 'it failed')
+    }
+    log(`${attempt}: failed after ${Date.now() - started} ms, because ${reasons.at(-1)}.`)
+  }
+
+  throw new RegistryReadError(
+    `The PATH could not be read from the registry: ${reasons.map((reason, index) => `attempt ${index + 1}: ${reason}`).join('; ')}.`,
+  )
 }
 
 /** Looks a variable up as Windows does, whatever the case of its name. */
@@ -149,6 +210,26 @@ export function nodeLocations(env: Record<string, string | undefined>): string[]
     ...at(env.FNM_DIR, 'aliases', 'default'),
     ...at(env.APPDATA, 'fnm', 'aliases', 'default'),
     ...at(env.USERPROFILE, '.fnm', 'aliases', 'default'),
+  ]
+}
+
+/**
+ * Where git usually is, when no PATH names it. Git for Windows installs to `{commonpf}\Git` for all users or
+ * `{userpf}\Git` for one (its installer, git-for-windows/build-extra installer/install.iss: DefaultDirName and the
+ * fallback to {userpf}; Inno Setup's {userpf} is %LOCALAPPDATA%\Programs), with git.exe in `cmd`; a 32-bit install
+ * sits under Program Files (x86). winget installs it with that same installer. Scoop puts its shims in
+ * `<SCOOP or ~\scoop>\shims` (Scoop's lib/core.ps1, shimdir).
+ */
+export function gitLocations(env: Record<string, string | undefined>): string[] {
+  const at = (base: string | undefined, ...parts: string[]) =>
+    base === undefined || base === '' ? [] : [win32.join(base, ...parts)]
+
+  return [
+    ...at(env.ProgramFiles, 'Git', 'cmd'),
+    ...at(env['ProgramFiles(x86)'], 'Git', 'cmd'),
+    ...at(env.LOCALAPPDATA, 'Programs', 'Git', 'cmd'),
+    ...at(env.SCOOP, 'shims'),
+    ...at(env.USERPROFILE, 'scoop', 'shims'),
   ]
 }
 

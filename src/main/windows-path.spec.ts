@@ -5,13 +5,17 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, test } from 'vitest'
-import { applyWindowsPath, findOnPath } from './environment.ts'
+import { applyWindowsPath, findOnPath, pathProblem } from './environment.ts'
 import {
+  ATTEMPTS_MS,
   expand,
+  gitLocations,
   joinPath,
   loginEnvironment,
   nodeLocations,
+  parseRegistryOutput,
   pnpmLocations,
+  RegistryReadError,
   readRegistryEnvironment,
 } from './windows-path.ts'
 
@@ -147,3 +151,108 @@ test.runIf(windows)(
   },
   120_000,
 )
+
+/** A line as the PowerShell script prints it. */
+const line = (scope: string, name: string, value: string) =>
+  `${scope} ${Buffer.from(name).toString('base64')} ${Buffer.from(value).toString('base64')}`
+
+test('the script’s lines come back as both scopes, any character included', () => {
+  const output = [
+    line('system', 'Path', '%SystemRoot%\\System32'),
+    line('user', 'Path', 'C:\\Users\\João\\bin'),
+    line('user', 'EMPTY', ''),
+    'a warning PowerShell printed',
+    '',
+  ].join('\r\n')
+
+  expect(parseRegistryOutput(output)).toEqual({
+    system: { Path: '%SystemRoot%\\System32' },
+    user: { Path: 'C:\\Users\\João\\bin', EMPTY: '' },
+  })
+})
+
+const good = line('system', 'Path', 'C:\\Windows\\System32')
+
+test('a read that fails is tried once more, with a longer limit, and both attempts are logged', async () => {
+  const limits: number[] = []
+  const log: string[] = []
+  const environment = await readRegistryEnvironment(
+    async (timeoutMs) => {
+      limits.push(timeoutMs)
+      if (limits.length === 1) throw new Error('Command failed: powershell.exe timed out')
+      return good
+    },
+    (entry) => log.push(entry),
+  )
+
+  expect(environment.system).toEqual({ Path: 'C:\\Windows\\System32' })
+  expect(limits).toEqual(ATTEMPTS_MS)
+  expect(log).toHaveLength(2)
+  expect(log[0]).toMatch(/attempt 1 of 2: failed after \d+ ms, because Command failed/)
+  expect(log[1]).toMatch(/attempt 2 of 2: read in \d+ ms/)
+})
+
+test('a read without a system Path is not used: it is tried again', async () => {
+  let calls = 0
+  const environment = await readRegistryEnvironment(
+    async () => (++calls === 1 ? line('user', 'Path', 'C:\\x') : good),
+    () => {},
+  )
+
+  expect(calls).toBe(2)
+  expect(environment.system.Path).toBe('C:\\Windows\\System32')
+})
+
+test('when both attempts fail, the error names both reasons', async () => {
+  const read = readRegistryEnvironment(
+    async () => {
+      throw new Error('spawn EACCES')
+    },
+    () => {},
+  )
+
+  await expect(read).rejects.toBeInstanceOf(RegistryReadError)
+  await expect(read).rejects.toThrow('attempt 1: spawn EACCES; attempt 2: spawn EACCES')
+})
+
+test('a read that never works is kept as the reason, for the This machine screen', async () => {
+  const path = process.env.PATH
+  await applyWindowsPath(() => {
+    throw new RegistryReadError(
+      'The PATH could not be read from the registry: attempt 1: x; attempt 2: y.',
+    )
+  })
+  expect(pathProblem()).toContain('attempt 2: y')
+
+  await applyWindowsPath(() => ({ system: { Path: path ?? '' }, user: {} }))
+  expect(pathProblem()).toBeUndefined()
+  process.env.PATH = path
+})
+
+test('git’s usual folders: Git for Windows for all users, 32-bit and per user, and Scoop’s shims', () => {
+  expect(
+    gitLocations({
+      ProgramFiles: 'C:\\Program Files',
+      'ProgramFiles(x86)': 'C:\\Program Files (x86)',
+      LOCALAPPDATA: 'C:\\Users\\leo\\AppData\\Local',
+      USERPROFILE: 'C:\\Users\\leo',
+    }),
+  ).toEqual([
+    'C:\\Program Files\\Git\\cmd',
+    'C:\\Program Files (x86)\\Git\\cmd',
+    'C:\\Users\\leo\\AppData\\Local\\Programs\\Git\\cmd',
+    'C:\\Users\\leo\\scoop\\shims',
+  ])
+})
+
+test.runIf(windows)('with no registry to read, git is found in its usual folder', async () => {
+  const programFiles = mkdtempSync(join(tmpdir(), 'prumo-desktop-programs-'))
+  mkdirSync(join(programFiles, 'Git', 'cmd'), { recursive: true })
+  writeFileSync(join(programFiles, 'Git', 'cmd', 'git.exe'), '')
+  process.env.PATH = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')
+  process.env.ProgramFiles = programFiles
+
+  await applyWindowsPath(() => ({ system: {}, user: {} }))
+
+  expect(findOnPath('git')).toBe(join(programFiles, 'Git', 'cmd', 'git.exe'))
+})
