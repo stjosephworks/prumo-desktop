@@ -1,6 +1,7 @@
 // The Electron side: the window, the IPC handlers, and the promise that nothing the Desktop started outlives it.
 import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, Notification } from 'electron'
+import squirrelStartup from 'electron-squirrel-startup'
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
 import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
 import { listReleases, newestRelease } from './app-update.ts'
@@ -27,11 +28,16 @@ void applyShellPath()
 
 const mac = process.platform === 'darwin'
 
+// Squirrel.Windows starts the app with --squirrel-install, -updated, -uninstall or -obsolete around installing it.
+// electron-squirrel-startup makes or removes the shortcuts for those and quits once Update.exe is done; until then
+// nothing else starts.
+const squirrelEvent = squirrelStartup
+
 // One Desktop at a time: opening it again brings the running one forward. Off macOS that is how a user gets back to
 // a Desktop that kept running with its window closed, where the tray icon may not show (GNOME without an
 // AppIndicator extension).
-const primary = app.requestSingleInstanceLock()
-if (!primary) app.quit()
+const primary = !squirrelEvent && app.requestSingleInstanceLock()
+if (!primary && !squirrelEvent) app.quit()
 
 const apps = new Apps()
 // The list of projects the user keeps, beside the app's own data: nothing of it belongs in a project.

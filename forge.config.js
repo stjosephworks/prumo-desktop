@@ -44,7 +44,8 @@ module.exports = {
     appBundleId: 'org.stjosephworks.prumo-desktop',
     appCategoryType: 'public.app-category.developer-tools',
     appCopyright: 'Copyright © 2026 Leonardo Freitas',
-    // build/icon.icns, rendered from build/icon.svg by scripts/make-icon.mjs; Packager adds the extension.
+    // build/icon.icns on macOS and build/icon.ico on Windows, rendered from build/icon.svg by scripts/make-icon.mjs;
+    // Packager adds the extension.
     icon: join(__dirname, 'build', 'icon'),
     ...(process.platform === 'linux' ? { executableName: LINUX_EXECUTABLE } : {}),
     asar: { unpack: '**/node_modules/node-pty/**' },
@@ -85,6 +86,18 @@ module.exports = {
     // root on install, which Chromium's sandbox needs where unprivileged user namespaces are restricted.
     { name: '@electron-forge/maker-deb', platforms: ['linux'], config: { options: LINUX_PACKAGE } },
     { name: '@electron-forge/maker-rpm', platforms: ['linux'], config: { options: LINUX_PACKAGE } },
+    // Windows, unsigned for now: a Squirrel.Windows Setup.exe, which installs per user without asking for admin
+    // rights, with the nupkg and RELEASES Squirrel updates from. The icon at iconUrl is what Apps & features shows;
+    // Squirrel takes it from a URL only.
+    {
+      name: '@electron-forge/maker-squirrel',
+      platforms: ['win32'],
+      config: {
+        setupIcon: join(__dirname, 'build', 'icon.ico'),
+        iconUrl:
+          'https://raw.githubusercontent.com/stjosephworks/prumo-desktop/main/build/icon.ico',
+      },
+    },
   ],
   publishers: [
     {
