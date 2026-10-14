@@ -32,10 +32,12 @@ export function executableNames(
 ): string[] {
   if (platform !== 'win32') return [command]
 
-  const extensions = (pathext ?? '.COM;.EXE;.BAT;.CMD')
+  const listed = (pathext ?? '')
     .split(';')
     .map((extension) => extension.trim().toLowerCase())
     .filter((extension) => extension !== '')
+  // An empty or missing PATHEXT means Windows' own default.
+  const extensions = listed.length > 0 ? listed : ['.com', '.exe', '.bat', '.cmd']
 
   // A name that already carries one of the extensions is looked up as it is.
   if (extensions.some((extension) => command.toLowerCase().endsWith(extension))) return [command]

@@ -11,18 +11,13 @@ test('Windows looks a command up through PATHEXT, and never as a bare name', () 
     'npm.cmd',
   ])
   expect(executableNames('node.exe', 'win32', '.COM;.EXE')).toEqual(['node.exe'])
-  // Without PATHEXT, Windows' own default.
-  expect(executableNames('git', 'win32', undefined)).toEqual([
-    'git.com',
-    'git.exe',
-    'git.bat',
-    'git.cmd',
-  ])
+  // An empty PATHEXT means Windows' own default.
+  expect(executableNames('git', 'win32', '')).toEqual(['git.com', 'git.exe', 'git.bat', 'git.cmd'])
 })
 
 test('macOS and Linux look a command up by its name alone', () => {
   expect(executableNames('npm', 'darwin', '.EXE')).toEqual(['npm'])
-  expect(executableNames('npm', 'linux', undefined)).toEqual(['npm'])
+  expect(executableNames('npm', 'linux', '')).toEqual(['npm'])
 })
 
 test('finds node and npm on this machine', async () => {
