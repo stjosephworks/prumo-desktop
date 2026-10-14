@@ -6,7 +6,8 @@ name: Release
 #   macos    Apple silicon (arm64) and Intel (x64), a dmg and a zip per arch. update.electronjs.org serves each Mac
 #            the zip whose name carries its arch.
 #   linux    x64, a deb and an rpm, unsigned.
-#   publish  waits for both, then creates the draft with every file and its notes. One job creates it, so no two
+#   windows  x64, a Squirrel.Windows Setup.exe with the nupkg and RELEASES Squirrel updates from, unsigned.
+#   publish  waits for all three, then creates the draft with every file and its notes. One job creates it, so no two
 #            runners race to make the same release.
 #
 # How the macOS build is signed depends only on which secrets exist; adding them is the whole switch, no code changes:
@@ -18,8 +19,8 @@ name: Release
 #   some      The job fails and names what is missing: a typo must never ship an unsigned build quietly.
 #
 # The release is a pre-release while the macOS build is ad-hoc, and a normal release once it is signed with a
-# Developer ID, so update.electronjs.org serves it to installed Macs (it never serves a pre-release). Linux packages
-# are unsigned either way, and the notes say so (build/signing.cjs, prerelease). Every build that does not update itself
+# Developer ID, so update.electronjs.org serves it to installed Macs (it never serves a pre-release). The Linux
+# packages and the Windows Setup.exe are unsigned either way, and the notes say so (build/signing.cjs, prerelease). Every build that does not update itself
 # says when a newer release exists (src/main/updates.ts).
 #
 # The secrets, all from the Apple Developer account:
@@ -201,8 +202,30 @@ jobs:
             out/make/**/*.rpm
           if-no-files-found: error
 
+  windows:
+    needs: decide
+    if: needs.decide.outputs.release == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install
+      - name: Make the Setup.exe
+        run: |
+          pnpm prepare-run
+          pnpm exec electron-forge make --arch=x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/make/squirrel.windows/x64/*
+          if-no-files-found: error
+
   publish:
-    needs: [decide, macos, linux]
+    needs: [decide, macos, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -224,12 +247,14 @@ jobs:
             echo >> "$notes"
           fi
           sed "s/<version>/$VERSION/g" .github/release-notes/linux.md >> "$notes"
+          echo >> "$notes"
+          sed "s/<version>/$VERSION/g" .github/release-notes/windows.md >> "$notes"
 
           files=()
           while IFS= read -r -d '' file; do files+=("$file"); done < <(find dist -type f -print0)
           printf '%s\n' "${files[@]}"
-          # Two Macs, a dmg and a zip each, then a deb and an rpm.
-          test "${#files[@]}" -eq 6
+          # Two Macs, a dmg and a zip each; a deb and an rpm; a Setup.exe, its nupkg and RELEASES.
+          test "${#files[@]}" -eq 9
 
           # A pre-release while macOS is ad-hoc, a normal release once it is signed (build/signing.cjs).
           kind=()
