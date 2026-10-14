@@ -132,6 +132,10 @@ export const pt: Dictionary = {
     openDocker: 'Abrir o Docker',
     openingButton: 'Abrindo…',
     didNotStart: 'O Docker Desktop não iniciou. Abra-o você mesmo e tente de novo.',
+    startYourself: (platform: string) =>
+      platform === 'linux'
+        ? 'Inicie o Docker você mesmo: abra o Docker Desktop, ou inicie o Docker Engine com `sudo systemctl start docker`. Depois tente de novo.'
+        : 'Inicie o Docker Desktop você mesmo e tente de novo.',
     notRunningRetry:
       'O Docker está instalado, mas não está rodando. Abra-o e crie o banco de novo.',
     getDocker: 'Baixar o Docker Desktop',

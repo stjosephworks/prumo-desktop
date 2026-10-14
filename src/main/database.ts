@@ -3,7 +3,13 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { promisify } from 'node:util'
-import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../shared/ipc.ts'
+import type {
+  DatabaseCreated,
+  DatabaseState,
+  DockerState,
+  OpenDocker,
+  Project,
+} from '../shared/ipc.ts'
 import { apiDirectory } from '../shared/parts.ts'
 import { type CliOptions, runCli } from './cli.ts'
 
@@ -107,24 +113,49 @@ export async function dockerState(project: Project): Promise<DockerState> {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * Opens Docker Desktop and waits for its engine to answer, which takes a while after the window appears.
- * Only on macOS for now, where the app is `Docker`; elsewhere it answers false and the screen keeps its message.
+ * Whether this user has Docker Desktop for Linux, which runs as a systemd user service (`systemctl --user start
+ * docker-desktop`, Docker's own install guide). Docker Engine is a system service instead, which only root starts.
  */
-export async function openDocker(waitMs = 90_000): Promise<boolean> {
-  if (process.platform !== 'darwin') return false
-
+async function linuxDockerDesktop(): Promise<boolean> {
   try {
-    await run('open', ['-a', 'Docker'])
+    await run('systemctl', ['--user', 'cat', 'docker-desktop.service'], { timeout: 5_000 })
+    return true
   } catch {
     return false
   }
+}
+
+/**
+ * Starts Docker Desktop and waits for its engine to answer, which takes a while after the window appears. On macOS
+ * the app is `Docker`; on Linux it is the `docker-desktop` user service. Anything else, Docker Engine on Linux or
+ * Windows for now, is `manual`: the screen tells the user to start it.
+ */
+export async function openDocker(waitMs = 90_000): Promise<OpenDocker> {
+  // An engine that already answers, whoever started it, is all the screen was waiting for.
+  if (await engineAnswers()) return 'running'
+
+  if (process.platform === 'darwin') {
+    try {
+      await run('open', ['-a', 'Docker'])
+    } catch {
+      return 'failed'
+    }
+  } else if (process.platform === 'linux' && (await linuxDockerDesktop())) {
+    try {
+      await run('systemctl', ['--user', 'start', 'docker-desktop'], { timeout: 30_000 })
+    } catch {
+      return 'failed'
+    }
+  } else {
+    return 'manual'
+  }
 
   for (let waited = 0; waited < waitMs; waited += 2_000) {
-    if (await engineAnswers()) return true
+    if (await engineAnswers()) return 'running'
     await sleep(2_000)
   }
 
-  return false
+  return 'failed'
 }
 
 export async function startDocker(project: Project): Promise<boolean> {

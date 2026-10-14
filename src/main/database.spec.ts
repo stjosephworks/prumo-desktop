@@ -124,7 +124,8 @@ whenDocker(
   600_000,
 )
 
-// Docker is already running here, so opening it again is a no-op that must still report an engine that answers.
+// Docker is already running here, so opening it is a no-op that must still report an engine that answers, on Linux
+// as well, where a runner's Docker Engine is a system service the Desktop could not have started itself.
 whenDocker('opening Docker resolves once its engine answers', async () => {
-  expect(await openDocker(10_000)).toBe(process.platform === 'darwin')
+  expect(await openDocker(10_000)).toBe('running')
 })

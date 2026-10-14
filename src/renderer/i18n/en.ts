@@ -128,6 +128,11 @@ export const en = {
     openDocker: 'Open Docker',
     openingButton: 'Opening…',
     didNotStart: 'Docker Desktop did not start. Open it yourself, then try again.',
+    /** Where the Desktop cannot start Docker: Docker Engine on Linux is a system service, which needs root. */
+    startYourself: (platform: string): string =>
+      platform === 'linux'
+        ? 'Start Docker yourself: open Docker Desktop, or start Docker Engine with `sudo systemctl start docker`. Then try again.'
+        : 'Start Docker Desktop yourself, then try again.',
     notRunningRetry:
       'Docker is installed but not running. Open it, then create the database again.',
     getDocker: 'Get Docker Desktop',

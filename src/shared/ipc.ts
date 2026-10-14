@@ -110,6 +110,12 @@ export type DockerState =
       services: { name: string; state: string; port?: number }[]
     }
 
+/**
+ * What opening Docker came to: its engine answers, it was started and never answered, or this system has no
+ * Docker the Desktop can start, and the user has to start it.
+ */
+export type OpenDocker = 'running' | 'failed' | 'manual'
+
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
 export type AppState = 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -196,8 +202,8 @@ export type Bridge = {
     create: (project: Project, name: string) => Promise<DatabaseCreated>
     startDocker: (project: Project) => Promise<boolean>
     stopDocker: (project: Project) => Promise<boolean>
-    /** Opens Docker Desktop and resolves once its engine answers; false where the Desktop cannot open it. */
-    openDocker: () => Promise<boolean>
+    /** Opens Docker Desktop and resolves once its engine answers, or says why it could not. */
+    openDocker: () => Promise<OpenDocker>
     /** The log of `prumo db`, while it runs. */
     onLog: (listener: (chunk: string) => void) => () => void
   }
