@@ -87,10 +87,15 @@ module.exports = {
           // Without sources or binding.gyp, Forge does not try to rebuild it: its N-API prebuilds already match.
           // Only the prebuild of the platform and arch being packaged: node-pty loads
           // prebuilds/<platform>-<arch>, and Windows binaries have no business inside a signed Mac app.
-          filter: (source) =>
-            !/node-pty\/(src|deps|scripts|typings|third_party)(\/|$)/.test(source) &&
-            !source.endsWith('binding.gyp') &&
-            !new RegExp(`node-pty/prebuilds/(?!${platform}-${arch}(/|$))[^/]+`).test(source),
+          // Matched with forward slashes: on Windows the paths cpSync hands over are separated by backslashes.
+          filter: (path) => {
+            const source = path.replaceAll('\\', '/')
+            return (
+              !/node-pty\/(src|deps|scripts|typings|third_party)(\/|$)/.test(source) &&
+              !source.endsWith('binding.gyp') &&
+              !new RegExp(`node-pty/prebuilds/(?!${platform}-${arch}(/|$))[^/]+`).test(source)
+            )
+          },
         })
       }
       // node-pty 1.1.0 installs its prebuilt spawn-helper without the executable bit: posix_spawnp then fails.
