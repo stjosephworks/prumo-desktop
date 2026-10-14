@@ -1,7 +1,7 @@
 // Finding the tools this machine has. No Electron here, so the tests run in plain Node.
 import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { existsSync, realpathSync } from 'node:fs'
+import { delimiter, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import fixPath from 'fix-path'
 
@@ -20,13 +20,57 @@ export function applyShellPath(): void {
   fixed = true
 }
 
+/**
+ * The executable names `command` may have on this system. Windows finds a command through `PATHEXT`
+ * (`node.exe`, `npm.cmd`), and a bare name beside them, such as the shell script npm installs next to
+ * `pnpm.cmd`, is not something Windows can run. Elsewhere the name is the file.
+ */
+export function executableNames(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+  pathext = process.env.PATHEXT,
+): string[] {
+  if (platform !== 'win32') return [command]
+
+  const extensions = (pathext ?? '.COM;.EXE;.BAT;.CMD')
+    .split(';')
+    .map((extension) => extension.trim().toLowerCase())
+    .filter((extension) => extension !== '')
+
+  // A name that already carries one of the extensions is looked up as it is.
+  if (extensions.some((extension) => command.toLowerCase().endsWith(extension))) return [command]
+
+  return extensions.map((extension) => `${command}${extension}`)
+}
+
 /** The first `command` on `PATH`, or undefined. Used for `node`, which nothing else can find for us. */
 export function findOnPath(command: string): string | undefined {
+  const names = executableNames(command)
+
   return (process.env.PATH ?? '')
     .split(delimiter)
     .filter((directory) => directory !== '')
-    .map((directory) => join(directory, command))
+    .flatMap((directory) => names.map((name) => join(directory, name)))
     .find((candidate) => existsSync(candidate))
+}
+
+/**
+ * How to run the `npm` found at `npm` with `node`. Node refuses to start a `.cmd` without a shell (EINVAL, since
+ * the fix for CVE-2024-27980), and through a shell the arguments go unescaped, so npm's own entry point is run with
+ * Node instead, wherever it can be found: on macOS and Linux `npm` is a link to `npm-cli.js`, and on Windows
+ * `npm.cmd` runs the `node_modules/npm/bin/npm-cli.js` beside it, as the shim npm ships says. Anything else, such as
+ * an `.exe` shim, is run as it is.
+ */
+export function npmCommand(npm: string, node: string): { command: string; args: string[] } {
+  const real = realpathSync(npm)
+
+  if (real.endsWith('.js')) return { command: node, args: [real] }
+
+  const beside = join(dirname(npm), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+
+  if (existsSync(beside)) return { command: node, args: [beside] }
+
+  return { command: npm, args: [] }
 }
 
 export type Node = { path: string; version: string }
