@@ -6,7 +6,7 @@
 // Finder, on Linux the bare system PATH a desktop entry may start with, and nothing else. Then it asks the renderer
 // itself what the bridge returned and what the window shows. The app is closed at the end.
 // Anything that needs a native dialog, such as adding a folder, is not reachable from here on purpose.
-// On Linux it needs a display: in CI it runs under xvfb-run.
+// On Linux it needs a display: in CI it runs under xvfb-run, against the installed deb.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { connect } from 'node:net'
@@ -19,17 +19,24 @@ const LINUX_PATH = '/usr/bin:/bin'
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[a-zA-Z]`, 'g')
 const PORT = 9333
 
-const out = join(import.meta.dirname, '..', 'out')
-const bundle = readdirSync(out).find((entry) => entry.startsWith('Prumo Desktop-'))
+/**
+ * The binary to check: `SMOKE_BINARY` when set, such as an installed package's (`/usr/bin/prumo-desktop`), or else
+ * where Packager puts it in out/: inside the bundle on macOS, named by executableName on Linux (forge.config.js).
+ */
+function packagedBinary() {
+  const out = join(import.meta.dirname, '..', 'out')
+  const bundle = readdirSync(out).find((entry) => entry.startsWith('Prumo Desktop-'))
 
-if (bundle === undefined) throw new Error('No packaged app in out/. Run `pnpm package` first.')
+  if (bundle === undefined) throw new Error('No packaged app in out/. Run `pnpm package` first.')
 
-// Where Packager puts the binary: inside the bundle on macOS, named by executableName on Linux (forge.config.js).
-const binary = {
-  darwin: join(out, bundle, 'Prumo Desktop.app', 'Contents', 'MacOS', 'Prumo Desktop'),
-  linux: join(out, bundle, 'prumo-desktop'),
-  win32: join(out, bundle, 'Prumo Desktop.exe'),
-}[process.platform]
+  return {
+    darwin: join(out, bundle, 'Prumo Desktop.app', 'Contents', 'MacOS', 'Prumo Desktop'),
+    linux: join(out, bundle, 'prumo-desktop'),
+    win32: join(out, bundle, 'Prumo Desktop.exe'),
+  }[process.platform]
+}
+
+const binary = process.env.SMOKE_BINARY || packagedBinary()
 
 if (binary === undefined || !existsSync(binary)) throw new Error(`No binary at ${binary}`)
 

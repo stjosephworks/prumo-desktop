@@ -56,8 +56,9 @@ jobs:
       - run: pnpm smoke
 
   packaged-linux:
-    # The same path on Linux: a packaged app under a virtual display, opened with the bare system PATH, which it must
-    # extend from the login shell as fix-path does. Then the deb and rpm the release ships, made and read back.
+    # The same path on Linux, from the package a user installs: the deb and the rpm the release ships, made and read
+    # back, then the deb installed and its app run under a virtual display with the bare system PATH, which it must
+    # extend from the login shell as fix-path does.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -77,21 +78,21 @@ jobs:
           echo "export PATH=\"$(dirname "$(command -v node)"):$(dirname "$(command -v pnpm)"):\$PATH\"" >> "$profile"
           env -i HOME="$HOME" PATH=/usr/bin:/bin bash -ilc 'node --version && pnpm --version'
       - run: pnpm install
-      - run: pnpm package
-      # Packaged but not installed, Chromium's sandbox helper is not setuid root, and Ubuntu restricts the user
-      # namespaces it would fall back to. The deb and rpm set it on install; this does what they do.
-      - name: Make chrome-sandbox setuid root, as installing the package does
-        run: |
-          sandbox="$(find out -maxdepth 2 -name chrome-sandbox -type f)"
-          sudo chown root:root "$sandbox"
-          sudo chmod 4755 "$sandbox"
-      - run: xvfb-run -a node scripts/smoke.mjs
+      # Made and installed as a user does: the deb puts the app in /usr/lib and its binary on PATH, and makes
+      # chrome-sandbox setuid root, which Chromium's sandbox needs where Ubuntu restricts user namespaces.
       - name: Make the deb and the rpm, and read them back
         run: |
-          pnpm exec electron-forge make --skip-package
+          pnpm prepare-run
+          pnpm exec electron-forge make
           deb="$(find out/make -name '*.deb')"
           rpm="$(find out/make -name '*.rpm')"
+          echo "$deb" "$rpm"
           dpkg-deb --info "$deb"
           dpkg-deb --contents "$deb" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'
           rpm -qip "$rpm"
           rpm -qlp "$rpm" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'
+      - name: Install the deb
+        run: sudo apt-get install -y "./$(find out/make -name '*.deb')"
+      - run: xvfb-run -a node scripts/smoke.mjs
+        env:
+          SMOKE_BINARY: /usr/bin/prumo-desktop
