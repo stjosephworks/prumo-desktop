@@ -51,8 +51,10 @@ export async function applyWindowsPath(
 ): Promise<void> {
   try {
     Object.assign(process.env, loginEnvironment(await read(), process.env))
-  } catch {
-    // PowerShell missing or refused: the inherited PATH and the folders below are what is left.
+  } catch (problem) {
+    // PowerShell missing, refused or too slow: the inherited PATH and the folders below are what is left. Said in
+    // the log, since a Node found only through a folder hides that the registry was never read.
+    console.warn(`The PATH could not be read from the registry: ${(problem as Error).message}`)
   }
 
   if (findOnPath('node') === undefined) appendToPath(nodeLocations(process.env))
