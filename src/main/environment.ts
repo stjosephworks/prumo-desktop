@@ -14,20 +14,26 @@ import {
 
 const run = promisify(execFile)
 
-let fixed = false
+let settled: Promise<void> | undefined
 
 /**
  * An app opened from Finder inherits launchd's `PATH`, not the shell's: measured in the spike as
  * `/usr/bin:/bin:/usr/sbin:/sbin`, where a Node installed by nvm, fnm or volta is invisible.
  * `fix-path` asks the user's own shell for its `PATH` and rewrites `process.env.PATH`; on Linux the same.
  * On Windows fix-path does nothing, and the PATH comes from the registry and the usual install folders instead
- * (src/main/windows-path.ts).
+ * (src/main/windows-path.ts), read in the background: PowerShell can take seconds to start.
+ *
+ * Started once; every later call waits for the same PATH. Anything that runs a command waits for it first.
  */
-export function applyShellPath(): void {
-  if (fixed) return
-  if (process.platform === 'win32') applyWindowsPath()
-  else fixPath()
-  fixed = true
+export function applyShellPath(): Promise<void> {
+  settled ??=
+    process.platform === 'win32'
+      ? applyWindowsPath()
+      : (() => {
+          fixPath()
+          return Promise.resolve()
+        })()
+  return settled
 }
 
 /** Folders that exist, added at the end of PATH: found only where nothing earlier answers. */
@@ -40,9 +46,11 @@ function appendToPath(folders: string[]): void {
  * The registry's environment over the inherited one, then the usual install folders for whichever of Node and pnpm
  * is still missing. A registry that cannot be read leaves the inherited environment as it was.
  */
-export function applyWindowsPath(read: () => RegistryEnvironment = readRegistryEnvironment): void {
+export async function applyWindowsPath(
+  read: () => Promise<RegistryEnvironment> | RegistryEnvironment = readRegistryEnvironment,
+): Promise<void> {
   try {
-    Object.assign(process.env, loginEnvironment(read(), process.env))
+    Object.assign(process.env, loginEnvironment(await read(), process.env))
   } catch {
     // PowerShell missing or refused: the inherited PATH and the folders below are what is left.
   }
@@ -137,7 +145,7 @@ export function chooseNode(path: string | undefined): void {
 
 /** The Node the Desktop will run the CLI and every project with, or undefined when there is none. */
 export async function findNode(): Promise<Node | undefined> {
-  applyShellPath()
+  await applyShellPath()
 
   if (chosen !== undefined && existsSync(chosen)) {
     const node = await nodeAt(chosen)

@@ -23,7 +23,7 @@ declare const DEVELOPER_ID_BUILD: boolean
 const here = __dirname
 
 // Before anything else: opened from Finder, the app would not even see the user's Node.
-applyShellPath()
+void applyShellPath()
 
 const mac = process.platform === 'darwin'
 

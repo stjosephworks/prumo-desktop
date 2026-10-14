@@ -3,6 +3,7 @@
 // window on that project instead, where the question has its buttons.
 import { Menu, type MenuItemConstructorOptions, nativeImage, Tray } from 'electron'
 import { partId, partsFor } from '../shared/parts.ts'
+import { applyShellPath } from './environment.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
@@ -73,6 +74,7 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
                 type: 'checkbox',
                 checked: isRunning(partId(project, part)),
                 click: async () => {
+                  await applyShellPath()
                   const id = partId(project, part)
                   if (isRunning(id)) {
                     await apps.stop(id)

@@ -6,8 +6,11 @@
 //   1. the user's and the system's environment, read from the registry, `%VAR%` expanded, as a new login would;
 //   2. if Node or pnpm is still missing, the folders the usual installers put them in;
 //   3. if Node is still missing, the one the user picked by hand (src/main/environment.ts, src/main/settings.ts).
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { win32 } from 'node:path'
+import { promisify } from 'node:util'
+
+const run = promisify(execFile)
 
 /** Environment variables as the registry holds them: values unexpanded, names in their own case. */
 export type Variables = Record<string, string>
@@ -48,13 +51,14 @@ function powershell(): string {
   )
 }
 
-export function readRegistryEnvironment(): RegistryEnvironment {
-  const output = execFileSync(
+/** Asynchronous: PowerShell takes seconds to start on a cold machine, and the window must not wait for it. */
+export async function readRegistryEnvironment(): Promise<RegistryEnvironment> {
+  const { stdout } = await run(
     powershell(),
     ['-NoProfile', '-NonInteractive', '-Command', READ_ENVIRONMENT],
-    { encoding: 'utf8', windowsHide: true, timeout: 30_000 },
+    { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
   )
-  const parsed = JSON.parse(output) as Partial<RegistryEnvironment>
+  const parsed = JSON.parse(stdout) as Partial<RegistryEnvironment>
 
   return { system: parsed.system ?? {}, user: parsed.user ?? {} }
 }

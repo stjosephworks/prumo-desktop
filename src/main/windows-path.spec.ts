@@ -85,8 +85,8 @@ test('the usual install folders of Node and pnpm, from the variables that name t
   ])
 })
 
-test.runIf(windows)('reads this machine’s registry, whose system PATH names System32', () => {
-  const registry = readRegistryEnvironment()
+test.runIf(windows)('reads this machine’s registry, whose system PATH names System32', async () => {
+  const registry = await readRegistryEnvironment()
   const path = Object.entries(registry.system).find(([name]) => name.toLowerCase() === 'path')?.[1]
 
   expect(path?.toLowerCase()).toContain('system32')
@@ -98,17 +98,20 @@ afterEach(() => {
   Object.assign(process.env, saved)
 })
 
-test.runIf(windows)('with no registry to read, Node is found in a usual install folder', () => {
-  const programFiles = mkdtempSync(join(tmpdir(), 'prumo-desktop-programs-'))
-  mkdirSync(join(programFiles, 'nodejs'))
-  writeFileSync(join(programFiles, 'nodejs', 'node.exe'), '')
-  process.env.PATH = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')
-  process.env.ProgramFiles = programFiles
+test.runIf(windows)(
+  'with no registry to read, Node is found in a usual install folder',
+  async () => {
+    const programFiles = mkdtempSync(join(tmpdir(), 'prumo-desktop-programs-'))
+    mkdirSync(join(programFiles, 'nodejs'))
+    writeFileSync(join(programFiles, 'nodejs', 'node.exe'), '')
+    process.env.PATH = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')
+    process.env.ProgramFiles = programFiles
 
-  applyWindowsPath(() => ({ system: {}, user: {} }))
+    await applyWindowsPath(() => ({ system: {}, user: {} }))
 
-  expect(findOnPath('node')).toBe(join(programFiles, 'nodejs', 'node.exe'))
-})
+    expect(findOnPath('node')).toBe(join(programFiles, 'nodejs', 'node.exe'))
+  },
+)
 
 // The app opened from the Start menu, at its barest: a PATH with System32 alone. A real Node has to come from the
 // registry or a usual folder, and run.
