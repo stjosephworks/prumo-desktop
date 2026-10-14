@@ -159,6 +159,13 @@ export type Bridge = {
   /** `process.platform`, which names the file manager and lays out the window's title bar. */
   platform: string
   environment: () => Promise<Environment>
+  /**
+   * Lets the user pick the node executable by hand, when no PATH and no usual folder has one. It is kept for the
+   * next launch, and the new report comes back; a file that does not run as Node is refused.
+   */
+  chooseNode: () => Promise<
+    { ok: true; environment: Environment } | { ok: false; reason: 'canceled' | 'not_node' }
+  >
   /** The main process asking to show a project, as when a notification about it is clicked. */
   onNavigate: (listener: (project: string) => void) => () => void
   /** Puts text on the system clipboard, through the main process, whether or not the window has focus. */
@@ -239,6 +246,7 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  chooseNode: 'prumo:environment:choose-node',
   appUpdate: 'prumo:app:update',
   appUpdateFound: 'prumo:app:update-found',
   cliStatus: 'prumo:cli:status',

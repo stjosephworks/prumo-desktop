@@ -12,6 +12,7 @@ import {
 const bridge: Bridge = {
   platform: process.platform,
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
+  chooseNode: () => ipcRenderer.invoke(CHANNELS.chooseNode),
   copy: (text: string) => ipcRenderer.invoke(CHANNELS.copy, text),
   onNavigate: (listener) => {
     const handler = (_event: unknown, project: string) => listener(project)

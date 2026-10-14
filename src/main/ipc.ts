@@ -37,6 +37,8 @@ type Wiring = {
   projects: Projects
   windows: () => BrowserWindow[]
   environment: () => Promise<Environment>
+  /** Keeps a node executable the user picked; false when it does not run as Node. */
+  keepNode: (path: string) => Promise<boolean>
   /** Where the embedded CLI is, which only the Electron side knows. */
   cli: () => string
 }
@@ -46,6 +48,7 @@ export function register({
   projects,
   windows,
   environment,
+  keepNode,
   cli,
   cliStatus,
   cliUpdate,
@@ -56,6 +59,19 @@ export function register({
   }
 
   ipcMain.handle(CHANNELS.environment, () => environment())
+  ipcMain.handle(CHANNELS.chooseNode, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      message: 'Choose the node executable',
+      ...(process.platform === 'win32' ? { filters: [{ name: 'Node', extensions: ['exe'] }] } : {}),
+    })
+    const [chosen] = filePaths
+
+    if (canceled || chosen === undefined) return { ok: false as const, reason: 'canceled' as const }
+    if (!(await keepNode(chosen))) return { ok: false as const, reason: 'not_node' as const }
+
+    return { ok: true as const, environment: await environment() }
+  })
   ipcMain.handle(CHANNELS.appUpdate, () => appUpdate())
   ipcMain.handle(CHANNELS.cliStatus, () => cliStatus())
   ipcMain.handle(CHANNELS.cliUpdate, () => cliUpdate())

@@ -6,10 +6,11 @@ import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../sh
 import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
-import { applyShellPath, findNode } from './environment.ts'
+import { applyShellPath, chooseNode, findNode, nodeAt } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
+import { Settings } from './settings.ts'
 import { createTray } from './tray.ts'
 import { type Build, noticeEnabled, signedBuild, updaterEnabled } from './updates.ts'
 
@@ -35,6 +36,9 @@ if (!primary) app.quit()
 const apps = new Apps()
 // The list of projects the user keeps, beside the app's own data: nothing of it belongs in a project.
 const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
+// The node executable the user picked, when this machine's PATH has none: used before the PATH from then on.
+const settings = new Settings(join(app.getPath('userData'), 'settings.json'))
+chooseNode(settings.read().node)
 
 /**
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
@@ -252,6 +256,12 @@ app.whenReady().then(() => {
     cliStatus,
     cliUpdate,
     windows: () => BrowserWindow.getAllWindows(),
+    keepNode: async (path) => {
+      if ((await nodeAt(path)) === undefined) return false
+      settings.write({ node: path })
+      chooseNode(path)
+      return true
+    },
     environment: async () => {
       const node = await findNode()
 

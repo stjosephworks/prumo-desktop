@@ -196,7 +196,10 @@ export const en = {
     ready: 'Ready',
     notReady: 'Not ready',
     checking: 'Checking…',
-    nodeMissing: 'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop.',
+    nodeMissing:
+      'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop, or choose where it is.',
+    chooseNode: 'Choose Node…',
+    notNode: 'That file does not run as Node. Choose the node executable itself.',
     nodeAt: 'at',
     optional: 'optional',
     fix: 'Fix what is marked with a cross before creating a project.',

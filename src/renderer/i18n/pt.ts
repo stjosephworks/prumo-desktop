@@ -205,7 +205,9 @@ export const pt: Dictionary = {
     notReady: 'Não está pronta',
     checking: 'Verificando…',
     nodeMissing:
-      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop.',
+      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop, ou escolha onde ele está.',
+    chooseNode: 'Escolher o Node…',
+    notNode: 'Esse arquivo não roda como Node. Escolha o próprio executável do node.',
     nodeAt: 'em',
     optional: 'opcional',
     fix: 'Corrija o que está marcado com um X antes de criar um projeto.',
