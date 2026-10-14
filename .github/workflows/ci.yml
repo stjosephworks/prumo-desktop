@@ -12,11 +12,12 @@ on:
 
 jobs:
   checks:
-    # macOS is what the 0.0.x previews target; Ubuntu is where Docker exists, so the database tests actually run somewhere.
+    # The three systems the Desktop runs on. Ubuntu is also where Docker runs Linux containers, so the database tests
+    # actually run somewhere; Windows runners have a Windows-only engine, and those tests skip there.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
