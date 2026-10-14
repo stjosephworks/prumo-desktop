@@ -6,6 +6,12 @@ import { apiHealth } from './health.ts'
 
 let server: Server | undefined
 
+/**
+ * Longer than the screen's two seconds: a loaded CI runner, Windows most of all, has taken more than two to answer
+ * a server in this same process, and a slow answer is not the unreachable one these tests tell apart.
+ */
+const PATIENT = 10_000
+
 afterEach(() => new Promise<void>((done) => (server ? server.close(() => done()) : done())))
 
 /** A server that answers `/api/health/ready` with `status`, on a port the system picked. */
@@ -22,11 +28,11 @@ function serve(status: number): Promise<number> {
 }
 
 test('200 is a ready API', async () => {
-  expect(await apiHealth(await serve(200))).toBe('ready')
+  expect(await apiHealth(await serve(200), PATIENT)).toBe('ready')
 })
 
 test('503 is an API that runs but cannot reach its database', async () => {
-  expect(await apiHealth(await serve(503))).toBe('database_down')
+  expect(await apiHealth(await serve(503), PATIENT)).toBe('database_down')
 })
 
 test('nothing listening is unreachable', async () => {
@@ -34,5 +40,5 @@ test('nothing listening is unreachable', async () => {
   await new Promise<void>((done) => server?.close(() => done()))
   server = undefined
 
-  expect(await apiHealth(port)).toBe('unreachable')
+  expect(await apiHealth(port, PATIENT)).toBe('unreachable')
 })

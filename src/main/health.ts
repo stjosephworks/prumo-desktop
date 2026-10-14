@@ -5,10 +5,11 @@ import type { ApiHealth } from '../shared/ipc.ts'
 /** Every generated API serves this, outside the auth guard, and checks its database on each call. */
 const READY = '/api/health/ready'
 
-export async function apiHealth(port: number): Promise<ApiHealth> {
+/** Two seconds by default: the project screen asks again soon enough, and a hung server must not hold it. */
+export async function apiHealth(port: number, timeoutMs = 2_000): Promise<ApiHealth> {
   try {
     const response = await fetch(`http://localhost:${port}${READY}`, {
-      signal: AbortSignal.timeout(2_000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
 
     if (response.ok) return 'ready'
