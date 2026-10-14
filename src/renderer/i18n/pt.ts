@@ -30,6 +30,10 @@ export const pt: Dictionary = {
     notReady: (missing) => `Não está pronto: ${missing}.`,
     seeChecks: 'Ver as verificações',
   },
+  appUpdate: {
+    available: (version) => `O Prumo Desktop ${version} está disponível.`,
+    open: 'Ver a versão',
+  },
   cli: {
     shipped: 'A que veio com este app',
     updated: 'Atualizada a partir da que veio com este app',

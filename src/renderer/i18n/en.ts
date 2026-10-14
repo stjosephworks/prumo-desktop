@@ -29,6 +29,10 @@ export const en = {
     notReady: (missing: string) => `Not ready: ${missing}.`,
     seeChecks: 'See the checks',
   },
+  appUpdate: {
+    available: (version: string) => `Prumo Desktop ${version} is available.`,
+    open: 'See the release',
+  },
   cli: {
     shipped: 'Shipped with this app',
     updated: 'Updated from the one this app ships',

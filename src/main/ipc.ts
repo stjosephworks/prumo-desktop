@@ -4,6 +4,7 @@ import type { BrowserWindow } from 'electron'
 import { clipboard, dialog, ipcMain, shell } from 'electron'
 import type { PortAnswer, Project, ProjectConfig } from '../shared/ipc.ts'
 import {
+  type AppUpdate,
   CHANNELS,
   type CliStatus,
   type Environment,
@@ -28,6 +29,8 @@ import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
 
 type Wiring = {
+  /** The newer Desktop the notice last found, if any. */
+  appUpdate: () => AppUpdate | undefined
   cliStatus: () => Promise<CliStatus>
   cliUpdate: () => Promise<{ ok: true; status: CliStatus } | { ok: false; message: string }>
   apps: Apps
@@ -46,12 +49,14 @@ export function register({
   cli,
   cliStatus,
   cliUpdate,
+  appUpdate,
 }: Wiring): void {
   const send = (channel: string, ...args: unknown[]) => {
     for (const window of windows()) window.webContents.send(channel, ...args)
   }
 
   ipcMain.handle(CHANNELS.environment, () => environment())
+  ipcMain.handle(CHANNELS.appUpdate, () => appUpdate())
   ipcMain.handle(CHANNELS.cliStatus, () => cliStatus())
   ipcMain.handle(CHANNELS.cliUpdate, () => cliUpdate())
 

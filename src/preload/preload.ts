@@ -1,6 +1,7 @@
 // The bridge, and nothing else: it exposes the contract, never Node itself.
 import { contextBridge, ipcRenderer } from 'electron'
 import {
+  type AppUpdate,
   type Bridge,
   CHANNELS,
   type NewProject,
@@ -20,6 +21,16 @@ const bridge: Bridge = {
     }
   },
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  app: {
+    update: () => ipcRenderer.invoke(CHANNELS.appUpdate),
+    onUpdate: (listener) => {
+      const handler = (_event: unknown, update: AppUpdate) => listener(update)
+      ipcRenderer.on(CHANNELS.appUpdateFound, handler)
+      return () => {
+        ipcRenderer.off(CHANNELS.appUpdateFound, handler)
+      }
+    },
+  },
   cli: {
     status: () => ipcRenderer.invoke(CHANNELS.cliStatus),
     update: () => ipcRenderer.invoke(CHANNELS.cliUpdate),

@@ -2,7 +2,8 @@
 import { basename, join } from 'node:path'
 import { app, BrowserWindow, dialog, Notification } from 'electron'
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
-import { CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
+import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
+import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, findNode } from './environment.ts'
@@ -10,7 +11,7 @@ import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
 import { createTray } from './tray.ts'
-import { updaterEnabled } from './updates.ts'
+import { type Build, noticeEnabled, signedBuild, updaterEnabled } from './updates.ts'
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
 declare const MAIN_WINDOW_VITE_NAME: string
@@ -186,16 +187,48 @@ function watchApps(): void {
   })
 }
 
-// A packaged app updates itself from GitHub Releases through update.electronjs.org, which serves only signed macOS
-// builds of a public repository: it checks at launch and every ten minutes, then asks to restart. An ad-hoc build
-// never starts it (src/main/updates.ts).
-if (primary && updaterEnabled({ packaged: app.isPackaged, developerId: DEVELOPER_ID_BUILD })) {
+const build: Build = {
+  packaged: app.isPackaged,
+  platform: process.platform,
+  developerId: DEVELOPER_ID_BUILD,
+  windowsStore: process.windowsStore,
+}
+
+// A packaged macOS app signed with a Developer ID updates itself from GitHub Releases through update.electronjs.org:
+// it checks at launch and every ten minutes, then asks to restart. Every other build gets the notice below instead
+// (src/main/updates.ts).
+if (primary && updaterEnabled(build)) {
   updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,
       repo: 'stjosephworks/prumo-desktop',
     },
   })
+}
+
+/** The newer Desktop the last check found, which the window asks for when it opens. */
+let appUpdate: AppUpdate | undefined
+
+/** Six hours: often enough for a preview that ships often, and far below GitHub's unauthenticated rate limit. */
+const UPDATE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Asks GitHub Releases for a newer Desktop: pre-releases too on an unsigned build, which is one itself. A failed
+ * check says nothing; the next one tries again.
+ */
+async function checkForAppUpdate(): Promise<void> {
+  try {
+    const found = newestRelease(await listReleases(), app.getVersion(), !signedBuild(build))
+
+    if (found === undefined || found.version === appUpdate?.version) return
+
+    appUpdate = found
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(CHANNELS.appUpdateFound, found)
+    }
+  } catch {
+    // Offline, or GitHub refused: the notice simply does not appear.
+  }
 }
 
 app.on('second-instance', () => showWindow())
@@ -205,7 +238,14 @@ app.whenReady().then(() => {
 
   watchApps()
   held.push(createTray({ apps, projects, show: showWindow, icon: pngIcon() }))
+
+  if (noticeEnabled(build, process.env)) {
+    void checkForAppUpdate()
+    setInterval(checkForAppUpdate, UPDATE_CHECK_EVERY_MS)
+  }
+
   register({
+    appUpdate: () => appUpdate,
     apps,
     projects,
     cli: cliPath,

@@ -152,6 +152,9 @@ export type ApiHealth = 'ready' | 'database_down' | 'unreachable'
 export type PortAnswer = 'kill' | 'change'
 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
+/** A newer Prumo Desktop on GitHub Releases, and the page the notice opens for it. */
+export type AppUpdate = { version: string; url: string }
+
 export type Bridge = {
   /** `process.platform`, which names the file manager and lays out the window's title bar. */
   platform: string
@@ -162,6 +165,12 @@ export type Bridge = {
   copy: (text: string) => Promise<void>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
   openExternal: (url: string) => Promise<void>
+  app: {
+    /** A newer Desktop, when the notice is on for this build and GitHub has one (src/main/updates.ts). */
+    update: () => Promise<AppUpdate | undefined>
+    /** Called when a check finds a newer Desktop than the last one it found. */
+    onUpdate: (listener: (update: AppUpdate) => void) => () => void
+  }
   cli: {
     /** The CLI in use, and what the npm registry has that is newer. */
     status: () => Promise<CliStatus>
@@ -230,6 +239,8 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  appUpdate: 'prumo:app:update',
+  appUpdateFound: 'prumo:app:update-found',
   cliStatus: 'prumo:cli:status',
   cliUpdate: 'prumo:cli:update',
   projectsList: 'prumo:projects:list',

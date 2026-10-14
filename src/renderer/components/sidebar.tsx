@@ -7,6 +7,7 @@ import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 import { Wordmark } from './brand.tsx'
 import { cx, StatusDot } from './ui.tsx'
+import { UpdateNotice } from './update-notice.tsx'
 
 function NavItem({
   to,
@@ -148,6 +149,7 @@ export function Sidebar() {
         </ul>
       </div>
 
+      <UpdateNotice />
       <LanguageSwitch />
     </aside>
   )

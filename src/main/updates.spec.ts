@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module'
 import { expect, test } from 'vitest'
-import { updaterEnabled } from './updates.ts'
+import { noticeEnabled, signedBuild, updaterEnabled } from './updates.ts'
 
 const { signingMode } = createRequire(import.meta.url)('../../build/signing.cjs') as {
   signingMode: (env: Record<string, string | undefined>) => 'developer-id' | 'ad-hoc'
@@ -28,8 +28,36 @@ test('only some of them is an error naming what is missing, never a quiet ad-hoc
   )
 })
 
-test('only a packaged Developer ID build starts the updater', () => {
-  expect(updaterEnabled({ packaged: true, developerId: true })).toBe(true)
-  expect(updaterEnabled({ packaged: true, developerId: false })).toBe(false)
-  expect(updaterEnabled({ packaged: false, developerId: true })).toBe(false)
+const mac = { packaged: true, platform: 'darwin' as const, developerId: true }
+
+test('only a packaged macOS build signed with a Developer ID starts the updater', () => {
+  expect(updaterEnabled(mac)).toBe(true)
+  expect(updaterEnabled({ ...mac, developerId: false })).toBe(false)
+  expect(updaterEnabled({ ...mac, packaged: false })).toBe(false)
+  // Linux has no updater in Electron, and Windows builds are unsigned pre-releases or the Store's to update.
+  expect(updaterEnabled({ ...mac, platform: 'linux' })).toBe(false)
+  expect(updaterEnabled({ ...mac, platform: 'win32' })).toBe(false)
+})
+
+test('every other packaged build shows the notice instead, and a Store build shows neither', () => {
+  expect(noticeEnabled(mac, {})).toBe(false)
+  expect(noticeEnabled({ ...mac, developerId: false }, {})).toBe(true)
+  expect(noticeEnabled({ ...mac, platform: 'linux', developerId: false }, {})).toBe(true)
+  expect(noticeEnabled({ ...mac, platform: 'win32', developerId: false }, {})).toBe(true)
+  expect(
+    noticeEnabled({ ...mac, platform: 'win32', developerId: false, windowsStore: true }, {}),
+  ).toBe(false)
+})
+
+test('the notice is off in development, unless asked for', () => {
+  const dev = { packaged: false, platform: 'linux' as const, developerId: false }
+
+  expect(noticeEnabled(dev, {})).toBe(false)
+  expect(noticeEnabled(dev, { PRUMO_UPDATE_NOTICE: '1' })).toBe(true)
+})
+
+test('only a Developer ID build counts as signed, so every other one is offered pre-releases', () => {
+  expect(signedBuild(mac)).toBe(true)
+  expect(signedBuild({ ...mac, developerId: false })).toBe(false)
+  expect(signedBuild({ ...mac, platform: 'linux' })).toBe(false)
 })

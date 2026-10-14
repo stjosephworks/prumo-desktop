@@ -29,8 +29,11 @@ jobs:
       - run: pnpm install
       - run: pnpm lint
       - run: pnpm typecheck
-      # `pnpm test` embeds the pinned CLI first, then runs against real processes and that CLI.
+      # `pnpm test` embeds the pinned CLI first, then runs against real processes and that CLI. The token is for the
+      # GitHub Releases test: unauthenticated, its rate limit is per address, which runners share.
       - run: pnpm test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   packaged:
     # The path a user actually takes: a packaged app, opened with the PATH an app opened from Finder receives.
