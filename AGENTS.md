@@ -59,7 +59,8 @@ pnpm test        # real processes and the embedded CLI, no mocks
 pnpm lint
 pnpm typecheck
 pnpm smoke       # packages the app and checks it with the PATH an app opened from the desktop gets
-pnpm release     # what .github/workflows/release.yml runs: signs (Developer ID or ad-hoc), makes and drafts a release
+pnpm release     # from a Mac: signs (Developer ID or ad-hoc), makes and drafts a macOS-only release. CI's
+                 # .github/workflows/release.yml drafts every system's builds in one release instead
 pnpm icon        # renders build/icon.svg into build/icon.png, and build/icon.icns on a Mac
 ```
 

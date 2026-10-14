@@ -34,19 +34,19 @@ pnpm smoke       # packages the app and checks it with the PATH an app opened fr
 
 ## Releases
 
-`.github/workflows/release.yml` turns a new `package.json` version on `main` into a GitHub draft, with a dmg and a zip
-for Apple silicon (arm64) and for Intel (x64). How the app is signed depends only on which secrets the repository
-has:
+`.github/workflows/release.yml` turns a new `package.json` version on `main` into one GitHub draft holding every
+system's build: a dmg and a zip for Apple silicon (arm64) and for Intel (x64), and a deb and an rpm for Linux x64.
+Linux builds are unsigned. How the macOS build is signed depends only on which secrets the repository has:
 
-| Secrets | Build | Release |
+| Secrets | macOS build | Installed Macs |
 |---|---|---|
-| None | Ad-hoc signature (`codesign --sign -`), not notarized; the app never updates itself | A pre-release, with first-launch instructions from `.github/release-notes/unsigned.md` |
-| All five: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signature with the Hardened Runtime, notarized and stapled | A release; installed apps update themselves through update.electronjs.org |
-| Only some | The job fails and names what is missing | None |
+| None | Ad-hoc signature (`codesign --sign -`), not notarized; first-launch instructions in the notes, from `.github/release-notes/unsigned.md` | Never update themselves; they say when a newer release is out |
+| All five: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signature with the Hardened Runtime, notarized and stapled | Update themselves through update.electronjs.org, from published releases only |
+| Only some | The job fails and names what is missing | |
 
-**Switching to signed releases takes nothing but adding the five secrets.** The first signed version has to be a
-version with no release yet, and anyone on an ad-hoc build installs it by hand, once: an ad-hoc build does not
-update itself. `pnpm package` locally makes an ad-hoc build too.
+**The release is a pre-release while any system's build is unsigned, and Linux always is.** update.electronjs.org
+never serves a pre-release. Every build that does not update itself, Linux included, checks GitHub Releases and says
+when a newer version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locally makes an ad-hoc build.
 
 ## Requirements (for users)
 
