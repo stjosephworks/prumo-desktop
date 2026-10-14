@@ -207,6 +207,8 @@ export const pt: Dictionary = {
     nodeMissing:
       'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop, ou escolha onde ele está.',
     chooseNode: 'Escolher o Node…',
+    pathProblem:
+      'O Windows não entregou o PATH do registro, então uma ferramenta marcada como ausente abaixo pode estar instalada. Reabra o Prumo Desktop para tentar de novo.',
     notNode: 'Esse arquivo não roda como Node. Escolha o próprio executável do node.',
     nodeAt: 'em',
     optional: 'opcional',

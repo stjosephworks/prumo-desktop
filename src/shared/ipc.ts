@@ -10,10 +10,14 @@ export type Check = {
 }
 
 /** What the Desktop knows about this machine: the Node it found, and what the CLI says about the rest. */
-export type Environment =
+export type Environment = (
   | { ready: boolean; node: { path: string; version: string }; checks: Check[] }
   // Without Node nothing runs, `prumo doctor` included, so there are no checks to show.
   | { ready: false; node: undefined; checks: [] }
+) & {
+  /** Windows only: why the PATH could not be read from the registry, which explains a tool reported missing. */
+  pathProblem?: string
+}
 
 /** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
 export type ProjectConfig = {

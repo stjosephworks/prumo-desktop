@@ -199,6 +199,8 @@ export const en = {
     nodeMissing:
       'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop, or choose where it is.',
     chooseNode: 'Choose Node…',
+    pathProblem:
+      'Windows did not give the PATH from the registry, so a tool marked missing below may be installed after all. Reopen Prumo Desktop to try again.',
     notNode: 'That file does not run as Node. Choose the node executable itself.',
     nodeAt: 'at',
     optional: 'optional',

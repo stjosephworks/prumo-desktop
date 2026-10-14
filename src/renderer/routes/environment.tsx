@@ -55,6 +55,15 @@ export function Environment() {
             <p className="text-sm text-muted-foreground">{t.machine.checking}</p>
           )}
 
+          {report?.pathProblem !== undefined && (
+            <div className="mb-4">
+              <Notice tone="error" icon={<CircleAlert />}>
+                {t.machine.pathProblem}
+                <code className="mt-1 block font-mono text-[0.72rem]">{report.pathProblem}</code>
+              </Notice>
+            </div>
+          )}
+
           {report !== undefined && report.node === undefined && (
             <Notice
               tone="error"

@@ -7,7 +7,7 @@ import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../sh
 import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
-import { applyShellPath, chooseNode, findNode, nodeAt } from './environment.ts'
+import { applyShellPath, chooseNode, findNode, nodeAt, pathProblem } from './environment.ts'
 import { register } from './ipc.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
@@ -269,12 +269,14 @@ app.whenReady().then(() => {
     },
     environment: async () => {
       const node = await findNode()
+      const problem = pathProblem()
+      const extra = problem === undefined ? {} : { pathProblem: problem }
 
-      if (node === undefined) return { ready: false, node: undefined, checks: [] }
+      if (node === undefined) return { ready: false, node: undefined, checks: [], ...extra }
 
       const report = await doctor({ cli: cliPath() })
 
-      return { ready: report.ready, node, checks: report.checks }
+      return { ready: report.ready, node, checks: report.checks, ...extra }
     },
   })
 
