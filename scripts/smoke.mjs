@@ -337,7 +337,7 @@ try {
   await evaluate(socket, "localStorage.removeItem('prumo.locale'); true", 91)
 
   if (failures.length > 0) {
-    console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}`)
+    console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}\n\nThe app's own output:\n${log}`)
     process.exitCode = 1
   } else {
     console.log("\nSmoke passed: packaged app, the desktop's PATH, bridge and screen.")
