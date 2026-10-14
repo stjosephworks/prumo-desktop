@@ -1,17 +1,27 @@
 name: Release
 
-# A push to main whose package.json version has no GitHub release yet becomes one: the app is built for Apple
-# silicon (arm64) and Intel (x64), packaged as a dmg and a zip per arch, and published to GitHub as a draft that a
-# person then publishes. update.electronjs.org serves each Mac the zip whose name carries its arch.
+# A push to main whose package.json version has no GitHub release yet becomes one draft, holding every system's
+# build, which a person then publishes:
 #
-# How it is signed depends only on which secrets exist; adding them is the whole switch, no code changes:
+#   macos    Apple silicon (arm64) and Intel (x64), a dmg and a zip per arch. update.electronjs.org serves each Mac
+#            the zip whose name carries its arch.
+#   linux    x64, a deb and an rpm, unsigned.
+#   windows  x64, a Squirrel.Windows Setup.exe with the nupkg and RELEASES Squirrel updates from, unsigned.
+#   publish  waits for all three, then creates the draft with every file and its notes. One job creates it, so no two
+#            runners race to make the same release.
+#
+# How the macOS build is signed depends only on which secrets exist; adding them is the whole switch, no code changes:
 #
 #   all five  Developer ID: signed with the certificate, Hardened Runtime, notarized and stapled, checked with
-#             codesign, spctl and stapler, and drafted as a normal release. Installed apps update themselves.
-#   none      Ad-hoc: signed with `codesign --sign -`, not notarized, drafted as a pre-release whose notes
-#             (.github/release-notes/unsigned.md) explain macOS's Open Anyway. These apps never update themselves,
-#             and update.electronjs.org never serves a pre-release.
+#             codesign, spctl and stapler.
+#   none      Ad-hoc: signed with `codesign --sign -`, not notarized; the notes (.github/release-notes/unsigned.md)
+#             explain macOS's Open Anyway.
 #   some      The job fails and names what is missing: a typo must never ship an unsigned build quietly.
+#
+# The release is a pre-release while the macOS build is ad-hoc, and a normal release once it is signed with a
+# Developer ID, so update.electronjs.org serves it to installed Macs (it never serves a pre-release). The Linux
+# packages and the Windows Setup.exe are unsigned either way, and the notes say so (build/signing.cjs, prerelease). Every build that does not update itself
+# says when a newer release exists (src/main/updates.ts).
 #
 # The secrets, all from the Apple Developer account:
 #   APPLE_CERTIFICATE           the Developer ID Application certificate, exported as .p12, base64-encoded
@@ -39,14 +49,18 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  decide:
     # A run started by hand on another branch would release code that never went through dev and alpha.
     if: github.ref == 'refs/heads/main'
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      mode: ${{ steps.decide.outputs.mode }}
+      release: ${{ steps.decide.outputs.release }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Decide whether this version needs a release, and how it is signed
+      - name: Decide whether this version needs a release, and how macOS is signed
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
@@ -80,23 +94,26 @@ jobs:
             echo "v$version already has a release."
             echo "release=false" >> "$GITHUB_OUTPUT"
           else
-            echo "v$version will be released, signed $mode."
+            echo "v$version will be released; macOS signed $mode."
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - if: steps.decide.outputs.release == 'true'
-        uses: pnpm/action-setup@v4
-      - if: steps.decide.outputs.release == 'true'
-        uses: actions/setup-node@v5
+  macos:
+    needs: decide
+    if: needs.decide.outputs.release == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
-      - if: steps.decide.outputs.release == 'true'
-        run: pnpm install
+      - run: pnpm install
 
       # A keychain of its own for this job, holding only the certificate, unlocked for codesign.
       - name: Import the Developer ID certificate
-        if: steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'developer-id'
+        if: needs.decide.outputs.mode == 'developer-id'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -111,10 +128,8 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
-      # `pnpm release` in two halves, so nothing is uploaded before the signatures are checked. build/signing.cjs
-      # reads the same three variables: empty, as GitHub passes a missing secret, means ad-hoc.
+      # build/signing.cjs reads the same three variables: empty, as GitHub passes a missing secret, means ad-hoc.
       - name: Sign, notarize when signed with a Developer ID, and make
-        if: steps.decide.outputs.release == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -123,15 +138,14 @@ jobs:
         run: |
           pnpm prepare-run
           for arch in arm64 x64; do
-            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --dry-run --arch="$arch"
+            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge make --arch="$arch"
           done
 
       # Every app is checked: its whole bundle signed, and, with a Developer ID, what Gatekeeper will judge on a user's
       # Mac: the Developer ID authority, notarized, with the ticket stapled.
       - name: Check the signatures
-        if: steps.decide.outputs.release == 'true'
         env:
-          MODE: ${{ steps.decide.outputs.mode }}
+          MODE: ${{ needs.decide.outputs.mode }}
         run: |
           checked=0
           while IFS= read -r app; do
@@ -150,25 +164,106 @@ jobs:
           # One app per arch: arm64 and x64.
           test "$checked" -eq 2
 
-      - name: Publish the draft
-        if: steps.decide.outputs.release == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        # Both go to the same draft: the publisher finds the release the first one created by its tag.
-        run: |
-          for arch in arm64 x64; do
-            FORGE_OUT_DIR="out/$arch" pnpm exec electron-forge publish --from-dry-run
-          done
-
-      - name: Explain how to open an unsigned pre-release
-        if: steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'ad-hoc'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.decide.outputs.version }}
-        run: |
-          sed "s/<version>/$VERSION/g" .github/release-notes/unsigned.md > "$RUNNER_TEMP/notes.md"
-          gh release edit "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            out/*/make/**/*.dmg
+            out/*/make/**/*.zip
+          if-no-files-found: error
 
       - name: Remove the signing keychain
-        if: always() && steps.decide.outputs.release == 'true' && steps.decide.outputs.mode == 'developer-id'
+        if: always() && needs.decide.outputs.mode == 'developer-id'
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  linux:
+    needs: decide
+    if: needs.decide.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      # The rpm maker needs rpmbuild; dpkg and fakeroot, which the deb maker needs, come with the runner.
+      - run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: pnpm install
+      - name: Make the deb and the rpm
+        run: |
+          pnpm prepare-run
+          pnpm exec electron-forge make --arch=x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            out/make/**/*.deb
+            out/make/**/*.rpm
+          if-no-files-found: error
+
+  windows:
+    needs: decide
+    if: needs.decide.outputs.release == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install
+      - name: Make the Setup.exe
+        run: |
+          pnpm prepare-run
+          pnpm exec electron-forge make --arch=x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/make/squirrel.windows/x64/*
+          if-no-files-found: error
+
+  publish:
+    needs: [decide, macos, linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the draft with every build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.decide.outputs.version }}
+          MODE: ${{ needs.decide.outputs.mode }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          : > "$notes"
+          if [ "$MODE" = "ad-hoc" ]; then
+            sed "s/<version>/$VERSION/g" .github/release-notes/unsigned.md >> "$notes"
+            echo >> "$notes"
+          fi
+          sed "s/<version>/$VERSION/g" .github/release-notes/linux.md >> "$notes"
+          echo >> "$notes"
+          sed "s/<version>/$VERSION/g" .github/release-notes/windows.md >> "$notes"
+
+          files=()
+          while IFS= read -r -d '' file; do files+=("$file"); done < <(find dist -type f -print0)
+          printf '%s\n' "${files[@]}"
+          # Two Macs, a dmg and a zip each; a deb and an rpm; a Setup.exe, its nupkg and RELEASES.
+          test "${#files[@]}" -eq 9
+
+          # A pre-release while macOS is ad-hoc, a normal release once it is signed (build/signing.cjs).
+          kind=()
+          if [ "$(node -p "require('./build/signing.cjs').prerelease(process.argv[1])" "$MODE")" = "true" ]; then
+            kind=(--prerelease)
+          fi
+
+          gh release create "v$VERSION" "${files[@]}" \
+            --draft "${kind[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file "$notes"

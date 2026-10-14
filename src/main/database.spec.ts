@@ -19,10 +19,18 @@ import { Projects } from './projects.ts'
 
 const cli = join(import.meta.dirname, '..', '..', 'resources', 'prumo', 'dist', 'cli.js')
 
+/**
+ * Whether a Docker engine answers and runs Linux containers, which the project's `postgres` image is. A Windows
+ * engine answers `docker info` too, as on GitHub's Windows runners, and would fail every test here instead of
+ * skipping them.
+ */
 function dockerRunning(): boolean {
   try {
-    execFileSync('docker', ['info'], { stdio: 'ignore' })
-    return true
+    const os = execFileSync('docker', ['info', '--format', '{{.OSType}}'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return os.trim() === 'linux'
   } catch {
     return false
   }
@@ -116,7 +124,8 @@ whenDocker(
   600_000,
 )
 
-// Docker is already running here, so opening it again is a no-op that must still report an engine that answers.
+// Docker is already running here, so opening it is a no-op that must still report an engine that answers, on Linux
+// as well, where a runner's Docker Engine is a system service the Desktop could not have started itself.
 whenDocker('opening Docker resolves once its engine answers', async () => {
-  expect(await openDocker(10_000)).toBe(process.platform === 'darwin')
+  expect(await openDocker(10_000)).toBe('running')
 })

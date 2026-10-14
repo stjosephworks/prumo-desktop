@@ -12,11 +12,12 @@ on:
 
 jobs:
   checks:
-    # macOS is what the 0.0.x previews target; Ubuntu is where Docker exists, so the database tests actually run somewhere.
+    # The three systems the Desktop runs on. Ubuntu is also where Docker runs Linux containers, so the database tests
+    # actually run somewhere; Windows runners have a Windows-only engine, and those tests skip there.
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -28,8 +29,11 @@ jobs:
       - run: pnpm install
       - run: pnpm lint
       - run: pnpm typecheck
-      # `pnpm test` embeds the pinned CLI first, then runs against real processes and that CLI.
+      # `pnpm test` embeds the pinned CLI first, then runs against real processes and that CLI. The token is for the
+      # GitHub Releases test: unauthenticated, its rate limit is per address, which runners share.
       - run: pnpm test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   packaged:
     # The path a user actually takes: a packaged app, opened with the PATH an app opened from Finder receives.
@@ -53,3 +57,71 @@ jobs:
           env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin zsh -lc 'node --version && pnpm --version'
       - run: pnpm install
       - run: pnpm smoke
+
+  packaged-linux:
+    # The same path on Linux, from the package a user installs: the deb and the rpm the release ships, made and read
+    # back, then the deb installed and its app run under a virtual display with the bare system PATH, which it must
+    # extend from the login shell as fix-path does.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install what the makers and the virtual display need
+        run: sudo apt-get update && sudo apt-get install -y rpm xvfb
+      # On a runner node and pnpm live in the tool cache, on the job's PATH only. A developer's machine puts them on
+      # the login shell's PATH, through nvm or a profile line; so does this, and the app must find them there.
+      - name: Put pnpm and node where a login shell finds them
+        run: |
+          profile="$HOME/.profile"
+          [ -f "$HOME/.bash_profile" ] && profile="$HOME/.bash_profile"
+          echo "export PATH=\"$(dirname "$(command -v node)"):$(dirname "$(command -v pnpm)"):\$PATH\"" >> "$profile"
+          env -i HOME="$HOME" PATH=/usr/bin:/bin bash -ilc 'node --version && pnpm --version'
+      - run: pnpm install
+      # Made and installed as a user does: the deb puts the app in /usr/lib and its binary on PATH, and makes
+      # chrome-sandbox setuid root, which Chromium's sandbox needs where Ubuntu restricts user namespaces.
+      - name: Make the deb and the rpm, and read them back
+        run: |
+          pnpm prepare-run
+          pnpm exec electron-forge make
+          deb="$(find out/make -name '*.deb')"
+          rpm="$(find out/make -name '*.rpm')"
+          echo "$deb" "$rpm"
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'
+          rpm -qip "$rpm"
+          rpm -qlp "$rpm" | grep -E 'usr/bin/prumo-desktop|prumo-desktop.desktop'
+      - name: Install the deb
+        run: sudo apt-get install -y "./$(find out/make -name '*.deb')"
+      - run: xvfb-run -a node scripts/smoke.mjs
+        env:
+          SMOKE_BINARY: /usr/bin/prumo-desktop
+
+  packaged-windows:
+    # The same path on Windows: the packaged app opened with System32 alone on PATH, which must find Node and pnpm
+    # through the registry as a fresh login would. pnpm is installed globally, as a user has it, rather than only on
+    # this job's PATH. Then the Squirrel.Windows Setup.exe the release ships. No database: Windows runners run no
+    # Linux containers.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install pnpm where a user's machine has it
+        run: npm install --global pnpm@12.3.4
+      - run: pnpm install
+      - run: pnpm package
+      - run: node scripts/smoke.mjs
+      - name: Make the Setup.exe
+        shell: bash
+        run: |
+          pnpm exec electron-forge make --skip-package
+          ls -la out/make/squirrel.windows/x64
+          test -f out/make/squirrel.windows/x64/RELEASES
+          ls out/make/squirrel.windows/x64/*Setup.exe out/make/squirrel.windows/x64/*-full.nupkg

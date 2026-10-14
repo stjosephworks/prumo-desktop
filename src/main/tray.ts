@@ -1,8 +1,9 @@
-// The menu bar's plumb bob: every project's apps, started and stopped without opening the window, and how many
-// run, beside the icon. Starting goes through the same port check as the project screen; a port in use opens the
+// The menu bar's plumb bob, and the system tray's icon on Windows and Linux: every project's apps, started and
+// stopped without opening the window, and how many run, beside the icon on macOS and in its tooltip elsewhere. Starting goes through the same port check as the project screen; a port in use opens the
 // window on that project instead, where the question has its buttons.
 import { Menu, type MenuItemConstructorOptions, nativeImage, Tray } from 'electron'
 import { partId, partsFor } from '../shared/parts.ts'
+import { applyShellPath } from './environment.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
@@ -13,16 +14,33 @@ type Wiring = {
   projects: Projects
   /** Brings the window forward, on a project when one is given. */
   show: (project?: string) => void
+  /** The app's PNG icon, which the tray shows outside macOS. */
+  icon: string
 }
 
-export function createTray({ apps, projects, show }: Wiring): Tray {
-  // Drawn at twice the menu bar's 18 points, marked as a template so macOS inverts it in dark menus.
-  const { png } = plumbPng(36)
-  const icon = nativeImage.createFromBuffer(png, { scaleFactor: 2 })
-  icon.setTemplateImage(true)
+const mac = process.platform === 'darwin'
 
-  const tray = new Tray(icon)
+/**
+ * macOS draws a template image, black and alpha, which it inverts in dark menus. Windows and Linux show colours as
+ * they are, so the app's own icon, at the 16 points both trays use (Electron's tray guide), drawn at twice that.
+ */
+function trayIcon(icon: string) {
+  if (mac) {
+    // Drawn at twice the menu bar's 18 points, marked as a template so macOS inverts it in dark menus.
+    const { png } = plumbPng(36)
+    const image = nativeImage.createFromBuffer(png, { scaleFactor: 2 })
+    image.setTemplateImage(true)
+    return image
+  }
+
+  return nativeImage.createFromPath(icon).resize({ width: 32, height: 32, quality: 'best' })
+}
+
+export function createTray({ apps, projects, show, icon }: Wiring): Tray {
+  const tray = new Tray(trayIcon(icon))
   tray.setToolTip('Prumo Desktop')
+  // Windows opens a tray icon's menu on a right click only; a left click opens it too, as it does on macOS.
+  if (process.platform === 'win32') tray.on('click', () => tray.popUpContextMenu())
 
   const isRunning = (id: string) => {
     const state = apps.get(id)?.state
@@ -31,7 +49,16 @@ export function createTray({ apps, projects, show }: Wiring): Tray {
 
   const rebuild = () => {
     const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
-    tray.setTitle(running.length > 0 ? String(running.length) : '', { fontType: 'monospacedDigit' })
+    // Only macOS has a title beside the icon; elsewhere the count is in the tooltip.
+    if (mac) {
+      tray.setTitle(running.length > 0 ? String(running.length) : '', {
+        fontType: 'monospacedDigit',
+      })
+    } else {
+      tray.setToolTip(
+        running.length > 0 ? `Prumo Desktop · ${running.length} running` : 'Prumo Desktop',
+      )
+    }
 
     const projectItems: MenuItemConstructorOptions[] = projects
       .list()
@@ -49,6 +76,7 @@ export function createTray({ apps, projects, show }: Wiring): Tray {
                 type: 'checkbox',
                 checked: isRunning(partId(project, part)),
                 click: async () => {
+                  await applyShellPath()
                   const id = partId(project, part)
                   if (isRunning(id)) {
                     await apps.stop(id)

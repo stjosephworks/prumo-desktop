@@ -30,6 +30,10 @@ export const pt: Dictionary = {
     notReady: (missing) => `Não está pronto: ${missing}.`,
     seeChecks: 'Ver as verificações',
   },
+  appUpdate: {
+    available: (version) => `O Prumo Desktop ${version} está disponível.`,
+    open: 'Ver a versão',
+  },
   cli: {
     shipped: 'A que veio com este app',
     updated: 'Atualizada a partir da que veio com este app',
@@ -61,7 +65,12 @@ export const pt: Dictionary = {
     missingBody: 'Este projeto não está mais na lista.',
     back: 'Voltar aos projetos',
     conventions: 'Convenções',
-    finder: 'Finder',
+    fileManager: (platform: string) =>
+      platform === 'darwin'
+        ? 'Finder'
+        : platform === 'win32'
+          ? 'Explorador de Arquivos'
+          : 'Arquivos',
     apps: 'Apps',
     runAll: 'Rodar todos',
     stopAll: 'Parar todos',
@@ -127,6 +136,10 @@ export const pt: Dictionary = {
     openDocker: 'Abrir o Docker',
     openingButton: 'Abrindo…',
     didNotStart: 'O Docker Desktop não iniciou. Abra-o você mesmo e tente de novo.',
+    startYourself: (platform: string) =>
+      platform === 'linux'
+        ? 'Inicie o Docker você mesmo: abra o Docker Desktop, ou inicie o Docker Engine com `sudo systemctl start docker`. Depois tente de novo.'
+        : 'Inicie o Docker Desktop você mesmo e tente de novo.',
     notRunningRetry:
       'O Docker está instalado, mas não está rodando. Abra-o e crie o banco de novo.',
     getDocker: 'Baixar o Docker Desktop',
@@ -192,7 +205,11 @@ export const pt: Dictionary = {
     notReady: 'Não está pronta',
     checking: 'Verificando…',
     nodeMissing:
-      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop.',
+      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop, ou escolha onde ele está.',
+    chooseNode: 'Escolher o Node…',
+    pathProblem:
+      'O Windows não entregou o PATH do registro, então uma ferramenta marcada como ausente abaixo pode estar instalada. Reabra o Prumo Desktop para tentar de novo.',
+    notNode: 'Esse arquivo não roda como Node. Escolha o próprio executável do node.',
     nodeAt: 'em',
     optional: 'opcional',
     fix: 'Corrija o que está marcado com um X antes de criar um projeto.',

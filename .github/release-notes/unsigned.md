@@ -8,7 +8,7 @@
 > **A preview build, not signed by Apple.** It is meant for the few developers it was shared with. It is not
 > notarized, so macOS asks you to confirm it the first time it opens, and it does not update itself.
 
-## Download
+## macOS
 
 - **Apple silicon** (M1 and later): `Prumo.Desktop-<version>-arm64.dmg`
 - **Intel**: `Prumo.Desktop-<version>-x64.dmg`
@@ -30,8 +30,9 @@ From then on it opens like any other app. Apple describes these steps in
 
 ## Updates
 
-- **This build never updates itself.** To move to a newer preview, download it from
-  [Releases](https://github.com/stjosephworks/prumo-desktop/releases) and replace the app in Applications.
+- **This build never updates itself.** It says when a newer preview is out, at the foot of its sidebar. To move
+  to it, download it from [Releases](https://github.com/stjosephworks/prumo-desktop/releases) and replace the app
+  in Applications.
 - **The first signed release also has to be installed by hand, once.** Download it, quit Prumo Desktop and
   replace the app in Applications. From that release on, updates arrive by themselves.
 

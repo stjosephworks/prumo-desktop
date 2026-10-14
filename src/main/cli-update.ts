@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { CliStatus } from '../shared/ipc.ts'
 import { compareVersions, parseVersion, sameMinor } from '../shared/versions.ts'
-import { findNode, findOnPath } from './environment.ts'
+import { findNode, findOnPath, npmCommand } from './environment.ts'
 
 const run = promisify(execFile)
 
@@ -99,11 +99,13 @@ export async function installCli(version: string, updates: string): Promise<void
 
   mkdirSync(dirname(updates), { recursive: true })
   const staging = mkdtempSync(`${updates}-next-`)
+  const { command, args } = npmCommand(npm, node.path)
 
   try {
     await run(
-      npm,
+      command,
       [
+        ...args,
         'install',
         `${PACKAGE}@${version}`,
         '--prefix',

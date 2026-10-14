@@ -10,10 +10,14 @@ export type Check = {
 }
 
 /** What the Desktop knows about this machine: the Node it found, and what the CLI says about the rest. */
-export type Environment =
+export type Environment = (
   | { ready: boolean; node: { path: string; version: string }; checks: Check[] }
   // Without Node nothing runs, `prumo doctor` included, so there are no checks to show.
   | { ready: false; node: undefined; checks: [] }
+) & {
+  /** Windows only: why the PATH could not be read from the registry, which explains a tool reported missing. */
+  pathProblem?: string
+}
 
 /** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
 export type ProjectConfig = {
@@ -110,6 +114,12 @@ export type DockerState =
       services: { name: string; state: string; port?: number }[]
     }
 
+/**
+ * What opening Docker came to: its engine answers, it was started and never answered, or this system has no
+ * Docker the Desktop can start, and the user has to start it.
+ */
+export type OpenDocker = 'running' | 'failed' | 'manual'
+
 /** State of one app started by the Desktop. `failed` means it exited on its own with an error. */
 export type AppState = 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -146,14 +156,32 @@ export type ApiHealth = 'ready' | 'database_down' | 'unreachable'
 export type PortAnswer = 'kill' | 'change'
 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
+/** A newer Prumo Desktop on GitHub Releases, and the page the notice opens for it. */
+export type AppUpdate = { version: string; url: string }
+
 export type Bridge = {
+  /** `process.platform`, which names the file manager and lays out the window's title bar. */
+  platform: string
   environment: () => Promise<Environment>
+  /**
+   * Lets the user pick the node executable by hand, when no PATH and no usual folder has one. It is kept for the
+   * next launch, and the new report comes back; a file that does not run as Node is refused.
+   */
+  chooseNode: () => Promise<
+    { ok: true; environment: Environment } | { ok: false; reason: 'canceled' | 'not_node' }
+  >
   /** The main process asking to show a project, as when a notification about it is clicked. */
   onNavigate: (listener: (project: string) => void) => () => void
   /** Puts text on the system clipboard, through the main process, whether or not the window has focus. */
   copy: (text: string) => Promise<void>
   /** Opens an `http` or `https` address in the user's browser. Nothing else is opened this way. */
   openExternal: (url: string) => Promise<void>
+  app: {
+    /** A newer Desktop, when the notice is on for this build and GitHub has one (src/main/updates.ts). */
+    update: () => Promise<AppUpdate | undefined>
+    /** Called when a check finds a newer Desktop than the last one it found. */
+    onUpdate: (listener: (update: AppUpdate) => void) => () => void
+  }
   cli: {
     /** The CLI in use, and what the npm registry has that is newer. */
     status: () => Promise<CliStatus>
@@ -165,7 +193,7 @@ export type Bridge = {
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
     add: () => Promise<Project | undefined>
     remove: (path: string) => Promise<void>
-    /** Opens the project's folder in Finder. */
+    /** Opens the project's folder in the system's file manager. */
     reveal: (path: string) => Promise<void>
     /** The project's branch and uncommitted changes; undefined when it is not a Git repository. */
     git: (path: string) => Promise<GitState | undefined>
@@ -194,8 +222,8 @@ export type Bridge = {
     create: (project: Project, name: string) => Promise<DatabaseCreated>
     startDocker: (project: Project) => Promise<boolean>
     stopDocker: (project: Project) => Promise<boolean>
-    /** Opens Docker Desktop and resolves once its engine answers; false where the Desktop cannot open it. */
-    openDocker: () => Promise<boolean>
+    /** Opens Docker Desktop and resolves once its engine answers, or says why it could not. */
+    openDocker: () => Promise<OpenDocker>
     /** The log of `prumo db`, while it runs. */
     onLog: (listener: (chunk: string) => void) => () => void
   }
@@ -222,6 +250,9 @@ export type Bridge = {
 
 export const CHANNELS = {
   environment: 'prumo:environment',
+  chooseNode: 'prumo:environment:choose-node',
+  appUpdate: 'prumo:app:update',
+  appUpdateFound: 'prumo:app:update-found',
   cliStatus: 'prumo:cli:status',
   cliUpdate: 'prumo:cli:update',
   projectsList: 'prumo:projects:list',
