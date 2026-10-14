@@ -1,4 +1,7 @@
-// Renders build/icon.svg into build/icon.icns, the app icon Forge packages. Run it after changing the SVG:
+// Renders build/icon.svg into the app icons Forge packages. Run it after changing the SVG:
+//
+//   build/icon.icns   macOS, through iconutil, so only on a Mac
+//   build/icon.png    Linux: the deb and rpm desktop entries and the window icon, 512 pixels square
 //
 //   pnpm icon          (with ELECTRON_RUN_AS_NODE unset, or Electron runs the file as plain Node)
 //
@@ -45,21 +48,27 @@ app.whenReady().then(async () => {
   mkdirSync(iconset)
 
   try {
-    for (const [name, size] of SIZES) writeFileSync(join(iconset, name), await render(window, size))
-    execFileSync('iconutil', [
-      '--convert',
-      'icns',
-      '--output',
-      join(root, 'build', 'icon.icns'),
-      iconset,
-    ])
+    writeFileSync(join(root, 'build', 'icon.png'), await render(window, 512))
+    console.log('Wrote build/icon.png')
+
+    if (process.platform === 'darwin') {
+      for (const [name, size] of SIZES)
+        writeFileSync(join(iconset, name), await render(window, size))
+      execFileSync('iconutil', [
+        '--convert',
+        'icns',
+        '--output',
+        join(root, 'build', 'icon.icns'),
+        iconset,
+      ])
+      console.log('Wrote build/icon.icns')
+    }
     // Optional: a preview at any size, e.g. `... make-icon.mjs --preview /tmp/icon.png 512`.
     const preview = process.argv.indexOf('--preview')
     if (preview !== -1) {
       const [path, size] = process.argv.slice(preview + 1)
       writeFileSync(path, await render(window, Number(size ?? 512)))
     }
-    console.log('Wrote build/icon.icns')
   } finally {
     rmSync(work, { recursive: true, force: true })
     app.quit()

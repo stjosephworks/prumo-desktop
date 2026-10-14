@@ -18,6 +18,21 @@ const developerId = MODE === 'developer-id'
 const HELPER = /\((GPU|Renderer|Plugin)\)\.app/
 const ENTITLEMENTS = join(__dirname, 'build', 'entitlements.mac.plist')
 const ICON = join(__dirname, 'build', 'icon.icns')
+// Rendered from the same SVG by scripts/make-icon.mjs: the Linux desktop entry's icon and the window's.
+const PNG = join(__dirname, 'build', 'icon.png')
+
+// What a Linux package installs and its desktop entry runs. The deb and rpm makers run the binary named after the
+// package (`bin` defaults to its name), and Packager otherwise names it after productName, with a space. Only on
+// Linux: the macOS bundle and its signature stay as they are.
+const LINUX_EXECUTABLE = 'prumo-desktop'
+const LINUX_PACKAGE = {
+  bin: LINUX_EXECUTABLE,
+  icon: PNG,
+  productName: 'Prumo Desktop',
+  genericName: 'Prumo project manager',
+  categories: ['Development'],
+  homepage: 'https://github.com/stjosephworks/prumo-desktop',
+}
 
 module.exports = {
   // One output folder per arch in a release: Forge makes the arches concurrently, and the dmg maker writes every
@@ -31,9 +46,11 @@ module.exports = {
     appCopyright: 'Copyright © 2026 Leonardo Freitas',
     // build/icon.icns, rendered from build/icon.svg by scripts/make-icon.mjs; Packager adds the extension.
     icon: join(__dirname, 'build', 'icon'),
+    ...(process.platform === 'linux' ? { executableName: LINUX_EXECUTABLE } : {}),
     asar: { unpack: '**/node_modules/node-pty/**' },
     // spawn cannot run files inside app.asar, so the embedded CLI sits next to it, in Contents/Resources/prumo.
-    extraResource: ['resources/prumo'],
+    // The PNG icon goes beside it, for the window icon Linux shows (src/main/main.ts).
+    extraResource: ['resources/prumo', 'build/icon.png'],
     // Ad-hoc signing has no Team ID, and the Hardened Runtime's library validation then refuses to load Electron
     // Framework into the app ("different Team IDs"), so the runtime is on only with a Developer ID. Notarization
     // needs it; an ad-hoc build is never notarized. --timestamp=none: Apple's timestamp service serves real
@@ -64,6 +81,10 @@ module.exports = {
     { name: '@electron-forge/maker-zip', platforms: ['darwin'] },
     // The dmg is what a person downloads to install it.
     { name: '@electron-forge/maker-dmg', platforms: ['darwin'], config: { icon: ICON } },
+    // Linux, unsigned: a deb for Debian and Ubuntu, an rpm for Fedora and openSUSE. Both set chrome-sandbox setuid
+    // root on install, which Chromium's sandbox needs where unprivileged user namespaces are restricted.
+    { name: '@electron-forge/maker-deb', platforms: ['linux'], config: { options: LINUX_PACKAGE } },
+    { name: '@electron-forge/maker-rpm', platforms: ['linux'], config: { options: LINUX_PACKAGE } },
   ],
   publishers: [
     {
