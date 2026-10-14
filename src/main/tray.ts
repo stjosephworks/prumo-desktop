@@ -39,6 +39,8 @@ function trayIcon(icon: string) {
 export function createTray({ apps, projects, show, icon }: Wiring): Tray {
   const tray = new Tray(trayIcon(icon))
   tray.setToolTip('Prumo Desktop')
+  // Windows opens a tray icon's menu on a right click only; a left click opens it too, as it does on macOS.
+  if (process.platform === 'win32') tray.on('click', () => tray.popUpContextMenu())
 
   const isRunning = (id: string) => {
     const state = apps.get(id)?.state

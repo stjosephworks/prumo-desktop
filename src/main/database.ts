@@ -1,7 +1,8 @@
 // The database part: what `prumo db` says about it, and what Docker says about the container behind it.
 // No Electron here, so the tests run in plain Node.
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type {
   DatabaseCreated,
@@ -126,9 +127,34 @@ async function linuxDockerDesktop(): Promise<boolean> {
 }
 
 /**
+ * Docker Desktop's executable on Windows, where its installer puts it: for all users under Program Files, or per user
+ * under %LOCALAPPDATA%\Programs (Docker's Windows install guide names both folders).
+ */
+function windowsDockerDesktop(): string | undefined {
+  return [
+    process.env.ProgramFiles &&
+      join(process.env.ProgramFiles, 'Docker', 'Docker', 'Docker Desktop.exe'),
+    process.env.LOCALAPPDATA &&
+      join(process.env.LOCALAPPDATA, 'Programs', 'DockerDesktop', 'Docker Desktop.exe'),
+  ].find((path): path is string => typeof path === 'string' && existsSync(path))
+}
+
+/** Starts an app on its own, without waiting for it: Docker Desktop keeps running after the Desktop quits. */
+function launch(path: string): Promise<boolean> {
+  return new Promise((done) => {
+    const child = spawn(path, [], { detached: true, stdio: 'ignore' })
+    child.once('error', () => done(false))
+    child.once('spawn', () => {
+      child.unref()
+      done(true)
+    })
+  })
+}
+
+/**
  * Starts Docker Desktop and waits for its engine to answer, which takes a while after the window appears. On macOS
- * the app is `Docker`; on Linux it is the `docker-desktop` user service. Anything else, Docker Engine on Linux or
- * Windows for now, is `manual`: the screen tells the user to start it.
+ * the app is `Docker`; on Linux it is the `docker-desktop` user service; on Windows its executable. Anything else,
+ * Docker Engine on Linux among them, is `manual`: the screen tells the user to start it.
  */
 export async function openDocker(waitMs = 90_000): Promise<OpenDocker> {
   // An engine that already answers, whoever started it, is all the screen was waiting for.
@@ -140,6 +166,8 @@ export async function openDocker(waitMs = 90_000): Promise<OpenDocker> {
     } catch {
       return 'failed'
     }
+  } else if (process.platform === 'win32' && windowsDockerDesktop() !== undefined) {
+    if (!(await launch(windowsDockerDesktop() ?? ''))) return 'failed'
   } else if (process.platform === 'linux' && (await linuxDockerDesktop())) {
     try {
       await run('systemctl', ['--user', 'start', 'docker-desktop'], { timeout: 30_000 })

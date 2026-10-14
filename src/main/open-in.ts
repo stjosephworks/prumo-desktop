@@ -5,7 +5,8 @@
 // Linux: each editor's own command on PATH (`code`, `cursor`, `zed`) opens the folder handed to it, and the
 // terminal is the first one found of GNOME Terminal (`--working-directory`, gnome-terminal(1)), Konsole
 // (`--workdir`) and Debian's `x-terminal-emulator`, which is started in the folder.
-// Windows offers nothing yet.
+// Windows: the same editors through their commands on PATH, which are .cmd files run through cmd.exe, and Windows
+// Terminal (`wt -d <folder>`, Microsoft's command line reference), or else a Command Prompt started in the folder.
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { Openers } from '../shared/ipc.ts'
@@ -22,7 +23,7 @@ const MAC_EDITORS = ['Visual Studio Code', 'Cursor', 'Zed', 'WebStorm']
  */
 const MAC_TERMINALS = ['Terminal']
 
-/** A Linux app: the name the Desktop shows, the command on PATH, and how the folder is handed to it. */
+/** An app found on PATH: the name the Desktop shows, its command, and how the folder is handed to it. */
 type LinuxApp = { name: string; command: string; args: (folder: string) => string[] }
 
 const LINUX_EDITORS: LinuxApp[] = [
@@ -43,6 +44,19 @@ const LINUX_TERMINALS: LinuxApp[] = [
   { name: 'Terminal', command: 'x-terminal-emulator', args: () => [] },
 ]
 
+/**
+ * Windows Terminal reads `;` as the end of a command, so one in the folder's name is escaped. The Command Prompt
+ * has no command to find: cmd.exe is always there, and `start` opens it in a window of its own.
+ */
+const WINDOWS_TERMINALS: LinuxApp[] = [
+  {
+    name: 'Windows Terminal',
+    command: 'wt',
+    args: (folder) => ['-d', folder.replaceAll(';', '\\;')],
+  },
+  { name: 'Command Prompt', command: 'cmd', args: () => [] },
+]
+
 async function installedOnMac(app: string): Promise<boolean> {
   try {
     await run('open', ['-Ra', app])
@@ -52,8 +66,8 @@ async function installedOnMac(app: string): Promise<boolean> {
   }
 }
 
-/** The Linux apps this machine has, found on PATH and kept with the path they were found at. */
-function linuxApps(): {
+/** The apps this machine has, found on PATH and kept with the path they were found at. */
+function pathApps(): {
   editors: (LinuxApp & { path: string })[]
   terminal?: LinuxApp & { path: string }
 } {
@@ -63,7 +77,13 @@ function linuxApps(): {
       return path === undefined ? [] : [{ ...app, path }]
     })
 
-  return { editors: found(LINUX_EDITORS), terminal: found(LINUX_TERMINALS)[0] }
+  const windows = process.platform === 'win32'
+
+  // The editors' commands are the same on Windows, as .cmd files that findOnPath finds through PATHEXT.
+  return {
+    editors: found(LINUX_EDITORS),
+    terminal: found(windows ? WINDOWS_TERMINALS : LINUX_TERMINALS)[0],
+  }
 }
 
 let found: Promise<Openers> | undefined
@@ -82,8 +102,8 @@ export function openers(): Promise<Openers> {
       return { editors: await has(MAC_EDITORS), terminals: await has(MAC_TERMINALS) }
     }
 
-    if (process.platform === 'linux') {
-      const { editors, terminal } = linuxApps()
+    if (process.platform === 'linux' || process.platform === 'win32') {
+      const { editors, terminal } = pathApps()
 
       return {
         editors: editors.map((editor) => editor.name),
@@ -98,9 +118,20 @@ export function openers(): Promise<Openers> {
 }
 
 /** Starts `command` on its own, so it outlives neither a wait here nor the Desktop's own exit. */
-function detached(command: string, args: string[], cwd: string): Promise<boolean> {
+function detached(
+  command: string,
+  args: string[],
+  cwd: string,
+  verbatim = false,
+): Promise<boolean> {
   return new Promise((done) => {
-    const child = spawn(command, args, { cwd, detached: true, stdio: 'ignore', env: process.env })
+    const child = spawn(command, args, {
+      cwd,
+      detached: true,
+      stdio: 'ignore',
+      env: process.env,
+      windowsVerbatimArguments: verbatim,
+    })
     child.once('error', () => done(false))
     child.once('spawn', () => {
       child.unref()
@@ -109,19 +140,39 @@ function detached(command: string, args: string[], cwd: string): Promise<boolean
   })
 }
 
+/**
+ * The command line for an app on Windows, for cmd.exe: a .cmd runs only through it, and `start` opens the Command
+ * Prompt in a window of its own. A Windows path cannot hold a double quote, so quoting each part is enough, and
+ * `/s /c` with the whole line in one more pair of quotes runs it as written (cmd /?).
+ */
+export function onWindows(app: LinuxApp & { path: string }, folder: string): [string, string[]] {
+  const cmd = process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe'
+  const quote = (part: string) => `"${part}"`
+
+  if (app.command === 'cmd') {
+    return [cmd, ['/d', '/s', '/c', `"start "" /D ${quote(folder)} ${quote(cmd)}"`]]
+  }
+
+  return [cmd, ['/d', '/s', '/c', `"${[app.path, ...app.args(folder)].map(quote).join(' ')}"`]]
+}
+
 /** Opens `path` in `app`, which must be one this machine was found to have: never an app the renderer names. */
 export async function openIn(app: string, path: string): Promise<boolean> {
   const { editors, terminals } = await openers()
 
   if (![...editors, ...terminals].includes(app)) return false
 
-  if (process.platform === 'linux') {
-    const { editors: linuxEditors, terminal } = linuxApps()
-    const chosen = [...linuxEditors, ...(terminal === undefined ? [] : [terminal])].find(
+  if (process.platform === 'linux' || process.platform === 'win32') {
+    const { editors: pathEditors, terminal } = pathApps()
+    const chosen = [...pathEditors, ...(terminal === undefined ? [] : [terminal])].find(
       (one) => one.name === app,
     )
 
-    return chosen === undefined ? false : detached(chosen.path, chosen.args(path), path)
+    if (chosen === undefined) return false
+    if (process.platform === 'linux') return detached(chosen.path, chosen.args(path), path)
+
+    const [command, args] = onWindows(chosen, path)
+    return detached(command, args, path, true)
   }
 
   try {
