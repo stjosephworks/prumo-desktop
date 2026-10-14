@@ -23,6 +23,14 @@ const here = __dirname
 // Before anything else: opened from Finder, the app would not even see the user's Node.
 applyShellPath()
 
+const mac = process.platform === 'darwin'
+
+// One Desktop at a time: opening it again brings the running one forward. Off macOS that is how a user gets back to
+// a Desktop that kept running with its window closed, where the tray icon may not show (GNOME without an
+// AppIndicator extension).
+const primary = app.requestSingleInstanceLock()
+if (!primary) app.quit()
+
 const apps = new Apps()
 // The list of projects the user keeps, beside the app's own data: nothing of it belongs in a project.
 const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
@@ -83,13 +91,31 @@ function cliUpdate() {
   return updating
 }
 
+/** The PNG icon, beside the embedded CLI once packaged (forge.config.js), in build/ during development. */
+function pngIcon(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'build', 'icon.png')
+}
+
+/**
+ * Off macOS a hidden title bar takes the window's controls with it, and `titleBarOverlay` draws them back over the
+ * top right corner. Its height is the strip above the content (`h-10` in src/renderer/router.tsx), and its colours
+ * are the paper and ink of src/renderer/index.css, so the controls sit on the strip as the traffic lights do.
+ */
+const TITLE_BAR_OVERLAY = { color: '#f1f4f7', symbolColor: '#112439', height: 40 }
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1100,
     height: 760,
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
+    ...(mac
+      ? { titleBarStyle: 'hiddenInset' as const }
+      : { titleBarStyle: 'hidden' as const, titleBarOverlay: TITLE_BAR_OVERLAY }),
+    // Linux shows it in the window switcher and the dock; macOS and Windows take theirs from the bundle and the exe.
+    ...(process.platform === 'linux' ? { icon: pngIcon() } : {}),
     webPreferences: {
       preload: join(here, 'preload.js'),
       // The renderer reaches Node only through the bridge in the preload.
@@ -118,16 +144,26 @@ function showWindow(project?: string): void {
 // Held for the app's lifetime: a tray nothing refers to can be collected, and its icon would vanish.
 const held: object[] = []
 
+function runningApps(): RunningApp[] {
+  return apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
+}
+
 /**
  * What happens outside the window: the Dock badge counts what runs, and a process that fails while the window is
  * in the background says so in a notification, which brings the window back on that project when clicked.
+ * Off macOS, a Desktop kept alive with its window closed quits once the last app has stopped.
  */
 function watchApps(): void {
   const failed = new Set<string>()
 
   apps.on('state', (changed: RunningApp) => {
-    const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
+    const running = runningApps()
     app.setBadgeCount(running.length)
+
+    if (!mac && running.length === 0 && BrowserWindow.getAllWindows().length === 0) {
+      app.quit()
+      return
+    }
 
     if (changed.state !== 'failed') {
       failed.delete(changed.id)
@@ -153,7 +189,7 @@ function watchApps(): void {
 // A packaged app updates itself from GitHub Releases through update.electronjs.org, which serves only signed macOS
 // builds of a public repository: it checks at launch and every ten minutes, then asks to restart. An ad-hoc build
 // never starts it (src/main/updates.ts).
-if (updaterEnabled({ packaged: app.isPackaged, developerId: DEVELOPER_ID_BUILD })) {
+if (primary && updaterEnabled({ packaged: app.isPackaged, developerId: DEVELOPER_ID_BUILD })) {
   updateElectronApp({
     updateSource: {
       type: UpdateSourceType.ElectronPublicUpdateService,
@@ -162,9 +198,13 @@ if (updaterEnabled({ packaged: app.isPackaged, developerId: DEVELOPER_ID_BUILD }
   })
 }
 
+app.on('second-instance', () => showWindow())
+
 app.whenReady().then(() => {
+  if (!primary) return
+
   watchApps()
-  if (process.platform === 'darwin') held.push(createTray({ apps, projects, show: showWindow }))
+  held.push(createTray({ apps, projects, show: showWindow, icon: pngIcon() }))
   register({
     apps,
     projects,
@@ -197,7 +237,7 @@ let stopping = false
 app.on('before-quit', async (event) => {
   if (stopping) return
 
-  const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
+  const running = runningApps()
 
   if (running.length === 0) return
 
@@ -219,6 +259,28 @@ app.on('before-quit', async (event) => {
   app.quit()
 })
 
+/**
+ * Closing the window off macOS quits the Desktop, unless apps run: then it keeps them running and says so, since
+ * the tray icon that can quit it is not shown everywhere. macOS keeps the app in the Dock, as its apps do.
+ */
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (mac) return
+
+  const running = runningApps()
+
+  if (running.length === 0) {
+    app.quit()
+    return
+  }
+
+  if (!Notification.isSupported()) return
+
+  const notice = new Notification({
+    title: 'Prumo Desktop is still running',
+    body:
+      `${running.length === 1 ? '1 app keeps' : `${running.length} apps keep`} running. ` +
+      'Open Prumo Desktop again to stop them, or quit it from its icon in the system tray.',
+  })
+  notice.on('click', () => showWindow())
+  notice.show()
 })
