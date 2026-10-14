@@ -1,6 +1,6 @@
 // Real processes, no mocks: a process layer that passes against a fake proves nothing about ports being freed.
-import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test } from 'vitest'
@@ -30,26 +30,41 @@ process.on('SIGTERM', () => {})
   return directory
 }
 
-function portHeld(port: number): boolean {
-  try {
-    execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' })
-    return true
-  } catch {
-    return false
-  }
+/** Whether a port answers on either loopback address, asked over TCP: the same on every system, no lsof. */
+async function portHeld(port: number): Promise<boolean> {
+  const answers = (host: string) =>
+    new Promise<boolean>((done) => {
+      const socket = connect({ host, port })
+      const finish = (open: boolean) => {
+        socket.destroy()
+        done(open)
+      }
+      socket.setTimeout(1_000, () => finish(false))
+      socket.once('connect', () => finish(true))
+      socket.once('error', () => finish(false))
+    })
+
+  return (await answers('127.0.0.1')) || (await answers('::1'))
 }
 
-function waitFor(condition: () => boolean, timeoutMs = 30_000): Promise<void> {
+function waitFor(condition: () => boolean | Promise<boolean>, timeoutMs = 30_000): Promise<void> {
   return new Promise((done, fail) => {
     const started = Date.now()
-    const tick = () => {
-      if (condition()) return done()
+    const tick = async () => {
+      if (await condition()) return done()
       if (Date.now() - started > timeoutMs) return fail(new Error('timed out'))
       setTimeout(tick, 100)
     }
     tick()
   })
 }
+
+/**
+ * The process layer runs `pnpm` in a pseudo terminal and stops it by signalling its process group. Windows has no
+ * process groups, and node-pty looks a command up there without PATHEXT, so `pnpm` is not even found: these tests
+ * run on Windows once the process layer has a Windows implementation.
+ */
+const posixOnly = test.skipIf(process.platform === 'win32')
 
 // A fresh instance per test: state left by one test would otherwise answer another test's question.
 let apps = new Apps()
@@ -62,7 +77,7 @@ afterEach(async () => {
   await apps.stopAll()
 })
 
-test('starts an app, reports its output, and stops its whole process tree', async () => {
+posixOnly('starts an app, reports its output, and stops its whole process tree', async () => {
   const directory = project({ dev: 'node server.mjs' })
   let output = ''
   apps.on('output', (_id, data) => {
@@ -76,17 +91,17 @@ test('starts an app, reports its output, and stops its whole process tree', asyn
   await waitFor(() => output.includes(`listening on ${PORT}`))
   expect(apps.get(started.id)?.state).toBe('running')
   expect(apps.buffer(started.id)).toContain('listening on')
-  expect(portHeld(PORT)).toBe(true)
+  expect(await portHeld(PORT)).toBe(true)
 
   const tree = processTree(processTreeRoot(apps, started.id))
   expect(tree.length).toBeGreaterThan(1)
 
   const stopped = await apps.stop(started.id)
   expect(stopped?.state).toBe('stopped')
-  expect(portHeld(PORT)).toBe(false)
+  expect(await portHeld(PORT)).toBe(false)
 })
 
-test('an app that exits with an error is failed, not stopped', async () => {
+posixOnly('an app that exits with an error is failed, not stopped', async () => {
   const directory = project({ dev: 'node --eval "process.exit(3)"' })
 
   const started = apps.start({ project: directory, script: 'dev' })
@@ -95,7 +110,7 @@ test('an app that exits with an error is failed, not stopped', async () => {
   expect(apps.get(started.id)?.exitCode).toBe(3)
 })
 
-test('quitting stops everything that is still running', async () => {
+posixOnly('quitting stops everything that is still running', async () => {
   const directory = project({ dev: 'node server.mjs' })
 
   const started = apps.start({ project: directory, script: 'dev' })
@@ -103,7 +118,7 @@ test('quitting stops everything that is still running', async () => {
 
   await apps.stopAll()
 
-  expect(portHeld(PORT)).toBe(false)
+  expect(await portHeld(PORT)).toBe(false)
   expect(apps.get(started.id)?.state).toBe('stopped')
 })
 
