@@ -9,6 +9,7 @@ import {
 } from '../shared/ipc.ts'
 
 const bridge: Bridge = {
+  platform: process.platform,
   environment: () => ipcRenderer.invoke(CHANNELS.environment),
   copy: (text: string) => ipcRenderer.invoke(CHANNELS.copy, text),
   onNavigate: (listener) => {

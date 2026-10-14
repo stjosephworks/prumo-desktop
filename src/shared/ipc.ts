@@ -147,6 +147,8 @@ export type PortAnswer = 'kill' | 'change'
 
 /** What the preload bridge exposes on `window.prumo`. The renderer has nothing else. */
 export type Bridge = {
+  /** `process.platform`, which names the file manager and lays out the window's title bar. */
+  platform: string
   environment: () => Promise<Environment>
   /** The main process asking to show a project, as when a notification about it is clicked. */
   onNavigate: (listener: (project: string) => void) => () => void
@@ -165,7 +167,7 @@ export type Bridge = {
     /** Opens the folder picker and adds what was chosen; undefined when the user cancelled. */
     add: () => Promise<Project | undefined>
     remove: (path: string) => Promise<void>
-    /** Opens the project's folder in Finder. */
+    /** Opens the project's folder in the system's file manager. */
     reveal: (path: string) => Promise<void>
     /** The project's branch and uncommitted changes; undefined when it is not a Git repository. */
     git: (path: string) => Promise<GitState | undefined>

@@ -60,7 +60,9 @@ export const en = {
     missingBody: 'This project is no longer in the list.',
     back: 'Back to projects',
     conventions: 'Conventions',
-    finder: 'Finder',
+    /** The file manager, by the name each system gives it. */
+    fileManager: (platform: string): string =>
+      platform === 'darwin' ? 'Finder' : platform === 'win32' ? 'File Explorer' : 'Files',
     apps: 'Apps',
     runAll: 'Run all',
     stopAll: 'Stop all',

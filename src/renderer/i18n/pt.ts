@@ -61,7 +61,12 @@ export const pt: Dictionary = {
     missingBody: 'Este projeto não está mais na lista.',
     back: 'Voltar aos projetos',
     conventions: 'Convenções',
-    finder: 'Finder',
+    fileManager: (platform: string) =>
+      platform === 'darwin'
+        ? 'Finder'
+        : platform === 'win32'
+          ? 'Explorador de Arquivos'
+          : 'Arquivos',
     apps: 'Apps',
     runAll: 'Rodar todos',
     stopAll: 'Parar todos',
