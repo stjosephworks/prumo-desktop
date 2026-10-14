@@ -1,7 +1,9 @@
 // The rules for finding a command, and npm as this machine really has it.
 import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from 'vitest'
-import { executableNames, findNode, findOnPath, npmCommand } from './environment.ts'
+import { chooseNode, executableNames, findNode, findOnPath, npmCommand } from './environment.ts'
 
 test('Windows looks a command up through PATHEXT, and never as a bare name', () => {
   expect(executableNames('npm', 'win32', '.COM;.EXE;.BAT;.CMD')).toEqual([
@@ -38,4 +40,17 @@ test('npm runs through its own npm-cli.js with Node, which works for a .cmd as w
   expect(args).toHaveLength(1)
   expect(args[0]).toMatch(/npm-cli\.js$/)
   expect(existsSync(args[0] ?? '')).toBe(true)
+})
+
+test('a Node chosen by hand is used before PATH, and one that is gone is passed over', async () => {
+  const path = process.env.PATH
+
+  chooseNode(process.execPath)
+  expect((await findNode())?.path).toBe(process.execPath)
+
+  chooseNode(join(tmpdir(), 'no-such-node'))
+  expect((await findNode())?.path).toBe(findOnPath('node'))
+
+  chooseNode(undefined)
+  process.env.PATH = path
 })

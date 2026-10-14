@@ -4,6 +4,13 @@ import { existsSync, realpathSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import fixPath from 'fix-path'
+import {
+  loginEnvironment,
+  nodeLocations,
+  pnpmLocations,
+  type RegistryEnvironment,
+  readRegistryEnvironment,
+} from './windows-path.ts'
 
 const run = promisify(execFile)
 
@@ -12,12 +19,36 @@ let fixed = false
 /**
  * An app opened from Finder inherits launchd's `PATH`, not the shell's: measured in the spike as
  * `/usr/bin:/bin:/usr/sbin:/sbin`, where a Node installed by nvm, fnm or volta is invisible.
- * `fix-path` asks the user's own shell for its `PATH` and rewrites `process.env.PATH`.
+ * `fix-path` asks the user's own shell for its `PATH` and rewrites `process.env.PATH`; on Linux the same.
+ * On Windows fix-path does nothing, and the PATH comes from the registry and the usual install folders instead
+ * (src/main/windows-path.ts).
  */
 export function applyShellPath(): void {
   if (fixed) return
-  fixPath()
+  if (process.platform === 'win32') applyWindowsPath()
+  else fixPath()
   fixed = true
+}
+
+/** Folders that exist, added at the end of PATH: found only where nothing earlier answers. */
+function appendToPath(folders: string[]): void {
+  const extra = folders.filter((folder) => existsSync(folder))
+  if (extra.length > 0) process.env.PATH = [process.env.PATH ?? '', ...extra].join(delimiter)
+}
+
+/**
+ * The registry's environment over the inherited one, then the usual install folders for whichever of Node and pnpm
+ * is still missing. A registry that cannot be read leaves the inherited environment as it was.
+ */
+export function applyWindowsPath(read: () => RegistryEnvironment = readRegistryEnvironment): void {
+  try {
+    Object.assign(process.env, loginEnvironment(read(), process.env))
+  } catch {
+    // PowerShell missing or refused: the inherited PATH and the folders below are what is left.
+  }
+
+  if (findOnPath('node') === undefined) appendToPath(nodeLocations(process.env))
+  if (findOnPath('pnpm') === undefined) appendToPath(pnpmLocations(process.env))
 }
 
 /**
@@ -77,17 +108,43 @@ export function npmCommand(npm: string, node: string): { command: string; args: 
 
 export type Node = { path: string; version: string }
 
-/** The Node the Desktop will run the CLI and every project with, or undefined when there is none. */
-export async function findNode(): Promise<Node | undefined> {
-  applyShellPath()
-  const path = findOnPath('node')
-
-  if (path === undefined) return undefined
-
+/** The Node at `path`, asked for its version, or undefined when it does not run. */
+export async function nodeAt(path: string): Promise<Node | undefined> {
   try {
-    const { stdout } = await run(path, ['--version'])
-    return { path, version: stdout.trim().replace(/^v/, '') }
+    const { stdout } = await run(path, ['--version'], { timeout: 10_000 })
+    const version = stdout.trim().replace(/^v/, '')
+    return /^\d+\.\d+\.\d+/.test(version) ? { path, version } : undefined
   } catch {
     return undefined
   }
+}
+
+/** The node executable the user picked by hand, when no PATH has one (src/main/settings.ts keeps it). */
+let chosen: string | undefined
+
+/**
+ * Uses `path` as Node, or forgets the choice with undefined. Its folder goes first on PATH, so the CLI, pnpm and
+ * every project find the same Node as the Desktop.
+ */
+export function chooseNode(path: string | undefined): void {
+  chosen = path
+  if (path === undefined || !existsSync(path)) return
+
+  const folder = dirname(path)
+  const entries = (process.env.PATH ?? '').split(delimiter)
+  if (!entries.includes(folder)) process.env.PATH = [folder, ...entries].join(delimiter)
+}
+
+/** The Node the Desktop will run the CLI and every project with, or undefined when there is none. */
+export async function findNode(): Promise<Node | undefined> {
+  applyShellPath()
+
+  if (chosen !== undefined && existsSync(chosen)) {
+    const node = await nodeAt(chosen)
+    if (node !== undefined) return node
+  }
+
+  const path = findOnPath('node')
+
+  return path === undefined ? undefined : nodeAt(path)
 }
