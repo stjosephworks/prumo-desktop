@@ -36,7 +36,8 @@ pnpm smoke       # packages the app and checks it with the PATH an app opened fr
 
 `.github/workflows/release.yml` turns a new `package.json` version on `main` into one GitHub draft holding every
 system's build: a dmg and a zip for Apple silicon (arm64) and for Intel (x64), a deb and an rpm for Linux x64, and a
-Squirrel.Windows Setup.exe for Windows x64. The Linux and Windows builds are unsigned. How the macOS build is signed depends only on which secrets the repository has:
+Squirrel.Windows Setup.exe for Windows x64. How the macOS build is signed depends only on which secrets the repository
+has:
 
 | Secrets | macOS build | Installed Macs |
 |---|---|---|
@@ -45,9 +46,17 @@ Squirrel.Windows Setup.exe for Windows x64. The Linux and Windows builds are uns
 | Only some | The job fails and names what is missing | |
 
 **The release is a pre-release while the macOS build is ad-hoc, and a normal release once it is signed with a
-Developer ID**, which update.electronjs.org then serves to installed Macs; it never serves a pre-release. The Linux
-packages and the Windows Setup.exe are unsigned either way, and the notes say so. Every build that does not update itself, Linux included, checks GitHub Releases and says
-when a newer version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locally makes an ad-hoc build.
+Developer ID**, which update.electronjs.org then serves to installed Macs; it never serves a pre-release.
+
+**The Linux packages and the Windows Setup.exe are unsigned in either kind of release**, and the notes say so
+(`.github/release-notes/linux.md`, `.github/release-notes/windows.md`). Squirrel.Windows on GitHub Releases is the
+only Windows channel; the Microsoft Store is not planned for now. On Windows, Microsoft Defender SmartScreen warns
+before an app it does not know yet, and its warning offers **More info**, then **Run anyway**; Smart App Control,
+where it is on, blocks unsigned apps with no way around it for a single app
+([Microsoft](https://support.microsoft.com/en-us/topic/what-is-smart-app-control-285ea03d-fa88-4d56-882e-6698afdb7003)).
+
+Every build that does not update itself, Linux and Windows included, checks GitHub Releases and says when a newer
+version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locally makes an ad-hoc build.
 
 ## Requirements (for users)
 
