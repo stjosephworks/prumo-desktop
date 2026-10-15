@@ -17,13 +17,22 @@ const mac = process.platform === 'darwin'
 const linux = process.platform === 'linux'
 const windows = process.platform === 'win32'
 
-/** A command on PATH that writes where it was started and what it was given, then exits. */
+/**
+ * A command on PATH that writes where it was started and what it was given, then exits. The shell creates a file
+ * before anything is written to it, and the stand-in runs detached, so the test could find it empty: it writes
+ * beside it and renames it into place, which `out` then appears by whole. `mv` by its full path: the test's PATH
+ * holds only the stand-ins.
+ */
 function standIn(bin: string, name: string, out: string): void {
   const script = join(bin, name)
-  writeFileSync(script, `#!/bin/sh\nprintf '%s\\n' "$PWD" "$@" > '${out}'\n`)
+  writeFileSync(
+    script,
+    `#!/bin/sh\nprintf '%s\\n' "$PWD" "$@" > '${out}.partial' && /bin/mv '${out}.partial' '${out}'\n`,
+  )
   chmodSync(script, 0o755)
 }
 
+/** Waits for `path` to appear, which a stand-in makes happen only once it is whole. */
 async function readWhenWritten(path: string): Promise<string[]> {
   for (let attempt = 0; attempt < 50 && !existsSync(path); attempt++) {
     await new Promise((done) => setTimeout(done, 100))
@@ -69,7 +78,11 @@ test.runIf(windows)(
     // The long form of the path, which is what cmd.exe reports as the current folder.
     const folder = realpathSync.native(mkdtempSync(join(tmpdir(), 'prumo desktop folder-')))
     const out = join(bin, 'editor.txt')
-    writeFileSync(join(bin, 'code.cmd'), `@echo off\r\n(echo %CD%& echo %~1)> "${out}"\r\n`)
+    // Written beside `out` and moved into place, as the Linux stand-ins do.
+    writeFileSync(
+      join(bin, 'code.cmd'),
+      `@echo off\r\n(echo %CD%& echo %~1)> "${out}.partial"\r\nmove /y "${out}.partial" "${out}" >nul\r\n`,
+    )
     const path = process.env.PATH
     process.env.PATH = [bin, join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')].join(';')
 
