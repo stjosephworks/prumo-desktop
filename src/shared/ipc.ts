@@ -1,5 +1,5 @@
 // The IPC contract. Imported by main, preload and renderer, so a change breaks both sides at compile time.
-import type { Locale } from './locales.ts'
+import type { Locale, LocaleState } from './locales.ts'
 
 /** A `prumo doctor` check, as the CLI reports it. */
 export type Check = {
@@ -183,11 +183,11 @@ export type Bridge = {
    */
   locale: {
     /** The language in use, and whether the user chose it (otherwise it is the system's). */
-    get: () => Promise<{ locale: Locale; chosen: boolean }>
+    get: () => Promise<LocaleState>
     /** Keeps the user's choice and switches every surface to it; undefined forgets it and follows the system. */
-    set: (locale: Locale | undefined) => Promise<Locale>
+    set: (locale: Locale | undefined) => Promise<LocaleState>
     /** Called when the language changes, from this window or another. */
-    onChange: (listener: (locale: Locale) => void) => () => void
+    onChange: (listener: (state: LocaleState) => void) => () => void
   }
   app: {
     /** A newer Desktop, when the notice is on for this build and GitHub has one (src/main/updates.ts). */

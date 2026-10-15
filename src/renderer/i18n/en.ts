@@ -23,6 +23,7 @@ export const en = {
     openAProject: 'Open a project',
     noneYet: 'None yet.',
     language: 'Language',
+    followSystem: 'Follow the system',
   },
   banner: {
     nodeMissing: 'Node was not found on this machine, so nothing can run.',

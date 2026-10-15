@@ -11,7 +11,7 @@ import {
   type NewProject,
   type StartApp,
 } from '../shared/ipc.ts'
-import { isLocale, type Locale } from '../shared/locales.ts'
+import { isLocale, type Locale, type LocaleState } from '../shared/locales.ts'
 import { createProject } from './create.ts'
 import {
   createDatabase,
@@ -47,9 +47,9 @@ type Wiring = {
   /** The words of the language in use, for the native dialogs opened from here. */
   words: () => MainDictionary
   locale: {
-    get: () => { locale: Locale; chosen: boolean }
+    get: () => LocaleState
     /** Keeps the choice, or forgets it on undefined, and switches every surface; the language now in use. */
-    set: (locale: Locale | undefined) => Locale
+    set: (locale: Locale | undefined) => LocaleState
   }
 }
 
@@ -81,7 +81,7 @@ export function register({
   handle(CHANNELS.localeGet, () => locale.get())
   handle(CHANNELS.localeSet, (_event, chosen: unknown) => {
     // Anything but a known language or undefined is refused, so the settings never keep one the app cannot speak.
-    if (chosen !== undefined && !isLocale(chosen)) return locale.get().locale
+    if (chosen !== undefined && !isLocale(chosen)) return locale.get()
     return locale.set(chosen)
   })
   handle(CHANNELS.chooseNode, async () => {

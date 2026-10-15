@@ -9,9 +9,9 @@ const root = document.getElementById('root')
 if (root === null) throw new Error('no #root in index.html')
 
 // The language comes from the main process before the first paint, so the window never flashes another one.
-void initialLocale().then((locale) =>
+void initialLocale().then((state) =>
   createRoot(root).render(
-    <I18nProvider initial={locale}>
+    <I18nProvider initial={state}>
       <RouterProvider router={router} />
     </I18nProvider>,
   ),

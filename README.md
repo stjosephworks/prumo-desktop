@@ -32,7 +32,8 @@ when someone asks for it. What it takes, so it is not worked out again:
 English, Portuguese (Brazil) and Spanish (Latin America). The Desktop opens in the first of the system's preferred
 languages it speaks, whatever the region (`es-MX` is Spanish, `pt-PT` Portuguese), and in English when it speaks
 none. A language picked in the sidebar is kept in the app's `settings.json` from then on, and switches the window,
-the tray, the app menu, notifications and dialogs at once, without a restart.
+the tray, the app menu, notifications and dialogs at once, without a restart. Its first option, Follow the system,
+removes that choice, and the system's language answers again.
 
 A new language is one entry in `src/shared/locales.ts` and one dictionary in each of `src/renderer/i18n/` and
 `src/main/i18n/`. The build refuses it until both dictionaries exist, and `src/shared/dictionaries.spec.ts` holds it

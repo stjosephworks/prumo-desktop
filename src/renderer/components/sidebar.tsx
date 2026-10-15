@@ -1,8 +1,9 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, FolderOpen, Gauge, LayoutGrid, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { isLocale, LOCALES } from '../../shared/locales.ts'
+import { LOCALES } from '../../shared/locales.ts'
 import { partId, partsFor } from '../../shared/parts.ts'
+import { choiceOf, FOLLOW_SYSTEM, localeOf } from '../i18n/choice.ts'
 import { useLocale, useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
@@ -38,13 +39,14 @@ function NavItem({
 }
 
 /**
- * The language, as a native select: the keyboard, focus and screen readers come with it. Each language is listed by
- * its own name, marked with its own `lang` so a screen reader says it in that language. The choice is kept by the
- * main process, and the window, the tray and the menu change at once.
+ * The language, as a native select: the keyboard, focus and screen readers come with it. Following the system comes
+ * first, in the language in use; then each language by its own name, marked with its own `lang` so a screen reader
+ * says it in that language. The choice is kept by the main process, and the window, the tray and the menu change at
+ * once.
  */
 function LanguageSelect() {
   const t = useT()
-  const { locale, setLocale } = useLocale()
+  const { locale, chosen, setLocale } = useLocale()
 
   return (
     <div className="flex items-center justify-between gap-3 border-t border-rule px-5 py-3">
@@ -57,12 +59,11 @@ function LanguageSelect() {
       <div className="relative">
         <select
           id="language"
-          value={locale}
-          onChange={(event) => {
-            if (isLocale(event.target.value)) setLocale(event.target.value)
-          }}
+          value={choiceOf({ locale, chosen })}
+          onChange={(event) => setLocale(localeOf(event.target.value))}
           className="h-7 appearance-none rounded-sm border border-rule bg-card pr-7 pl-2 text-xs text-ink hover:border-brass focus:border-brass"
         >
+          <option value={FOLLOW_SYSTEM}>{t.nav.followSystem}</option>
           {LOCALES.map((one) => (
             <option key={one.code} value={one.code} lang={one.tag}>
               {one.name}

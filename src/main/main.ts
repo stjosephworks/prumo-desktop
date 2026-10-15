@@ -4,13 +4,14 @@ import { app, BrowserWindow, dialog, Notification } from 'electron'
 import squirrelStartup from 'electron-squirrel-startup'
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
 import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
-import { FALLBACK_LOCALE, type Locale, resolveLocale } from '../shared/locales.ts'
+import { FALLBACK_LOCALE, type Locale } from '../shared/locales.ts'
 import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, chooseNode, findNode, nodeAt, pathProblem } from './environment.ts'
 import { MAIN_DICTIONARIES } from './i18n/dictionaries.ts'
 import { register } from './ipc.ts'
+import { Language } from './language.ts'
 import { applyMenu } from './menu.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
@@ -54,10 +55,16 @@ chooseNode(settings.read().node)
  * settings.json, or else the first of the system's preferred languages the Desktop speaks, or else Chromium's
  * locale, or else English.
  */
+const language = new Language(settings, () => ({
+  preferred: app.getPreferredSystemLanguages(),
+  fallback: app.getLocale(),
+}))
+
+/** Kept at hand: the tray reads it every few seconds. */
 let locale: Locale = FALLBACK_LOCALE
 
 function settleLocale(): void {
-  locale = resolveLocale(settings.read().locale, app.getPreferredSystemLanguages(), app.getLocale())
+  locale = language.state().locale
 }
 
 /** The words of the language in use, for everything outside the window. */
@@ -285,17 +292,17 @@ app.whenReady().then(() => {
     windows: () => BrowserWindow.getAllWindows(),
     words,
     locale: {
-      get: () => ({ locale, chosen: settings.read().locale !== undefined }),
+      get: () => language.state(),
       // Every surface follows at once: the menu and the tray are rebuilt, and every window is told.
       set: (chosen) => {
-        settings.write({ locale: chosen })
-        settleLocale()
+        const state = language.choose(chosen)
+        locale = state.locale
         applyMenu(words())
         tray.rebuild()
         for (const window of BrowserWindow.getAllWindows()) {
-          window.webContents.send(CHANNELS.localeChanged, locale)
+          window.webContents.send(CHANNELS.localeChanged, state)
         }
-        return locale
+        return state
       },
     },
     keepNode: async (path) => {

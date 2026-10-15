@@ -30,6 +30,7 @@ export const es: Dictionary = {
     openAProject: 'Abrir un proyecto',
     noneYet: 'Ninguno todavía.',
     language: 'Idioma',
+    followSystem: 'Seguir el sistema',
   },
   banner: {
     nodeMissing: 'No se encontró Node en esta computadora, así que nada puede ejecutarse.',

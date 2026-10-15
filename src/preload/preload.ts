@@ -8,7 +8,7 @@ import {
   type RunningApp,
   type StartApp,
 } from '../shared/ipc.ts'
-import type { Locale } from '../shared/locales.ts'
+import type { LocaleState } from '../shared/locales.ts'
 
 const bridge: Bridge = {
   platform: process.platform,
@@ -27,7 +27,7 @@ const bridge: Bridge = {
     get: () => ipcRenderer.invoke(CHANNELS.localeGet),
     set: (locale) => ipcRenderer.invoke(CHANNELS.localeSet, locale),
     onChange: (listener) => {
-      const handler = (_event: unknown, locale: Locale) => listener(locale)
+      const handler = (_event: unknown, state: LocaleState) => listener(state)
       ipcRenderer.on(CHANNELS.localeChanged, handler)
       return () => {
         ipcRenderer.off(CHANNELS.localeChanged, handler)

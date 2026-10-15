@@ -17,6 +17,9 @@ export const LOCALES = [
 
 export type Locale = (typeof LOCALES)[number]['code']
 
+/** The language in use, and whether the user chose it; otherwise the Desktop follows the system's. */
+export type LocaleState = { locale: Locale; chosen: boolean }
+
 /** What a system language no locale answers for falls back to. */
 export const FALLBACK_LOCALE: Locale = 'en'
 
