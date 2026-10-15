@@ -1,10 +1,10 @@
 // Puts a pinned @stjoseph/prumo, with its production dependencies, in resources/prumo.
 // Forge copies that folder next to app.asar (extraResource), because spawn cannot run files inside the archive.
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-const VERSION = '0.5.0'
+const VERSION = '0.5.1'
 const root = join(import.meta.dirname, '..')
 const target = join(root, 'resources', 'prumo')
 
@@ -34,6 +34,15 @@ execFileSync('tar', ['-xzf', tarball, '-C', target, '--strip-components=1'], {
   cwd: join(root, 'resources'),
 })
 rmSync(join(root, 'resources', tarball))
+
+// Installing inside the package still resolves the peers of its devDependencies, though --omit=dev never installs
+// them, and npm 11 exits 1 without a message when one cannot be placed (0.5.1's @yarnpkg/extensions wants
+// @yarnpkg/core). The embedded copy never needs them, so they go before the install.
+const manifestPath = join(target, 'package.json')
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+delete manifest.devDependencies
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
 execFileSync(
   npm.command,
   [...npm.args, 'install', '--omit=dev', '--ignore-scripts', '--no-package-lock', '--silent'],
