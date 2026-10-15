@@ -6,6 +6,7 @@ export const LOCALES = [
   /** `tag` is the BCP 47 tag the words are written in; `base` the system languages it answers for. */
   { code: 'en', name: 'English', tag: 'en', base: ['en'] },
   { code: 'pt', name: 'Português', tag: 'pt-BR', base: ['pt'] },
+  { code: 'es', name: 'Español', tag: 'es-419', base: ['es'] },
 ] as const satisfies readonly {
   code: string
   /** The language's own name for itself, which is how the switch lists it. */
@@ -24,8 +25,8 @@ export function isLocale(value: unknown): value is Locale {
 }
 
 /**
- * The locale a system language asks for, by its base language: `pt-BR` and `pt-PT` are
- * Portuguese. Linux names languages as `pt_BR.UTF-8` or `pt_BR@euro`, which read the same way. Anything else is
+ * The locale a system language asks for, by its base language: `es-MX` and `es-419` are Spanish, `pt-PT` is
+ * Portuguese. Linux names languages as `es_MX.UTF-8` or `pt_BR@euro`, which read the same way. Anything else is
  * undefined.
  */
 export function localeFor(language: string): Locale | undefined {

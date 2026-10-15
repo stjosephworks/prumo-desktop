@@ -19,12 +19,12 @@ test('a chosen Node is kept across launches, and a missing file reads as nothing
 test('a chosen language is kept across launches, beside the Node, and overrides the system', () => {
   const file = settingsFile()
   new Settings(file).write({ node: '/opt/node/bin/node' })
-  new Settings(file).write({ locale: 'en' })
+  new Settings(file).write({ locale: 'es' })
 
   const stored = new Settings(file).read()
-  expect(stored).toEqual({ node: '/opt/node/bin/node', locale: 'en' })
-  // A Mac set to Brazilian Portuguese still opens in the English the user picked.
-  expect(resolveLocale(stored.locale, ['pt-BR', 'en-US'])).toBe('en')
+  expect(stored).toEqual({ node: '/opt/node/bin/node', locale: 'es' })
+  // A Mac set to Brazilian Portuguese still opens in the Spanish the user picked.
+  expect(resolveLocale(stored.locale, ['pt-BR', 'en-US'])).toBe('es')
 })
 
 test('forgetting the language goes back to the system', () => {
@@ -34,7 +34,7 @@ test('forgetting the language goes back to the system', () => {
 
   const stored = new Settings(file).read()
   expect(stored).toEqual({})
-  expect(resolveLocale(stored.locale, ['en-GB'])).toBe('en')
+  expect(resolveLocale(stored.locale, ['es-MX'])).toBe('es')
 })
 
 test('a language the app does not speak, written by hand, reads as none chosen', () => {

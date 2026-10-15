@@ -7,8 +7,12 @@ describe('the system language', () => {
     ['en-GB', 'en'],
     ['pt-BR', 'pt'],
     ['pt-PT', 'pt'],
+    ['es', 'es'],
+    ['es-MX', 'es'],
+    ['es-419', 'es'],
+    ['es-ES', 'es'],
     // Linux names languages after POSIX locales.
-    ['pt_BR.UTF-8', 'pt'],
+    ['es_MX.UTF-8', 'es'],
     ['pt_BR@euro', 'pt'],
     ['PT-br', 'pt'],
   ])('%s opens the app in %s', (language, locale) => {
@@ -24,8 +28,8 @@ describe('the system language', () => {
   )
 
   test('only the first preferred language counts', () => {
-    expect(systemLocale(['fr-FR', 'pt-BR'])).toBe('en')
-    expect(systemLocale(['pt-PT', 'en-US'])).toBe('pt')
+    expect(systemLocale(['fr-FR', 'es-MX'])).toBe('en')
+    expect(systemLocale(['es-AR', 'pt-BR'])).toBe('es')
   })
 
   test("Chromium's locale answers when the system lists no language", () => {
@@ -34,9 +38,9 @@ describe('the system language', () => {
   })
 
   test("the user's choice overrides the system's", () => {
-    expect(resolveLocale('pt', ['en-US'])).toBe('pt')
+    expect(resolveLocale('pt', ['es-MX'])).toBe('pt')
     expect(resolveLocale('en', ['pt-BR'], 'pt-BR')).toBe('en')
-    expect(resolveLocale(undefined, ['pt-PT'])).toBe('pt')
+    expect(resolveLocale(undefined, ['es-MX'])).toBe('es')
   })
 })
 

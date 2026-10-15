@@ -2,6 +2,7 @@
 // does not build until it has a dictionary here. No React, so the parity test can read it.
 import type { Locale } from '../../shared/locales.ts'
 import { type Dictionary, en } from './en.ts'
+import { es } from './es.ts'
 import { pt } from './pt.ts'
 
-export const DICTIONARIES: Record<Locale, Dictionary> = { en, pt }
+export const DICTIONARIES: Record<Locale, Dictionary> = { en, pt, es }

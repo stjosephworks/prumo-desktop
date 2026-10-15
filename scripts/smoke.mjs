@@ -161,9 +161,19 @@ try {
     socket.addEventListener('error', fail, { once: true })
   })
 
-  // The checks below read English words; the app follows the system's language, so pin it first. The user's own
-  // choice, or its absence, is put back at the end.
+  // The language switches without a restart: Spanish first, read back from the window, then English, whose words the
+  // checks below read. The user's own choice, or its absence, is put back at the end.
   const language = await evaluate(socket, 'window.prumo.locale.get()', 90)
+  await evaluate(socket, "window.prumo.locale.set('es')", 92)
+  let spanish = ''
+  for (let attempt = 0; attempt < 20 && !spanish.includes('Proyectos'); attempt++) {
+    spanish = await evaluate(
+      socket,
+      "document.documentElement.lang + '\\n' + document.body.innerText",
+      400 + attempt,
+    )
+    if (!spanish.includes('Proyectos')) await sleep(250)
+  }
   await evaluate(socket, "window.prumo.locale.set('en')", 93)
 
   const environment = await evaluate(socket, 'window.prumo.environment()', 1)
@@ -313,6 +323,9 @@ try {
     failures.push('.prumo/INDEX.md was not read')
   if (docs.outside?.ok !== false) failures.push('a document outside .prumo/ was readable')
   if (!text.includes('Projects')) failures.push('the window rendered nothing')
+  if (!spanish.startsWith('es-419') || !spanish.includes('Proyectos')) {
+    failures.push('the window did not switch to Spanish without a restart')
+  }
 
   console.log(
     JSON.stringify(
