@@ -4,6 +4,7 @@
 import { Menu, type MenuItemConstructorOptions, nativeImage, Tray } from 'electron'
 import { partId, partsFor } from '../shared/parts.ts'
 import { applyShellPath } from './environment.ts'
+import type { MainDictionary } from './i18n/en.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
 import type { Projects } from './projects.ts'
@@ -16,6 +17,8 @@ type Wiring = {
   show: (project?: string) => void
   /** The app's PNG icon, which the tray shows outside macOS. */
   icon: string
+  /** The words of the language in use, read on every rebuild. */
+  words: () => MainDictionary
 }
 
 const mac = process.platform === 'darwin'
@@ -36,9 +39,13 @@ function trayIcon(icon: string) {
   return nativeImage.createFromPath(icon).resize({ width: 32, height: 32, quality: 'best' })
 }
 
-export function createTray({ apps, projects, show, icon }: Wiring): Tray {
+/** The tray, and `rebuild`, which redraws its menu and tooltip: after a change of language, for one. */
+export function createTray({ apps, projects, show, icon, words }: Wiring): {
+  tray: Tray
+  rebuild: () => void
+} {
   const tray = new Tray(trayIcon(icon))
-  tray.setToolTip('Prumo Desktop')
+  tray.setToolTip(words().tray.tooltip)
   // Windows opens a tray icon's menu on a right click only; a left click opens it too, as it does on macOS.
   if (process.platform === 'win32') tray.on('click', () => tray.popUpContextMenu())
 
@@ -48,6 +55,7 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
   }
 
   const rebuild = () => {
+    const t = words().tray
     const running = apps.list().filter((one) => one.state === 'running' || one.state === 'starting')
     // Only macOS has a title beside the icon; elsewhere the count is in the tooltip.
     if (mac) {
@@ -55,9 +63,7 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
         fontType: 'monospacedDigit',
       })
     } else {
-      tray.setToolTip(
-        running.length > 0 ? `Prumo Desktop · ${running.length} running` : 'Prumo Desktop',
-      )
+      tray.setToolTip(running.length > 0 ? t.tooltipRunning(running.length) : t.tooltip)
     }
 
     const projectItems: MenuItemConstructorOptions[] = projects
@@ -68,7 +74,7 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
         const busy = parts.filter((part) => isRunning(partId(project, part))).length
 
         return {
-          label: busy > 0 ? `${project.name}  ·  ${busy} running` : project.name,
+          label: busy > 0 ? t.project(project.name, busy) : project.name,
           submenu: [
             ...parts.map(
               (part): MenuItemConstructorOptions => ({
@@ -92,7 +98,7 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
               }),
             ),
             { type: 'separator' },
-            { label: 'Open project', click: () => show(project.path) },
+            { label: t.openProject, click: () => show(project.path) },
           ],
         }
       })
@@ -100,16 +106,16 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
     tray.setContextMenu(
       Menu.buildFromTemplate([
         {
-          label: running.length === 0 ? 'Nothing running' : `${running.length} running`,
+          label: running.length === 0 ? t.nothingRunning : t.running(running.length),
           enabled: false,
         },
         { type: 'separator' },
         ...projectItems,
         ...(projectItems.length > 0 ? [{ type: 'separator' as const }] : []),
-        { label: 'Stop all', enabled: running.length > 0, click: () => void apps.stopAll() },
-        { label: 'Show Prumo Desktop', click: () => show() },
+        { label: t.stopAll, enabled: running.length > 0, click: () => void apps.stopAll() },
+        { label: t.show, click: () => show() },
         { type: 'separator' },
-        { label: 'Quit', role: 'quit' },
+        { label: t.quit, role: 'quit' },
       ]),
     )
   }
@@ -119,5 +125,5 @@ export function createTray({ apps, projects, show, icon }: Wiring): Tray {
   setInterval(rebuild, 5_000)
   rebuild()
 
-  return tray
+  return { tray, rebuild }
 }

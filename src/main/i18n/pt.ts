@@ -1,0 +1,70 @@
+// What the main process shows outside the window, in Brazilian Portuguese, shaped by en.ts. Menu items carry the
+// names macOS and Windows give them in Portuguese.
+import type { MainDictionary } from './en.ts'
+
+export const pt: MainDictionary = {
+  tray: {
+    tooltip: 'Prumo Desktop',
+    tooltipRunning: (count) => `Prumo Desktop · ${count} rodando`,
+    nothingRunning: 'Nada rodando',
+    running: (count) => `${count} rodando`,
+    project: (name, count) => `${name}  ·  ${count} rodando`,
+    openProject: 'Abrir projeto',
+    stopAll: 'Parar todos',
+    show: 'Mostrar o Prumo Desktop',
+    quit: 'Sair',
+  },
+  notifications: {
+    failed: (script) => `pnpm ${script} falhou`,
+    failedBody: (project, code) => `${project} · saída ${code}`,
+    stillRunning: 'O Prumo Desktop continua aberto',
+    stillRunningBody: (count) =>
+      `${count === 1 ? '1 app continua' : `${count} apps continuam`} rodando. ` +
+      'Abra o Prumo Desktop de novo para pará-los, ou encerre-o pelo ícone na bandeja do sistema.',
+  },
+  dialogs: {
+    running: (count) => (count === 1 ? '1 app está rodando' : `${count} apps estão rodando`),
+    quittingStops: 'Encerrar o Prumo Desktop para todos eles.',
+    cancel: 'Cancelar',
+    quitAndStop: 'Encerrar e parar',
+    chooseNode: 'Escolha o executável do node',
+    chooseProject: 'Escolha uma pasta que tenha um .prumo/config.json',
+    chooseParent: 'Escolha onde fica a pasta do novo projeto',
+  },
+  cli: {
+    nothingToUpdate: 'Não há para o que atualizar.',
+  },
+  menu: {
+    about: (app) => `Sobre o ${app}`,
+    services: 'Serviços',
+    hide: (app) => `Ocultar ${app}`,
+    hideOthers: 'Ocultar Outros',
+    showAll: 'Mostrar Tudo',
+    quitApp: (app) => `Encerrar ${app}`,
+    file: 'Arquivo',
+    closeWindow: 'Fechar Janela',
+    exit: () => 'Sair',
+    edit: () => 'Editar',
+    undo: 'Desfazer',
+    redo: 'Refazer',
+    cut: 'Recortar',
+    copy: 'Copiar',
+    paste: 'Colar',
+    pasteAndMatchStyle: 'Colar e Manter Estilo',
+    delete: 'Apagar',
+    selectAll: 'Selecionar Tudo',
+    view: (platform) => (platform === 'darwin' ? 'Visualizar' : 'Exibir'),
+    reload: 'Recarregar',
+    forceReload: 'Forçar Recarregamento',
+    toggleDevTools: 'Ferramentas do Desenvolvedor',
+    resetZoom: 'Tamanho Real',
+    zoomIn: 'Aumentar Zoom',
+    zoomOut: 'Diminuir Zoom',
+    toggleFullScreen: 'Tela Cheia',
+    window: 'Janela',
+    minimize: 'Minimizar',
+    zoom: 'Zoom',
+    front: 'Trazer Todas para a Frente',
+    close: 'Fechar',
+  },
+}

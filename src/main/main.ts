@@ -9,7 +9,9 @@ import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, chooseNode, findNode, nodeAt, pathProblem } from './environment.ts'
+import { MAIN_DICTIONARIES } from './i18n/dictionaries.ts'
 import { register } from './ipc.ts'
+import { applyMenu } from './menu.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
 import { Settings } from './settings.ts'
@@ -57,6 +59,9 @@ function settleLocale(): void {
   locale = resolveLocale(settings.read().locale, app.getPreferredSystemLanguages(), app.getLocale())
 }
 
+/** The words of the language in use, for everything outside the window. */
+const words = () => MAIN_DICTIONARIES[locale]
+
 /**
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
  * In development it sits in `resources/`, written by `scripts/embed-cli.mjs`.
@@ -97,8 +102,7 @@ function cliUpdate() {
   updating ??= (async () => {
     const { available } = await cliStatus()
 
-    if (available === undefined)
-      return { ok: false as const, message: 'There is nothing to update to.' }
+    if (available === undefined) return { ok: false as const, message: words().cli.nothingToUpdate }
 
     try {
       await installCli(available, cliUpdates)
@@ -199,8 +203,11 @@ function watchApps(): void {
 
     const project = projects.list().find((one) => changed.project.startsWith(one.path))
     const notice = new Notification({
-      title: `pnpm ${changed.script} failed`,
-      body: `${project?.name ?? basename(changed.project)} · exit ${changed.exitCode ?? '?'}`,
+      title: words().notifications.failed(changed.script),
+      body: words().notifications.failedBody(
+        project?.name ?? basename(changed.project),
+        changed.exitCode ?? '?',
+      ),
     })
 
     notice.on('click', () => showWindow(project?.path))
@@ -257,8 +264,10 @@ app.whenReady().then(() => {
   if (!primary) return
 
   settleLocale()
+  applyMenu(words())
   watchApps()
-  held.push(createTray({ apps, projects, show: showWindow, icon: pngIcon() }))
+  const tray = createTray({ apps, projects, show: showWindow, icon: pngIcon(), words })
+  held.push(tray.tray)
 
   if (noticeEnabled(build, process.env)) {
     void checkForAppUpdate()
@@ -273,12 +282,15 @@ app.whenReady().then(() => {
     cliStatus,
     cliUpdate,
     windows: () => BrowserWindow.getAllWindows(),
+    words,
     locale: {
       get: () => ({ locale, chosen: settings.read().locale !== undefined }),
-      // Every window is told, this one included.
+      // Every surface follows at once: the menu and the tray are rebuilt, and every window is told.
       set: (chosen) => {
         settings.write({ locale: chosen })
         settleLocale()
+        applyMenu(words())
+        tray.rebuild()
         for (const window of BrowserWindow.getAllWindows()) {
           window.webContents.send(CHANNELS.localeChanged, locale)
         }
@@ -326,11 +338,11 @@ app.on('before-quit', async (event) => {
 
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Cancel', 'Quit and stop'],
+    buttons: [words().dialogs.cancel, words().dialogs.quitAndStop],
     defaultId: 1,
     cancelId: 0,
-    message: running.length === 1 ? '1 app is running' : `${running.length} apps are running`,
-    detail: 'Quitting Prumo Desktop stops them.',
+    message: words().dialogs.running(running.length),
+    detail: words().dialogs.quittingStops,
   })
 
   if (response === 0) return
@@ -357,10 +369,8 @@ app.on('window-all-closed', () => {
   if (!Notification.isSupported()) return
 
   const notice = new Notification({
-    title: 'Prumo Desktop is still running',
-    body:
-      `${running.length === 1 ? '1 app keeps' : `${running.length} apps keep`} running. ` +
-      'Open Prumo Desktop again to stop them, or quit it from its icon in the system tray.',
+    title: words().notifications.stillRunning,
+    body: words().notifications.stillRunningBody(running.length),
   })
   notice.on('click', () => showWindow())
   notice.show()
