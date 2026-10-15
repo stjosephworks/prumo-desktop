@@ -1,8 +1,9 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { FolderOpen, Gauge, LayoutGrid, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
+import type { Locale } from '../../shared/locales.ts'
 import { partId, partsFor } from '../../shared/parts.ts'
-import { type Locale, useLocale, useT } from '../i18n/i18n.tsx'
+import { useLocale, useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 import { Wordmark } from './brand.tsx'
@@ -40,7 +41,7 @@ function NavItem({
  * The window's left edge: where the traffic lights sit on macOS (its top is what moves the window), the wordmark, the
  * screens, and every project with a dot when one of its apps runs.
  */
-/** EN and PT side by side, as the site's language switch; the choice is remembered. */
+/** EN and PT side by side, as the site's language switch; the main process keeps the choice. */
 function LanguageSwitch() {
   const t = useT()
   const { locale, setLocale } = useLocale()

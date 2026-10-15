@@ -1,37 +1,48 @@
-import { createContext, type ReactNode, useContext, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
+import { type Locale, localeTag } from '../../shared/locales.ts'
+import { DICTIONARIES } from './dictionaries.ts'
 import { type Dictionary, en } from './en.ts'
-import { pt } from './pt.ts'
 
-export type Locale = 'en' | 'pt'
+/** Where the renderer kept the language before the main process did (0.0.3 and earlier). */
+const LEGACY_STORED = 'prumo.locale'
 
-const DICTIONARIES: Record<Locale, Dictionary> = { en, pt }
-const STORED = 'prumo.locale'
+/**
+ * The language the window opens in, which the main process owns (src/main/main.ts). A choice made before the main
+ * process kept it lived in this window's storage; it is handed over once, so an update does not forget it.
+ */
+export async function initialLocale(): Promise<Locale> {
+  const { locale, chosen } = await window.prumo.locale.get()
 
-/** The language chosen before, or the system's: Portuguese on a Mac set to Portuguese, English otherwise. */
-function initialLocale(): Locale {
   try {
-    const stored = localStorage.getItem(STORED)
-    if (stored === 'en' || stored === 'pt') return stored
+    const legacy = localStorage.getItem(LEGACY_STORED)
+    localStorage.removeItem(LEGACY_STORED)
+    if (!chosen && (legacy === 'en' || legacy === 'pt'))
+      return await window.prumo.locale.set(legacy)
   } catch {
-    // Storage can be unavailable; the system's language still answers.
+    // Storage can be unavailable; the main process still answers.
   }
-  return navigator.language.toLowerCase().startsWith('pt') ? 'pt' : 'en'
+
+  return locale
 }
 
 type I18n = { locale: Locale; t: Dictionary; setLocale: (locale: Locale) => void }
 
 const Context = createContext<I18n>({ locale: 'en', t: en, setLocale: () => {} })
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale)
+export function I18nProvider({ initial, children }: { initial: Locale; children: ReactNode }) {
+  const [locale, setLocale] = useState<Locale>(initial)
+
+  // A change made anywhere, this window included, arrives here once the main process has kept it.
+  useEffect(() => window.prumo.locale.onChange(setLocale), [])
+
+  // Screen readers and the browser's own text handling read the page's language from here.
+  useEffect(() => {
+    document.documentElement.lang = localeTag(locale)
+  }, [locale])
 
   const choose = (next: Locale) => {
     setLocale(next)
-    try {
-      localStorage.setItem(STORED, next)
-    } catch {
-      // Remembered for this session only.
-    }
+    void window.prumo.locale.set(next)
   }
 
   return (

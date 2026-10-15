@@ -8,6 +8,7 @@ import {
   type RunningApp,
   type StartApp,
 } from '../shared/ipc.ts'
+import type { Locale } from '../shared/locales.ts'
 
 const bridge: Bridge = {
   platform: process.platform,
@@ -22,6 +23,17 @@ const bridge: Bridge = {
     }
   },
   openExternal: (url: string) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  locale: {
+    get: () => ipcRenderer.invoke(CHANNELS.localeGet),
+    set: (locale) => ipcRenderer.invoke(CHANNELS.localeSet, locale),
+    onChange: (listener) => {
+      const handler = (_event: unknown, locale: Locale) => listener(locale)
+      ipcRenderer.on(CHANNELS.localeChanged, handler)
+      return () => {
+        ipcRenderer.off(CHANNELS.localeChanged, handler)
+      }
+    },
+  },
   app: {
     update: () => ipcRenderer.invoke(CHANNELS.appUpdate),
     onUpdate: (listener) => {

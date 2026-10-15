@@ -161,9 +161,10 @@ try {
     socket.addEventListener('error', fail, { once: true })
   })
 
-  // The checks below read English words; the app follows the system's language, so pin it first.
-  await evaluate(socket, "localStorage.setItem('prumo.locale', 'en'); location.reload(); true", 90)
-  await sleep(1500)
+  // The checks below read English words; the app follows the system's language, so pin it first. The user's own
+  // choice, or its absence, is put back at the end.
+  const language = await evaluate(socket, 'window.prumo.locale.get()', 90)
+  await evaluate(socket, "window.prumo.locale.set('en')", 93)
 
   const environment = await evaluate(socket, 'window.prumo.environment()', 1)
   const projects = await evaluate(socket, 'window.prumo.projects.list()', 2)
@@ -334,7 +335,11 @@ try {
   )
 
   // The language pinned above belongs to the user, not to this check.
-  await evaluate(socket, "localStorage.removeItem('prumo.locale'); true", 91)
+  await evaluate(
+    socket,
+    `window.prumo.locale.set(${language?.chosen ? JSON.stringify(language.locale) : 'undefined'})`,
+    91,
+  )
 
   if (failures.length > 0) {
     console.error(`\nSmoke failed:\n- ${failures.join('\n- ')}\n\nThe app's own output:\n${log}`)

@@ -1,5 +1,5 @@
-// Every word the interface shows, in English. pt.ts is typed by this one, so a key missing there breaks the build.
-// Prumo's own terms (api, web, monorepo, alone, single-tenant, the commands) are never translated.
+// Every word the interface shows, in English. Every other dictionary is typed by this one, so a key missing there
+// breaks the build. Prumo's own terms (api, web, monorepo, alone, single-tenant, the commands) are never translated.
 
 export const en = {
   common: {

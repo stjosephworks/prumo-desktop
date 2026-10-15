@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, Notification } from 'electron'
 import squirrelStartup from 'electron-squirrel-startup'
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
 import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
+import { FALLBACK_LOCALE, type Locale, resolveLocale } from '../shared/locales.ts'
 import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
@@ -45,6 +46,16 @@ const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
 // The node executable the user picked, when this machine's PATH has none: used before the PATH from then on.
 const settings = new Settings(join(app.getPath('userData'), 'settings.json'))
 chooseNode(settings.read().node)
+
+/**
+ * The language in use, settled once the app is ready (Chromium's locale is only known then): the user's choice from
+ * settings.json, or else the system's first preferred language when the Desktop speaks it, or else English.
+ */
+let locale: Locale = FALLBACK_LOCALE
+
+function settleLocale(): void {
+  locale = resolveLocale(settings.read().locale, app.getPreferredSystemLanguages(), app.getLocale())
+}
 
 /**
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
@@ -245,6 +256,7 @@ app.on('second-instance', () => showWindow())
 app.whenReady().then(() => {
   if (!primary) return
 
+  settleLocale()
   watchApps()
   held.push(createTray({ apps, projects, show: showWindow, icon: pngIcon() }))
 
@@ -261,6 +273,18 @@ app.whenReady().then(() => {
     cliStatus,
     cliUpdate,
     windows: () => BrowserWindow.getAllWindows(),
+    locale: {
+      get: () => ({ locale, chosen: settings.read().locale !== undefined }),
+      // Every window is told, this one included.
+      set: (chosen) => {
+        settings.write({ locale: chosen })
+        settleLocale()
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(CHANNELS.localeChanged, locale)
+        }
+        return locale
+      },
+    },
     keepNode: async (path) => {
       if ((await nodeAt(path)) === undefined) return false
       settings.write({ node: path })

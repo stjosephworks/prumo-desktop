@@ -11,6 +11,7 @@ import {
   type NewProject,
   type StartApp,
 } from '../shared/ipc.ts'
+import { isLocale, type Locale } from '../shared/locales.ts'
 import { createProject } from './create.ts'
 import {
   createDatabase,
@@ -42,6 +43,11 @@ type Wiring = {
   keepNode: (path: string) => Promise<boolean>
   /** Where the embedded CLI is, which only the Electron side knows. */
   cli: () => string
+  locale: {
+    get: () => { locale: Locale; chosen: boolean }
+    /** Keeps the choice, or forgets it on undefined, and switches every surface; the language now in use. */
+    set: (locale: Locale | undefined) => Locale
+  }
 }
 
 export function register({
@@ -54,6 +60,7 @@ export function register({
   cliStatus,
   cliUpdate,
   appUpdate,
+  locale,
 }: Wiring): void {
   // Every channel waits for the PATH the Desktop runs commands with, which Windows reads in the background.
   const handle: typeof ipcMain.handle = (channel, listener) =>
@@ -67,6 +74,12 @@ export function register({
   }
 
   handle(CHANNELS.environment, () => environment())
+  handle(CHANNELS.localeGet, () => locale.get())
+  handle(CHANNELS.localeSet, (_event, chosen: unknown) => {
+    // Anything but a known language or undefined is refused, so the settings never keep one the app cannot speak.
+    if (chosen !== undefined && !isLocale(chosen)) return locale.get().locale
+    return locale.set(chosen)
+  })
   handle(CHANNELS.chooseNode, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openFile'],
