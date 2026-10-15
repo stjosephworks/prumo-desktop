@@ -29,10 +29,10 @@ when someone asks for it. What it takes, so it is not worked out again:
 
 ## Languages
 
-English, Portuguese (Brazil) and Spanish (Latin America). The Desktop opens in the system's first preferred language
-when it speaks it, whatever the region (`es-MX` is Spanish, `pt-PT` Portuguese), and in English otherwise. A language
-picked in the sidebar is kept in the app's `settings.json` from then on, and switches the window, the tray, the app
-menu, notifications and dialogs at once, without a restart.
+English, Portuguese (Brazil) and Spanish (Latin America). The Desktop opens in the first of the system's preferred
+languages it speaks, whatever the region (`es-MX` is Spanish, `pt-PT` Portuguese), and in English when it speaks
+none. A language picked in the sidebar is kept in the app's `settings.json` from then on, and switches the window,
+the tray, the app menu, notifications and dialogs at once, without a restart.
 
 A new language is one entry in `src/shared/locales.ts` and one dictionary in each of `src/renderer/i18n/` and
 `src/main/i18n/`. The build refuses it until both dictionaries exist, and `src/shared/dictionaries.spec.ts` holds it

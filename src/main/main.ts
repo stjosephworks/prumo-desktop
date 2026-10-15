@@ -51,7 +51,8 @@ chooseNode(settings.read().node)
 
 /**
  * The language in use, settled once the app is ready (Chromium's locale is only known then): the user's choice from
- * settings.json, or else the system's first preferred language when the Desktop speaks it, or else English.
+ * settings.json, or else the first of the system's preferred languages the Desktop speaks, or else Chromium's
+ * locale, or else English.
  */
 let locale: Locale = FALLBACK_LOCALE
 

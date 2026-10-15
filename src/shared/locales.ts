@@ -38,13 +38,16 @@ export function localeFor(language: string): Locale | undefined {
 }
 
 /**
- * The language the Desktop opens in before the user has chosen one: the system's own, which is the first of its
- * preferred languages, or `fallback` (Chromium's application locale) when the system lists none. A language the
- * Desktop does not speak opens it in English; the second language on the list is not consulted.
+ * The language the Desktop opens in before the user has chosen one: the first of the system's preferred languages,
+ * in their order, that the Desktop speaks; else `fallback` (Chromium's application locale) when the Desktop speaks
+ * it; else English.
  */
 export function systemLocale(preferred: readonly string[], fallback = ''): Locale {
-  const first = preferred.find((one) => one.trim() !== '') ?? fallback
-  return localeFor(first) ?? FALLBACK_LOCALE
+  for (const language of preferred) {
+    const locale = localeFor(language)
+    if (locale !== undefined) return locale
+  }
+  return localeFor(fallback) ?? FALLBACK_LOCALE
 }
 
 /** The locale in use: the user's choice once there is one, the system's until then. */

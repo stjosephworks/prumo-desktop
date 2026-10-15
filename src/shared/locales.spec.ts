@@ -27,13 +27,18 @@ describe('the system language', () => {
     },
   )
 
-  test('only the first preferred language counts', () => {
-    expect(systemLocale(['fr-FR', 'es-MX'])).toBe('en')
+  test('the first preferred language the app speaks wins, in the order the system lists them', () => {
+    expect(systemLocale(['fr-FR', 'pt-BR'])).toBe('pt')
+    expect(systemLocale(['de-DE', 'fr-FR', 'es-MX', 'pt-BR'])).toBe('es')
     expect(systemLocale(['es-AR', 'pt-BR'])).toBe('es')
+    // Linux lists every form of each language, ending in C.
+    expect(systemLocale(['fr_FR.UTF-8', 'fr_FR', 'fr', 'C'])).toBe('en')
   })
 
-  test("Chromium's locale answers when the system lists no language", () => {
+  test("Chromium's locale answers when no preferred language is one the app speaks, then English", () => {
     expect(systemLocale([], 'pt-BR')).toBe('pt')
+    expect(systemLocale(['fr-FR', 'de-DE'], 'es-419')).toBe('es')
+    expect(systemLocale(['fr-FR'], 'fr')).toBe('en')
     expect(systemLocale([])).toBe('en')
   })
 
