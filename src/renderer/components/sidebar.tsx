@@ -1,7 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { FolderOpen, Gauge, LayoutGrid, Plus } from 'lucide-react'
+import { ChevronDown, FolderOpen, Gauge, LayoutGrid, Plus } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { Locale } from '../../shared/locales.ts'
+import { isLocale, LOCALES } from '../../shared/locales.ts'
 import { partId, partsFor } from '../../shared/parts.ts'
 import { useLocale, useT } from '../i18n/i18n.tsx'
 import { useApps } from '../use-apps.ts'
@@ -38,39 +38,50 @@ function NavItem({
 }
 
 /**
- * The window's left edge: where the traffic lights sit on macOS (its top is what moves the window), the wordmark, the
- * screens, and every project with a dot when one of its apps runs.
+ * The language, as a native select: the keyboard, focus and screen readers come with it. Each language is listed by
+ * its own name, marked with its own `lang` so a screen reader says it in that language. The choice is kept by the
+ * main process, and the window, the tray and the menu change at once.
  */
-/** EN and PT side by side, as the site's language switch; the main process keeps the choice. */
-function LanguageSwitch() {
+function LanguageSelect() {
   const t = useT()
   const { locale, setLocale } = useLocale()
 
   return (
-    <div className="flex items-center justify-between border-t border-rule px-5 py-3">
-      <span className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="flex items-center justify-between gap-3 border-t border-rule px-5 py-3">
+      <label
+        htmlFor="language"
+        className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-muted-foreground"
+      >
         {t.nav.language}
-      </span>
-      <div className="flex rounded-sm border border-rule bg-card p-0.5 text-xs">
-        {(['en', 'pt'] as Locale[]).map((one) => (
-          <button
-            key={one}
-            type="button"
-            aria-pressed={locale === one}
-            onClick={() => setLocale(one)}
-            className={cx(
-              'rounded-[2px] px-2 py-0.5 font-mono uppercase',
-              locale === one ? 'bg-navy text-card' : 'text-muted-foreground hover:text-ink',
-            )}
-          >
-            {one}
-          </button>
-        ))}
+      </label>
+      <div className="relative">
+        <select
+          id="language"
+          value={locale}
+          onChange={(event) => {
+            if (isLocale(event.target.value)) setLocale(event.target.value)
+          }}
+          className="h-7 appearance-none rounded-sm border border-rule bg-card pr-7 pl-2 text-xs text-ink hover:border-brass focus:border-brass"
+        >
+          {LOCALES.map((one) => (
+            <option key={one.code} value={one.code} lang={one.tag}>
+              {one.name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+        />
       </div>
     </div>
   )
 }
 
+/**
+ * The window's left edge: where the traffic lights sit on macOS (its top is what moves the window), the wordmark, the
+ * screens, and every project with a dot when one of its apps runs.
+ */
 export function Sidebar() {
   const t = useT()
   const location = useRouterState({ select: (state) => state.location })
@@ -151,7 +162,7 @@ export function Sidebar() {
       </div>
 
       <UpdateNotice />
-      <LanguageSwitch />
+      <LanguageSelect />
     </aside>
   )
 }
