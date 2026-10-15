@@ -9,7 +9,7 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 
 ## Status
 
-**Version 0.0.3 runs on macOS, Linux and Windows, unsigned.** It creates and lists projects, runs their apps and
+**Version 0.0.4 runs on macOS, Linux and Windows, unsigned.** It creates and lists projects, runs their apps and
 their database, and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
 was built.
 
