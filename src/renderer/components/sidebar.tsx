@@ -7,6 +7,7 @@ import { useApps } from '../use-apps.ts'
 import { useProjects } from '../use-projects.ts'
 import { Wordmark } from './brand.tsx'
 import { cx, StatusDot } from './ui.tsx'
+import { UpdateNotice } from './update-notice.tsx'
 
 function NavItem({
   to,
@@ -36,7 +37,7 @@ function NavItem({
 }
 
 /**
- * The window's left edge: where the traffic lights sit (its top is what moves the window), the wordmark, the
+ * The window's left edge: where the traffic lights sit on macOS (its top is what moves the window), the wordmark, the
  * screens, and every project with a dot when one of its apps runs.
  */
 /** EN and PT side by side, as the site's language switch; the choice is remembered. */
@@ -90,8 +91,11 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-rule bg-muted/50">
-      {/* Room for the traffic lights, and the part of the window a user grabs to move it. */}
-      <div className="drag-region h-12 shrink-0" />
+      {/* Room for the traffic lights on macOS, and the part of the window a user grabs to move it. Elsewhere the
+          window's controls sit at the top right, over the strip above the content, which this lines up with. */}
+      <div
+        className={cx('drag-region shrink-0', window.prumo.platform === 'darwin' ? 'h-12' : 'h-10')}
+      />
 
       <div className="px-5 pb-6">
         <Wordmark />
@@ -145,6 +149,7 @@ export function Sidebar() {
         </ul>
       </div>
 
+      <UpdateNotice />
       <LanguageSwitch />
     </aside>
   )

@@ -4,15 +4,13 @@
 // the app's data instead, and used in its place, but only within the minor version the Desktop was built and
 // tested with: 0.1.x for a Desktop that ships 0.1.0. A new minor may change the flags or the JSON the Desktop
 // reads, as 0.1.0 did, so it arrives with a new Desktop, not through this.
-import { execFile } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { promisify } from 'node:util'
 import type { CliStatus } from '../shared/ipc.ts'
 import { compareVersions, parseVersion, sameMinor } from '../shared/versions.ts'
-import { findNode, findOnPath } from './environment.ts'
-
-const run = promisify(execFile)
+import { findNode, findOnPath, npmCommand } from './environment.ts'
+import { endTree } from './processes.ts'
 
 const PACKAGE = '@stjoseph/prumo'
 // The abbreviated document npm itself installs from: every version and the dist-tags, without the readmes.
@@ -87,10 +85,81 @@ export function statusOf(active: ActiveCli, published: string[]): CliStatus {
 }
 
 /**
+ * How long installing a CLI may take before it is stopped. On a Windows CI runner, with other installs writing
+ * thousands of files at the same time, npm was measured spending up to 95 seconds just loading its own modules
+ * (every file read waits on the antivirus) and up to 231 seconds in all; an idle machine takes seconds. Five minutes
+ * leaves room for a slow machine and still ends a wait no one should sit through.
+ */
+export const INSTALL_DEADLINE_MS = 5 * 60_000
+
+/** Asking the installed CLI for its version takes well under a second; this only ends one that hangs. */
+const VERSION_DEADLINE_MS = 60_000
+
+export class DeadlineError extends Error {}
+
+/**
+ * Runs a command to its end, or stops it with everything it started once `deadlineMs` has passed: nothing it runs
+ * may keep the Desktop waiting forever. stdin is closed, so a command that asks a question gets no answer and ends
+ * instead of waiting for one.
+ */
+function runWithin(
+  command: string,
+  args: string[],
+  deadlineMs: number,
+  what: string,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((done, fail) => {
+    const child = spawn(command, args, {
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let stdout = ''
+    let stderr = ''
+    let late = false
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+
+    const timer = setTimeout(() => {
+      late = true
+      if (child.pid !== undefined) endTree(child.pid)
+    }, deadlineMs)
+
+    child.on('error', (problem) => {
+      clearTimeout(timer)
+      fail(problem)
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (late) {
+        fail(
+          new DeadlineError(
+            `${what} took longer than ${Math.round(deadlineMs / 1000)} seconds and was stopped.`,
+          ),
+        )
+      } else if (code === 0) {
+        done({ stdout, stderr })
+      } else {
+        fail(new Error(`${what} failed (exit ${code}): ${stderr.trim().split('\n').at(-1) ?? ''}`))
+      }
+    })
+  })
+}
+
+/**
  * Installs `version` into `updates`. It is installed into a fresh folder first and asked for its version, and
  * only then takes the place of the previous one, so a failed download never leaves the Desktop without a CLI.
  */
-export async function installCli(version: string, updates: string): Promise<void> {
+export async function installCli(
+  version: string,
+  updates: string,
+  deadlineMs = INSTALL_DEADLINE_MS,
+): Promise<void> {
   const node = await findNode()
   const npm = findOnPath('npm')
 
@@ -99,11 +168,13 @@ export async function installCli(version: string, updates: string): Promise<void
 
   mkdirSync(dirname(updates), { recursive: true })
   const staging = mkdtempSync(`${updates}-next-`)
+  const { command, args } = npmCommand(npm, node.path)
 
   try {
-    await run(
-      npm,
+    await runWithin(
+      command,
       [
+        ...args,
         'install',
         `${PACKAGE}@${version}`,
         '--prefix',
@@ -114,10 +185,16 @@ export async function installCli(version: string, updates: string): Promise<void
         '--no-audit',
         '--no-fund',
       ],
-      { env: process.env },
+      deadlineMs,
+      `Installing Prumo ${version}`,
     )
 
-    const { stdout } = await run(node.path, [entryIn(staging), '--version'], { env: process.env })
+    const { stdout } = await runWithin(
+      node.path,
+      [entryIn(staging), '--version'],
+      VERSION_DEADLINE_MS,
+      `Prumo ${version} --version`,
+    )
 
     if (stdout.trim() !== version) {
       throw new Error(`The installed CLI says ${stdout.trim()}, not ${version}.`)

@@ -29,6 +29,10 @@ export const en = {
     notReady: (missing: string) => `Not ready: ${missing}.`,
     seeChecks: 'See the checks',
   },
+  appUpdate: {
+    available: (version: string) => `Prumo Desktop ${version} is available.`,
+    open: 'See the release',
+  },
   cli: {
     shipped: 'Shipped with this app',
     updated: 'Updated from the one this app ships',
@@ -60,7 +64,9 @@ export const en = {
     missingBody: 'This project is no longer in the list.',
     back: 'Back to projects',
     conventions: 'Conventions',
-    finder: 'Finder',
+    /** The file manager, by the name each system gives it. */
+    fileManager: (platform: string): string =>
+      platform === 'darwin' ? 'Finder' : platform === 'win32' ? 'File Explorer' : 'Files',
     apps: 'Apps',
     runAll: 'Run all',
     stopAll: 'Stop all',
@@ -126,6 +132,11 @@ export const en = {
     openDocker: 'Open Docker',
     openingButton: 'Opening…',
     didNotStart: 'Docker Desktop did not start. Open it yourself, then try again.',
+    /** Where the Desktop cannot start Docker: Docker Engine on Linux is a system service, which needs root. */
+    startYourself: (platform: string): string =>
+      platform === 'linux'
+        ? 'Start Docker yourself: open Docker Desktop, or start Docker Engine with `sudo systemctl start docker`. Then try again.'
+        : 'Start Docker Desktop yourself, then try again.',
     notRunningRetry:
       'Docker is installed but not running. Open it, then create the database again.',
     getDocker: 'Get Docker Desktop',
@@ -185,7 +196,12 @@ export const en = {
     ready: 'Ready',
     notReady: 'Not ready',
     checking: 'Checking…',
-    nodeMissing: 'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop.',
+    nodeMissing:
+      'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop, or choose where it is.',
+    chooseNode: 'Choose Node…',
+    pathProblem:
+      'Windows did not give the PATH from the registry, so a tool marked missing below may be installed after all. Reopen Prumo Desktop to try again.',
+    notNode: 'That file does not run as Node. Choose the node executable itself.',
     nodeAt: 'at',
     optional: 'optional',
     fix: 'Fix what is marked with a cross before creating a project.',

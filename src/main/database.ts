@@ -1,9 +1,16 @@
 // The database part: what `prumo db` says about it, and what Docker says about the container behind it.
 // No Electron here, so the tests run in plain Node.
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
-import type { DatabaseCreated, DatabaseState, DockerState, Project } from '../shared/ipc.ts'
+import type {
+  DatabaseCreated,
+  DatabaseState,
+  DockerState,
+  OpenDocker,
+  Project,
+} from '../shared/ipc.ts'
 import { apiDirectory } from '../shared/parts.ts'
 import { type CliOptions, runCli } from './cli.ts'
 
@@ -107,24 +114,76 @@ export async function dockerState(project: Project): Promise<DockerState> {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * Opens Docker Desktop and waits for its engine to answer, which takes a while after the window appears.
- * Only on macOS for now, where the app is `Docker`; elsewhere it answers false and the screen keeps its message.
+ * Whether this user has Docker Desktop for Linux, which runs as a systemd user service (`systemctl --user start
+ * docker-desktop`, Docker's own install guide). Docker Engine is a system service instead, which only root starts.
  */
-export async function openDocker(waitMs = 90_000): Promise<boolean> {
-  if (process.platform !== 'darwin') return false
-
+async function linuxDockerDesktop(): Promise<boolean> {
   try {
-    await run('open', ['-a', 'Docker'])
+    await run('systemctl', ['--user', 'cat', 'docker-desktop.service'], { timeout: 5_000 })
+    return true
   } catch {
     return false
   }
+}
+
+/**
+ * Docker Desktop's executable on Windows, where its installer puts it: for all users under Program Files, or per user
+ * under %LOCALAPPDATA%\Programs (Docker's Windows install guide names both folders).
+ */
+function windowsDockerDesktop(): string | undefined {
+  return [
+    process.env.ProgramFiles &&
+      join(process.env.ProgramFiles, 'Docker', 'Docker', 'Docker Desktop.exe'),
+    process.env.LOCALAPPDATA &&
+      join(process.env.LOCALAPPDATA, 'Programs', 'DockerDesktop', 'Docker Desktop.exe'),
+  ].find((path): path is string => typeof path === 'string' && existsSync(path))
+}
+
+/** Starts an app on its own, without waiting for it: Docker Desktop keeps running after the Desktop quits. */
+function launch(path: string): Promise<boolean> {
+  return new Promise((done) => {
+    const child = spawn(path, [], { detached: true, stdio: 'ignore' })
+    child.once('error', () => done(false))
+    child.once('spawn', () => {
+      child.unref()
+      done(true)
+    })
+  })
+}
+
+/**
+ * Starts Docker Desktop and waits for its engine to answer, which takes a while after the window appears. On macOS
+ * the app is `Docker`; on Linux it is the `docker-desktop` user service; on Windows its executable. Anything else,
+ * Docker Engine on Linux among them, is `manual`: the screen tells the user to start it.
+ */
+export async function openDocker(waitMs = 90_000): Promise<OpenDocker> {
+  // An engine that already answers, whoever started it, is all the screen was waiting for.
+  if (await engineAnswers()) return 'running'
+
+  if (process.platform === 'darwin') {
+    try {
+      await run('open', ['-a', 'Docker'])
+    } catch {
+      return 'failed'
+    }
+  } else if (process.platform === 'win32' && windowsDockerDesktop() !== undefined) {
+    if (!(await launch(windowsDockerDesktop() ?? ''))) return 'failed'
+  } else if (process.platform === 'linux' && (await linuxDockerDesktop())) {
+    try {
+      await run('systemctl', ['--user', 'start', 'docker-desktop'], { timeout: 30_000 })
+    } catch {
+      return 'failed'
+    }
+  } else {
+    return 'manual'
+  }
 
   for (let waited = 0; waited < waitMs; waited += 2_000) {
-    if (await engineAnswers()) return true
+    if (await engineAnswers()) return 'running'
     await sleep(2_000)
   }
 
-  return false
+  return 'failed'
 }
 
 export async function startDocker(project: Project): Promise<boolean> {

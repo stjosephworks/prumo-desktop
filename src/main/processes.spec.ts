@@ -1,10 +1,10 @@
 // Real processes, no mocks: a process layer that passes against a fake proves nothing about ports being freed.
-import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test } from 'vitest'
-import { Apps, appId, processTree } from './processes.ts'
+import { Apps, appId, endTree, processTree } from './processes.ts'
 
 const PORT = 45_231
 
@@ -30,20 +30,28 @@ process.on('SIGTERM', () => {})
   return directory
 }
 
-function portHeld(port: number): boolean {
-  try {
-    execFileSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' })
-    return true
-  } catch {
-    return false
-  }
+/** Whether a port answers on either loopback address, asked over TCP: the same on every system, no lsof. */
+async function portHeld(port: number): Promise<boolean> {
+  const answers = (host: string) =>
+    new Promise<boolean>((done) => {
+      const socket = connect({ host, port })
+      const finish = (open: boolean) => {
+        socket.destroy()
+        done(open)
+      }
+      socket.setTimeout(1_000, () => finish(false))
+      socket.once('connect', () => finish(true))
+      socket.once('error', () => finish(false))
+    })
+
+  return (await answers('127.0.0.1')) || (await answers('::1'))
 }
 
-function waitFor(condition: () => boolean, timeoutMs = 30_000): Promise<void> {
+function waitFor(condition: () => boolean | Promise<boolean>, timeoutMs = 30_000): Promise<void> {
   return new Promise((done, fail) => {
     const started = Date.now()
-    const tick = () => {
-      if (condition()) return done()
+    const tick = async () => {
+      if (await condition()) return done()
       if (Date.now() - started > timeoutMs) return fail(new Error('timed out'))
       setTimeout(tick, 100)
     }
@@ -76,14 +84,14 @@ test('starts an app, reports its output, and stops its whole process tree', asyn
   await waitFor(() => output.includes(`listening on ${PORT}`))
   expect(apps.get(started.id)?.state).toBe('running')
   expect(apps.buffer(started.id)).toContain('listening on')
-  expect(portHeld(PORT)).toBe(true)
+  expect(await portHeld(PORT)).toBe(true)
 
   const tree = processTree(processTreeRoot(apps, started.id))
   expect(tree.length).toBeGreaterThan(1)
 
   const stopped = await apps.stop(started.id)
   expect(stopped?.state).toBe('stopped')
-  expect(portHeld(PORT)).toBe(false)
+  expect(await portHeld(PORT)).toBe(false)
 })
 
 test('an app that exits with an error is failed, not stopped', async () => {
@@ -103,11 +111,11 @@ test('quitting stops everything that is still running', async () => {
 
   await apps.stopAll()
 
-  expect(portHeld(PORT)).toBe(false)
+  expect(await portHeld(PORT)).toBe(false)
   expect(apps.get(started.id)?.state).toBe('stopped')
 })
 
-/** The pseudo terminal's own pid, which is the group leader. */
+/** The pseudo terminal's own pid: the group leader on macOS and Linux, cmd.exe on Windows. */
 function processTreeRoot(instance: Apps, id: string): number {
   const entries = instance as unknown as { entries: Map<string, { terminal: { pid: number } }> }
   const entry = entries.entries.get(id)
@@ -116,3 +124,31 @@ function processTreeRoot(instance: Apps, id: string): number {
 
   return entry.terminal.pid
 }
+
+test('ending a tree ends the process and what it started', async () => {
+  const { spawn } = await import('node:child_process')
+  const parent = spawn(
+    process.execPath,
+    [
+      '-e',
+      `const c = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' }); console.log(c.pid); setInterval(() => {}, 1000)`,
+    ],
+    { stdio: ['ignore', 'pipe', 'ignore'] },
+  )
+  const child = await new Promise<number>((done) =>
+    parent.stdout.once('data', (chunk: Buffer) => done(Number(chunk.toString().trim()))),
+  )
+  const alive = (pid: number) => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  expect(alive(child)).toBe(true)
+
+  endTree(parent.pid ?? 0)
+
+  await waitFor(() => !alive(child) && !alive(parent.pid ?? 0))
+}, 60_000)

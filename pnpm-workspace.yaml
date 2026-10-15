@@ -3,9 +3,11 @@ nodeLinker: hoisted
 # @electron/rebuild (used by Forge) depends on @electron/node-gyp straight from a git repository.
 blockExoticSubdeps: false
 # electron downloads its binary; node-pty picks a prebuild or compiles; fs-xattr and macos-alias are native parts of
-# appdmg, which the dmg maker uses to lay out the disk image.
+# appdmg, which the dmg maker uses to lay out the disk image; electron-winstaller, behind the Squirrel.Windows maker,
+# copies the 7-Zip of the host's arch into place.
 allowBuilds:
   electron: true
+  electron-winstaller: true
   fs-xattr: true
   macos-alias: true
   node-pty: true

@@ -62,9 +62,9 @@ export function Database({ project }: { project: Project }) {
 
   const openDocker = () =>
     act('open-docker', async () => {
-      if (!(await window.prumo.database.openDocker())) {
-        setError(t.database.didNotStart)
-      }
+      const opened = await window.prumo.database.openDocker()
+      if (opened === 'failed') setError(t.database.didNotStart)
+      if (opened === 'manual') setError(t.database.startYourself(window.prumo.platform))
     })
 
   const act = async (label: string, action: () => Promise<unknown>) => {

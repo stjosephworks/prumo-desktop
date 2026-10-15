@@ -6,7 +6,7 @@ import { Button } from './ui.tsx'
 
 const SHORT: Record<string, string> = { 'Visual Studio Code': 'VS Code' }
 
-/** Finder, the first editor this machine has, and its terminal, each opening the project's folder. */
+/** The file manager, the first editor this machine has, and its terminal, each opening the project's folder. */
 export function OpenIn({ path }: { path: string }) {
   const t = useT()
   const [openers, setOpeners] = useState<Openers>({ editors: [], terminals: [] })
@@ -22,7 +22,7 @@ export function OpenIn({ path }: { path: string }) {
     <>
       <Button variant="ghost" onClick={() => window.prumo.projects.reveal(path)}>
         <FolderOpen />
-        {t.project.finder}
+        {t.project.fileManager(window.prumo.platform)}
       </Button>
       {editor !== undefined && (
         <Button variant="ghost" onClick={() => window.prumo.projects.openIn(editor, path)}>

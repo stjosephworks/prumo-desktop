@@ -2,7 +2,7 @@ import { Check, CircleAlert, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Environment as Report } from '../../shared/ipc.ts'
 import { CliUpdate } from '../components/cli-update.tsx'
-import { cx, Notice, PageHeader, Section } from '../components/ui.tsx'
+import { Button, cx, Notice, PageHeader, Section } from '../components/ui.tsx'
 import { useT } from '../i18n/i18n.tsx'
 
 const MARK = {
@@ -15,10 +15,18 @@ const MARK = {
 export function Environment() {
   const t = useT()
   const [report, setReport] = useState<Report>()
+  const [notNode, setNotNode] = useState(false)
 
   useEffect(() => {
     window.prumo.environment().then(setReport)
   }, [])
+
+  // Where no PATH and no usual folder has Node: the user points at it once, and it is kept.
+  const chooseNode = async () => {
+    const result = await window.prumo.chooseNode()
+    setNotNode(!result.ok && result.reason === 'not_node')
+    if (result.ok) setReport(result.environment)
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-10 pb-16">
@@ -47,9 +55,27 @@ export function Environment() {
             <p className="text-sm text-muted-foreground">{t.machine.checking}</p>
           )}
 
+          {report?.pathProblem !== undefined && (
+            <div className="mb-4">
+              <Notice tone="error" icon={<CircleAlert />}>
+                {t.machine.pathProblem}
+                <code className="mt-1 block font-mono text-[0.72rem]">{report.pathProblem}</code>
+              </Notice>
+            </div>
+          )}
+
           {report !== undefined && report.node === undefined && (
-            <Notice tone="error" icon={<X />}>
+            <Notice
+              tone="error"
+              icon={<X />}
+              action={
+                <Button size="sm" onClick={chooseNode}>
+                  {t.machine.chooseNode}
+                </Button>
+              }
+            >
               {t.machine.nodeMissing}
+              {notNode && <span className="mt-1 block">{t.machine.notNode}</span>}
             </Notice>
           )}
 
