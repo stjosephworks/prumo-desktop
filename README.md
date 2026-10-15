@@ -13,8 +13,19 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 their database, and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
 was built.
 
-Next is the first signed and notarised macOS build, well before any public release, and arm64 builds for Linux and
-Windows. Every technology choice must work on all three systems.
+Next is the first signed and notarised macOS build, well before any public release. Every technology choice must
+work on all three systems.
+
+**arm64 for Linux and Windows is planned, on demand.** The x64 builds cover every Intel and AMD machine; arm64 ships
+when someone asks for it. What it takes, so it is not worked out again:
+
+- Add `ubuntu-24.04-arm` and `windows-11-arm` to the release and `packaged-*` matrices; GitHub's arm64 runners are free
+  for public repositories.
+- node-pty ships a `win32-arm64` prebuild, but none for Linux: on Linux arm64 it compiles during `pnpm install`, so the
+  Linux arm64 package must be built on an arm64 runner, never cross-built.
+- Docker Desktop has no Linux arm64 build and is in early access on Windows on Arm, so Open Docker there falls back to
+  the message for Docker Engine. Windows on Arm can already run the x64 Setup.exe under emulation (unverified for this
+  app).
 
 ## Branches
 
