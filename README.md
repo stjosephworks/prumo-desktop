@@ -27,6 +27,18 @@ when someone asks for it. What it takes, so it is not worked out again:
   the message for Docker Engine. Windows on Arm can already run the x64 Setup.exe under emulation (unverified for this
   app).
 
+## Languages
+
+English, Portuguese (Brazil) and Spanish (Latin America). The Desktop opens in the first of the system's preferred
+languages it speaks, whatever the region (`es-MX` is Spanish, `pt-PT` Portuguese), and in English when it speaks
+none. A language picked in the sidebar is kept in the app's `settings.json` from then on, and switches the window,
+the tray, the app menu, notifications and dialogs at once, without a restart. Its first option, Follow the system,
+removes that choice, and the system's language answers again.
+
+A new language is one entry in `src/shared/locales.ts` and one dictionary in each of `src/renderer/i18n/` and
+`src/main/i18n/`. The build refuses it until both dictionaries exist, and `src/shared/dictionaries.spec.ts` holds it
+to English's shape with no change. The release notes stay in English.
+
 ## Branches
 
 One chain, and nothing skips a step: a branch of your own → `dev` → `alpha` → `main`. Nobody pushes to those three;

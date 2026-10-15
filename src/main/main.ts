@@ -4,11 +4,15 @@ import { app, BrowserWindow, dialog, Notification } from 'electron'
 import squirrelStartup from 'electron-squirrel-startup'
 import { UpdateSourceType, updateElectronApp } from 'update-electron-app'
 import { type AppUpdate, CHANNELS, type CliStatus, type RunningApp } from '../shared/ipc.ts'
+import { FALLBACK_LOCALE, type Locale } from '../shared/locales.ts'
 import { listReleases, newestRelease } from './app-update.ts'
 import { doctor } from './cli.ts'
 import { activeCli, installCli, publishedVersions, statusOf } from './cli-update.ts'
 import { applyShellPath, chooseNode, findNode, nodeAt, pathProblem } from './environment.ts'
+import { MAIN_DICTIONARIES } from './i18n/dictionaries.ts'
 import { register } from './ipc.ts'
+import { Language } from './language.ts'
+import { applyMenu } from './menu.ts'
 import { Apps } from './processes.ts'
 import { Projects } from './projects.ts'
 import { Settings } from './settings.ts'
@@ -45,6 +49,26 @@ const projects = new Projects(join(app.getPath('userData'), 'projects.json'))
 // The node executable the user picked, when this machine's PATH has none: used before the PATH from then on.
 const settings = new Settings(join(app.getPath('userData'), 'settings.json'))
 chooseNode(settings.read().node)
+
+/**
+ * The language in use, settled once the app is ready (Chromium's locale is only known then): the user's choice from
+ * settings.json, or else the first of the system's preferred languages the Desktop speaks, or else Chromium's
+ * locale, or else English.
+ */
+const language = new Language(settings, () => ({
+  preferred: app.getPreferredSystemLanguages(),
+  fallback: app.getLocale(),
+}))
+
+/** Kept at hand: the tray reads it every few seconds. */
+let locale: Locale = FALLBACK_LOCALE
+
+function settleLocale(): void {
+  locale = language.state().locale
+}
+
+/** The words of the language in use, for everything outside the window. */
+const words = () => MAIN_DICTIONARIES[locale]
 
 /**
  * The embedded CLI, always outside `app.asar`: `spawn` cannot run a file inside the archive.
@@ -86,8 +110,7 @@ function cliUpdate() {
   updating ??= (async () => {
     const { available } = await cliStatus()
 
-    if (available === undefined)
-      return { ok: false as const, message: 'There is nothing to update to.' }
+    if (available === undefined) return { ok: false as const, message: words().cli.nothingToUpdate }
 
     try {
       await installCli(available, cliUpdates)
@@ -188,8 +211,11 @@ function watchApps(): void {
 
     const project = projects.list().find((one) => changed.project.startsWith(one.path))
     const notice = new Notification({
-      title: `pnpm ${changed.script} failed`,
-      body: `${project?.name ?? basename(changed.project)} · exit ${changed.exitCode ?? '?'}`,
+      title: words().notifications.failed(changed.script),
+      body: words().notifications.failedBody(
+        project?.name ?? basename(changed.project),
+        changed.exitCode ?? '?',
+      ),
     })
 
     notice.on('click', () => showWindow(project?.path))
@@ -245,8 +271,11 @@ app.on('second-instance', () => showWindow())
 app.whenReady().then(() => {
   if (!primary) return
 
+  settleLocale()
+  applyMenu(words())
   watchApps()
-  held.push(createTray({ apps, projects, show: showWindow, icon: pngIcon() }))
+  const tray = createTray({ apps, projects, show: showWindow, icon: pngIcon(), words })
+  held.push(tray.tray)
 
   if (noticeEnabled(build, process.env)) {
     void checkForAppUpdate()
@@ -261,6 +290,21 @@ app.whenReady().then(() => {
     cliStatus,
     cliUpdate,
     windows: () => BrowserWindow.getAllWindows(),
+    words,
+    locale: {
+      get: () => language.state(),
+      // Every surface follows at once: the menu and the tray are rebuilt, and every window is told.
+      set: (chosen) => {
+        const state = language.choose(chosen)
+        locale = state.locale
+        applyMenu(words())
+        tray.rebuild()
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(CHANNELS.localeChanged, state)
+        }
+        return state
+      },
+    },
     keepNode: async (path) => {
       if ((await nodeAt(path)) === undefined) return false
       settings.write({ node: path })
@@ -302,11 +346,11 @@ app.on('before-quit', async (event) => {
 
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Cancel', 'Quit and stop'],
+    buttons: [words().dialogs.cancel, words().dialogs.quitAndStop],
     defaultId: 1,
     cancelId: 0,
-    message: running.length === 1 ? '1 app is running' : `${running.length} apps are running`,
-    detail: 'Quitting Prumo Desktop stops them.',
+    message: words().dialogs.running(running.length),
+    detail: words().dialogs.quittingStops,
   })
 
   if (response === 0) return
@@ -333,10 +377,8 @@ app.on('window-all-closed', () => {
   if (!Notification.isSupported()) return
 
   const notice = new Notification({
-    title: 'Prumo Desktop is still running',
-    body:
-      `${running.length === 1 ? '1 app keeps' : `${running.length} apps keep`} running. ` +
-      'Open Prumo Desktop again to stop them, or quit it from its icon in the system tray.',
+    title: words().notifications.stillRunning,
+    body: words().notifications.stillRunningBody(running.length),
   })
   notice.on('click', () => showWindow())
   notice.show()
