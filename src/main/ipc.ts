@@ -11,6 +11,7 @@ import {
   type NewProject,
   type StartApp,
 } from '../shared/ipc.ts'
+import { isLocale, type Locale, type LocaleState } from '../shared/locales.ts'
 import { createProject } from './create.ts'
 import {
   createDatabase,
@@ -24,6 +25,7 @@ import { documentPath, readDocument } from './docs.ts'
 import { applyShellPath } from './environment.ts'
 import { gitState } from './git.ts'
 import { apiHealth } from './health.ts'
+import type { MainDictionary } from './i18n/en.ts'
 import { openers, openIn } from './open-in.ts'
 import { checkPort } from './ports.ts'
 import type { Apps } from './processes.ts'
@@ -42,6 +44,13 @@ type Wiring = {
   keepNode: (path: string) => Promise<boolean>
   /** Where the embedded CLI is, which only the Electron side knows. */
   cli: () => string
+  /** The words of the language in use, for the native dialogs opened from here. */
+  words: () => MainDictionary
+  locale: {
+    get: () => LocaleState
+    /** Keeps the choice, or forgets it on undefined, and switches every surface; the language now in use. */
+    set: (locale: Locale | undefined) => LocaleState
+  }
 }
 
 export function register({
@@ -54,6 +63,8 @@ export function register({
   cliStatus,
   cliUpdate,
   appUpdate,
+  words,
+  locale,
 }: Wiring): void {
   // Every channel waits for the PATH the Desktop runs commands with, which Windows reads in the background.
   const handle: typeof ipcMain.handle = (channel, listener) =>
@@ -67,10 +78,16 @@ export function register({
   }
 
   handle(CHANNELS.environment, () => environment())
+  handle(CHANNELS.localeGet, () => locale.get())
+  handle(CHANNELS.localeSet, (_event, chosen: unknown) => {
+    // Anything but a known language or undefined is refused, so the settings never keep one the app cannot speak.
+    if (chosen !== undefined && !isLocale(chosen)) return locale.get()
+    return locale.set(chosen)
+  })
   handle(CHANNELS.chooseNode, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openFile'],
-      message: 'Choose the node executable',
+      message: words().dialogs.chooseNode,
       ...(process.platform === 'win32' ? { filters: [{ name: 'Node', extensions: ['exe'] }] } : {}),
     })
     const [chosen] = filePaths
@@ -88,7 +105,7 @@ export function register({
   handle(CHANNELS.projectsAdd, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory'],
-      message: 'Choose a folder that holds a .prumo/config.json',
+      message: words().dialogs.chooseProject,
     })
     const [chosen] = filePaths
 
@@ -103,7 +120,7 @@ export function register({
   handle(CHANNELS.projectsChooseParent, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
-      message: 'Choose where the new project folder goes',
+      message: words().dialogs.chooseParent,
     })
 
     return canceled ? undefined : filePaths[0]
