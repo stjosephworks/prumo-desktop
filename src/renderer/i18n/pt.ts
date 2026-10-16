@@ -24,6 +24,7 @@ export const pt: Dictionary = {
     openAProject: 'Abrir um projeto',
     noneYet: 'Nenhum ainda.',
     language: 'Idioma',
+    followSystem: 'Seguir o sistema',
   },
   banner: {
     nodeMissing: 'O Node não foi encontrado nesta máquina, então nada pode rodar.',
