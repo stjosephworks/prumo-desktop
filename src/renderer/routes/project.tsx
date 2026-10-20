@@ -13,6 +13,7 @@ import { type ReactNode, useState } from 'react'
 import type { PortAnswer, PortCheck, Project, RunningApp } from '../../shared/ipc.ts'
 import { type Part, partId, partsFor } from '../../shared/parts.ts'
 import { browserUrl, expoUrl } from '../../shared/urls.ts'
+import { AddApp } from '../components/add-app.tsx'
 import { Checks } from '../components/checks.tsx'
 import { Database } from '../components/database.tsx'
 import { ExpoQr } from '../components/expo-qr.tsx'
@@ -194,7 +195,9 @@ function PartPanel({
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-serif text-base font-semibold text-navy">{part.type}</span>
+              <span className="font-serif text-base font-semibold text-navy">{part.name}</span>
+              {/* An app named on purpose still says what it is. */}
+              {part.name !== part.type && <Tag>{part.type}</Tag>}
               <span className={cx('flex items-center gap-1.5 text-xs', display.tone)}>
                 <StatusDot state={display.dot} />
                 {display.label(t)}
@@ -258,7 +261,7 @@ function PartPanel({
 
         {display.working && (
           <ProgressBar
-            label={t.project.startingWhat(part.type)}
+            label={t.project.startingWhat(part.name)}
             className="absolute inset-x-0 bottom-0"
           />
         )}
@@ -312,7 +315,9 @@ export function ProjectScreen() {
   })
 
   const apiPart = parts.find((part) => part.type === 'api')
-  const runningType = (type: Part['type']) => running.some((part) => part.type === type)
+  // MCP consent opens on the first web app, the one the API lists first in WEB_ORIGIN.
+  const webPart = parts.find((part) => part.type === 'web')
+  const isRunning = (part: Part | undefined) => part !== undefined && running.includes(part)
 
   const forget = (part: Part) => setRefusals(({ [part.script]: _, ...rest }) => rest)
 
@@ -321,7 +326,7 @@ export function ProjectScreen() {
    * waiting inside its terminal, where the app would already look like it is running.
    */
   const start = async (part: Part, answer?: PortAnswer) => {
-    const check = await window.prumo.apps.checkPort(project, part.type, answer)
+    const check = await window.prumo.apps.checkPort(project, part.name, answer)
 
     if (!check.ok) {
       setRefusals((current) => ({ ...current, [part.script]: check }))
@@ -428,6 +433,7 @@ export function ProjectScreen() {
             />
           ))}
         </ul>
+        {project.config?.architecture === 'monorepo' && <AddApp project={project} />}
       </Section>
 
       <Checks project={project} />
@@ -436,8 +442,10 @@ export function ProjectScreen() {
         <McpPanel
           name={project.name}
           apiPort={apiPart === undefined ? undefined : appOf(apiPart)?.port}
-          apiRunning={runningType('api')}
-          webRunning={runningType('web')}
+          api={apiPart?.name ?? 'api'}
+          web={webPart?.name ?? 'web'}
+          apiRunning={isRunning(apiPart)}
+          webRunning={isRunning(webPart)}
         />
       )}
 

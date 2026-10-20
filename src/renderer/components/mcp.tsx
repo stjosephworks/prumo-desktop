@@ -40,11 +40,16 @@ function CopyLine({ label, value }: { label: string; value: string }) {
 export function McpPanel({
   name,
   apiPort,
+  api,
+  web,
   apiRunning,
   webRunning,
 }: {
   name: string
   apiPort?: number
+  /** The apps' names: the api serves MCP, and the first web app signs in and consents. */
+  api: string
+  web: string
   apiRunning: boolean
   webRunning: boolean
 }) {
@@ -59,11 +64,11 @@ export function McpPanel({
         <ul className="flex gap-6 text-sm">
           <li className="flex items-center gap-2">
             <StatusDot state={apiRunning ? 'running' : 'stopped'} />
-            {t.mcp.apiServes}
+            {t.mcp.apiServes(api)}
           </li>
           <li className="flex items-center gap-2">
             <StatusDot state={webRunning ? 'running' : 'stopped'} />
-            {t.mcp.webServes}
+            {t.mcp.webServes(web)}
           </li>
         </ul>
 
