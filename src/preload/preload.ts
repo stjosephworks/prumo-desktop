@@ -58,6 +58,14 @@ const bridge: Bridge = {
     openIn: (app: string, path: string) => ipcRenderer.invoke(CHANNELS.projectsOpenIn, app, path),
     create: (input: NewProject) => ipcRenderer.invoke(CHANNELS.projectsCreate, input),
     chooseParent: () => ipcRenderer.invoke(CHANNELS.projectsChooseParent),
+    addApp: (path, input) => ipcRenderer.invoke(CHANNELS.projectsAddApp, path, input),
+    onAddLog: (listener) => {
+      const handler = (_event: unknown, chunk: string) => listener(chunk)
+      ipcRenderer.on(CHANNELS.projectsAddLog, handler)
+      return () => {
+        ipcRenderer.off(CHANNELS.projectsAddLog, handler)
+      }
+    },
     onCreateLog: (listener) => {
       const handler = (_event: unknown, chunk: string) => listener(chunk)
       ipcRenderer.on(CHANNELS.projectsCreateLog, handler)
@@ -87,8 +95,8 @@ const bridge: Bridge = {
   },
   apps: {
     list: () => ipcRenderer.invoke(CHANNELS.list),
-    checkPort: (project, type, answer) =>
-      ipcRenderer.invoke(CHANNELS.checkPort, project, type, answer),
+    checkPort: (project, app, answer) =>
+      ipcRenderer.invoke(CHANNELS.checkPort, project, app, answer),
     health: (port: number) => ipcRenderer.invoke(CHANNELS.health, port),
     start: (app: StartApp) => ipcRenderer.invoke(CHANNELS.start, app),
     stop: (id: string) => ipcRenderer.invoke(CHANNELS.stop, id),
