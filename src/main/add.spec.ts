@@ -26,9 +26,14 @@ beforeAll(async () => {
 }, 120_000)
 
 test('adds a second web app, and the project read again lists it', async () => {
-  const result = await addApp(path, { type: 'web', name: 'backoffice' }, projects, { cli })
+  let log = ''
+  const result = await addApp(path, { type: 'web', name: 'backoffice' }, projects, {
+    cli,
+    onLog: (chunk) => (log += chunk),
+  })
 
-  expect(result).toMatchObject({ ok: true })
+  // A failure says what the CLI answered, and the last of what it printed.
+  expect(result, `${JSON.stringify(result)}\n${log.slice(-4000)}`).toMatchObject({ ok: true })
   if (!result.ok) return
 
   expect(result.project.config?.apps?.map((app) => app.name)).toEqual(['api', 'web', 'backoffice'])
