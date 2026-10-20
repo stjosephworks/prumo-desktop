@@ -1,9 +1,18 @@
 // Which of `prumo new`'s questions apply to a set of types. The form uses it to show only what the CLI will ask,
 // and the main process to pass only the flags the CLI accepts. The rules are the CLI's (src/questions.ts in
 // Prumo); a change there is a change here.
-import type { ProjectConfig, SocialProvider } from './ipc.ts'
+import type { App, AppType, ProjectConfig, SocialProvider } from './ipc.ts'
+import { typesOf } from './parts.ts'
 
-type Types = ProjectConfig['types']
+type Types = AppType[]
+
+/** Only web and site may repeat in a workspace; it holds one api and one mobile. */
+export const REPEATABLE: AppType[] = ['web', 'site']
+
+/** An app named after its type, which is what `--types` gives each type. */
+export function defaultApps(types: Types): App[] {
+  return types.map((type) => ({ name: type, type }))
+}
 
 /** The providers the CLI offers, in its order. */
 export const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'apple']
@@ -28,9 +37,9 @@ export function asksSocial(types: Types): boolean {
   return types.includes('api') && (types.includes('web') || types.includes('mobile'))
 }
 
-/** Several types always make a workspace: the CLI refuses `--alone` with more than one. */
-export function allowsAlone(types: Types): boolean {
-  return types.length <= 1
+/** Several apps always make a workspace: the CLI refuses `--alone` with more than one, or with a named one. */
+export function allowsAlone(apps: App[]): boolean {
+  return apps.length <= 1 && apps.every((app) => app.name === app.type)
 }
 
 /**
@@ -39,17 +48,20 @@ export function allowsAlone(types: Types): boolean {
  * left unanswered is `needs_input`, so every one that applies is answered.
  */
 export function newFlags(input: {
-  types: Types
+  apps: App[]
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
   mcp: boolean
   email: boolean
   social: SocialProvider[]
 }): string[] {
-  const { types } = input
+  const types = typesOf(input.apps)
+  const defaults = input.apps.filter((app) => app.name === app.type)
   const flags = [
-    '--types',
-    types.join(','),
+    ...(defaults.length > 0 ? ['--types', defaults.map((app) => app.type).join(',')] : []),
+    ...input.apps
+      .filter((app) => app.name !== app.type)
+      .flatMap((app) => ['--app', `${app.name}=${app.type}`]),
     input.architecture === 'alone' ? '--alone' : '--monorepo',
   ]
 

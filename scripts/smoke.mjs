@@ -194,7 +194,7 @@ try {
     `window.prumo.projects.create(${JSON.stringify({
       parent,
       name: 'smoke-web',
-      types: ['web'],
+      apps: [{ name: 'web', type: 'web' }],
       architecture: 'alone',
       multiTenant: false,
       mcp: false,

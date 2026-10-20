@@ -2,23 +2,29 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   Folder,
   Globe,
   KeyRound,
   type LucideIcon,
   Mail,
+  Plus,
   Server,
   Smartphone,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import type { Project, ProjectConfig, SocialProvider } from '../../shared/ipc.ts'
+import type { App, AppType, Project, ProjectConfig, SocialProvider } from '../../shared/ipc.ts'
+import { typesOf } from '../../shared/parts.ts'
 import {
   allowsAlone,
   asksEmail,
   asksMcp,
   asksSocial,
   asksTenancy,
+  defaultApps,
+  REPEATABLE,
   SOCIAL_PROVIDERS,
 } from '../../shared/questions.ts'
 import {
@@ -31,18 +37,97 @@ import {
   PageHeader,
   ProgressBar,
   Section,
+  Tag,
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
 import { useT } from '../i18n/i18n.tsx'
 import { refreshProjects } from '../use-projects.ts'
 
-const TYPES: { value: ProjectConfig['types'][number]; icon: LucideIcon }[] = [
+const TYPES: { value: AppType; icon: LucideIcon }[] = [
   { value: 'api', icon: Server },
   { value: 'web', icon: Globe },
   { value: 'mobile', icon: Smartphone },
   { value: 'site', icon: Globe },
 ]
+
+const ICON = Object.fromEntries(TYPES.map((type) => [type.value, type.icon])) as Record<
+  AppType,
+  LucideIcon
+>
+
+/** A second web or site, added in the advanced options; the id keeps its row while its name is typed. */
+type Extra = App & { id: number }
+
+/**
+ * Every app the project will have, by name: the types chosen, each renamed or not, then each one added. The names
+ * are judged by `prumo new`, which answers `invalid_app` for one it refuses.
+ */
+function AppNames({
+  apps,
+  extras,
+  onRename,
+  onAdd,
+  onRemove,
+  problem,
+}: {
+  apps: App[]
+  extras: Extra[]
+  onRename: (index: number, name: string) => void
+  onAdd: (type: AppType) => void
+  onRemove: (id: number) => void
+  problem?: string
+}) {
+  const t = useT()
+  const firstExtra = apps.length - extras.length
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">{t.newProject.advancedHint}</p>
+      <ul className="space-y-2">
+        {apps.map((app, index) => {
+          const Icon = ICON[app.type]
+          const extra = index >= firstExtra ? extras[index - firstExtra] : undefined
+
+          return (
+            <li key={extra?.id ?? app.type} className="flex items-center gap-3">
+              <Icon className="size-4 shrink-0 text-navy" />
+              <span className="w-14 shrink-0">
+                <Tag>{app.type}</Tag>
+              </span>
+              <input
+                aria-label={t.newProject.appName(app.type)}
+                value={app.name}
+                onChange={(event) => onRename(index, event.target.value)}
+                placeholder={app.type === 'site' ? 'blog' : 'backoffice'}
+                className={`${INPUT} max-w-64 font-mono`}
+              />
+              {extra !== undefined && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  aria-label={t.newProject.removeApp}
+                  onClick={() => onRemove(extra.id)}
+                >
+                  <X />
+                </Button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="flex gap-2">
+        {REPEATABLE.map((type) => (
+          <Button key={type} size="sm" onClick={() => onAdd(type)}>
+            <Plus />
+            {t.newProject.addApp(type)}
+          </Button>
+        ))}
+      </div>
+      {problem !== undefined && <p className="text-xs text-destructive">{problem}</p>}
+    </div>
+  )
+}
 
 /** Two or three choices side by side, one of them chosen: a radio group dressed as a control. */
 function Segmented<T extends string | boolean>({
@@ -148,7 +233,12 @@ export function NewProject() {
   const t = useT()
   const [parent, setParent] = useState<string>()
   const [name, setName] = useState('')
-  const [types, setTypes] = useState<ProjectConfig['types']>(['api', 'web'])
+  const [types, setTypes] = useState<AppType[]>(['api', 'web'])
+  // The advanced options: closed, every app is named after its type, as the CLI names it by default.
+  const [advanced, setAdvanced] = useState(false)
+  const [names, setNames] = useState<Partial<Record<AppType, string>>>({})
+  const [extras, setExtras] = useState<Extra[]>([])
+  const nextExtra = useRef(0)
   const [architecture, setArchitecture] = useState<ProjectConfig['architecture']>('monorepo')
   const [multiTenant, setMultiTenant] = useState(false)
   const [mcp, setMcp] = useState(false)
@@ -168,10 +258,36 @@ export function NewProject() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the log growing, or being opened, is what scrolls it.
   useEffect(() => logEnd.current?.scrollIntoView({ block: 'end' }), [log, logOpen])
 
-  // Several types always make a workspace, whatever was picked while there was one.
-  const shape = allowsAlone(types) ? architecture : 'monorepo'
+  const named: App[] = [
+    ...types.map((type) => ({ name: names[type] ?? type, type })),
+    ...extras.map(({ name, type }) => ({ name, type })),
+  ]
+  // Several apps always make a workspace, whatever was picked while there was one. Names are a workspace's, so
+  // alone, every app keeps its type's.
+  const alonePossible = allowsAlone(advanced ? named : defaultApps(types))
+  const shape = alonePossible ? architecture : 'monorepo'
+  const apps = advanced && shape === 'monorepo' ? named : defaultApps(types)
+  const chosen = typesOf(apps)
+  const unnamed = apps.some((app) => app.name.trim() === '')
 
-  const toggle = (value: ProjectConfig['types'][number]) => {
+  const rename = (index: number, name: string) => {
+    const type = types[index]
+
+    if (type !== undefined) {
+      setNames((current) => ({ ...current, [type]: name }))
+      return
+    }
+
+    const id = extras[index - types.length]?.id
+    setExtras((current) => current.map((extra) => (extra.id === id ? { ...extra, name } : extra)))
+  }
+
+  const addExtra = (type: AppType) => {
+    nextExtra.current += 1
+    setExtras((current) => [...current, { id: nextExtra.current, name: '', type }])
+  }
+
+  const toggle = (value: AppType) => {
     setTypes((current) =>
       current.includes(value) ? current.filter((one) => one !== value) : [...current, value],
     )
@@ -184,7 +300,7 @@ export function NewProject() {
   }
 
   const create = async () => {
-    if (parent === undefined || name === '' || types.length === 0) return
+    if (parent === undefined || name === '' || apps.length === 0 || unnamed) return
 
     setCreating(true)
     setError(undefined)
@@ -193,12 +309,12 @@ export function NewProject() {
     const result = await window.prumo.projects.create({
       parent,
       name,
-      types,
+      apps: apps.map((app) => ({ ...app, name: app.name.trim() })),
       architecture: shape,
-      multiTenant: asksTenancy(types) && multiTenant,
-      mcp: asksMcp(types) && mcp,
-      email: asksEmail(types) && email,
-      social: asksSocial(types) ? social : [],
+      multiTenant: asksTenancy(chosen) && multiTenant,
+      mcp: asksMcp(chosen) && mcp,
+      email: asksEmail(chosen) && email,
+      social: asksSocial(chosen) ? social : [],
     })
 
     setCreating(false)
@@ -316,20 +432,20 @@ export function NewProject() {
           <div className="flex flex-wrap gap-x-10 gap-y-6">
             <Field
               label={t.newProject.shape}
-              hint={allowsAlone(types) ? undefined : t.newProject.severalTypes}
+              hint={alonePossible ? undefined : t.newProject.severalTypes}
             >
               <Segmented
                 name="architecture"
                 value={shape}
                 onChange={setArchitecture}
                 options={[
-                  { value: 'alone', label: 'alone', disabled: !allowsAlone(types) },
+                  { value: 'alone', label: 'alone', disabled: !alonePossible },
                   { value: 'monorepo', label: 'monorepo' },
                 ]}
               />
             </Field>
 
-            {asksTenancy(types) && (
+            {asksTenancy(chosen) && (
               <Field label={t.newProject.tenancy}>
                 <Segmented
                   name="tenancy"
@@ -344,9 +460,9 @@ export function NewProject() {
             )}
           </div>
 
-          {(asksMcp(types) || asksEmail(types)) && (
+          {(asksMcp(chosen) || asksEmail(chosen)) && (
             <div className="mt-6 space-y-3">
-              {asksMcp(types) && (
+              {asksMcp(chosen) && (
                 <Toggle
                   icon={Sparkles}
                   title="MCP"
@@ -355,7 +471,7 @@ export function NewProject() {
                   onChange={setMcp}
                 />
               )}
-              {asksEmail(types) && (
+              {asksEmail(chosen) && (
                 <Toggle
                   icon={Mail}
                   title={t.newProject.emailTitle}
@@ -367,7 +483,7 @@ export function NewProject() {
             </div>
           )}
 
-          {asksSocial(types) && (
+          {asksSocial(chosen) && (
             <div className="mt-6">
               <Field label={t.newProject.socialTitle} hint={t.newProject.social}>
                 <div className="flex flex-wrap gap-3">
@@ -394,6 +510,36 @@ export function NewProject() {
               </Field>
             </div>
           )}
+
+          {shape === 'monorepo' && (
+            <div className="mt-6 border-t border-rule pt-5">
+              <button
+                type="button"
+                aria-expanded={advanced}
+                onClick={() => setAdvanced((open) => !open)}
+                className="flex items-center gap-1.5 text-sm font-medium text-navy hover:text-brass-ink"
+              >
+                <ChevronDown
+                  className={cx('size-4 transition-transform', !advanced && '-rotate-90')}
+                />
+                {t.newProject.advanced}
+              </button>
+              {advanced && (
+                <div className="mt-4">
+                  <AppNames
+                    apps={named}
+                    extras={extras}
+                    onRename={rename}
+                    onAdd={addExtra}
+                    onRemove={(id) =>
+                      setExtras((current) => current.filter((extra) => extra.id !== id))
+                    }
+                    problem={fieldError('invalid_app')}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </Section>
       </fieldset>
 
@@ -406,7 +552,8 @@ export function NewProject() {
             created !== undefined ||
             parent === undefined ||
             name === '' ||
-            types.length === 0
+            apps.length === 0 ||
+            unnamed
           }
           className="h-9 px-5"
         >
@@ -442,9 +589,10 @@ export function NewProject() {
       )}
 
       {/* An error the CLI did not tie to a field still has to be seen. */}
-      {error !== undefined && !['invalid_input', 'target_not_empty'].includes(error.code) && (
-        <p className="mt-4 text-sm text-destructive">{error.message}</p>
-      )}
+      {error !== undefined &&
+        !['invalid_input', 'invalid_app', 'target_not_empty'].includes(error.code) && (
+          <p className="mt-4 text-sm text-destructive">{error.message}</p>
+        )}
 
       {log !== '' && logOpen && (
         <LogBlock className="mt-6 max-h-72">

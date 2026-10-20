@@ -73,6 +73,14 @@ export const pt: Dictionary = {
           ? 'Explorador de Arquivos'
           : 'Arquivos',
     apps: 'Apps',
+    addApp: 'Adicionar app',
+    addAppType: 'Tipo',
+    addAppName: 'Nome',
+    addAppHint:
+      'Vazio, o app leva o nome do tipo. Ele ganha a próxima porta livre e um script do pnpm próprio.',
+    addAppConfirm: 'Adicionar',
+    adding: 'Adicionando…',
+    addingLabel: 'Adicionando o app',
     runAll: 'Rodar todos',
     stopAll: 'Parar todos',
     apiDocs: 'Docs da API',
@@ -117,8 +125,8 @@ export const pt: Dictionary = {
   mcp: {
     intro:
       'Assistentes de IA usam esta API por MCP, logados como o usuário que consente no app web.',
-    apiServes: 'a api serve o servidor MCP',
-    webServes: 'o web serve o login e o consentimento',
+    apiServes: (app: string) => `${app} serve o servidor MCP`,
+    webServes: (app: string) => `${app} serve o login e o consentimento`,
     startApi: 'Inicie a api para ver o endereço em que o servidor MCP responde.',
     server: 'Servidor',
     thenBefore: 'Depois rode',
@@ -182,7 +190,13 @@ export const pt: Dictionary = {
     },
     shaped: 'Como ele é organizado',
     shape: 'Forma',
-    severalTypes: 'Vários tipos sempre formam um workspace.',
+    severalTypes: 'Vários apps sempre formam um workspace.',
+    advanced: 'Opções avançadas',
+    advancedHint:
+      'Renomeie um app, ou adicione outro web ou site. Cada nome vira a pasta em apps/, o pacote e o script do pnpm.',
+    appName: (type: string) => `Nome do app ${type}`,
+    addApp: (type: string) => `Adicionar ${type}`,
+    removeApp: 'Remover este app',
     tenancy: 'Tenancy',
     mcp: 'Deixar assistentes de IA usarem a API por MCP, logados como o usuário.',
     emailTitle: 'Email',

@@ -78,12 +78,12 @@ export function CommandPalette() {
                 {
                   id: `run:${project.path}`,
                   label: t.palette.runAll(project.name),
-                  hint: stopped.map((part) => part.type).join(', '),
+                  hint: stopped.map((part) => part.name).join(', '),
                   icon: <Play />,
                   run: () => {
                     navigate({ to: '/project', search: { path: project.path } })
                     for (const part of stopped) {
-                      window.prumo.apps.checkPort(project, part.type).then((check) => {
+                      window.prumo.apps.checkPort(project, part.name).then((check) => {
                         if (check.ok) {
                           window.prumo.apps.start({
                             project: project.path,
