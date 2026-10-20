@@ -26,7 +26,7 @@ test('creates a project, and it is in the list without anyone adding it', async 
     {
       parent,
       name: 'spec-web',
-      types: ['web'],
+      apps: [{ name: 'web', type: 'web' }],
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
@@ -42,7 +42,7 @@ test('creates a project, and it is in the list without anyone adding it', async 
 
   expect(existsSync(join(parent, 'spec-web', '.prumo', 'config.json'))).toBe(true)
   expect(result.project.config).toEqual({
-    prumo: '0.5.1',
+    prumo: '0.6.1',
     types: ['web'],
     architecture: 'alone',
     multiTenant: false,
@@ -69,7 +69,10 @@ test.each([
       {
         parent,
         name: 'spec-features',
-        types: ['api', 'web'],
+        apps: [
+          { name: 'api', type: 'api' },
+          { name: 'web', type: 'web' },
+        ],
         architecture: 'monorepo',
         multiTenant: false,
         mcp,
@@ -93,12 +96,66 @@ test.each([
   600_000,
 )
 
+test('apps named on purpose are created under their names, and listed in the config', async () => {
+  const apps = [
+    { name: 'web', type: 'web' },
+    { name: 'backoffice', type: 'web' },
+    { name: 'blog', type: 'site' },
+  ] as const
+  const result = await createProject(
+    {
+      parent,
+      name: 'spec-named',
+      apps: [...apps],
+      architecture: 'monorepo',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
+    projects,
+    { cli },
+  )
+
+  expect(result).toMatchObject({ ok: true })
+  if (!result.ok) return
+
+  expect(result.project.config?.apps).toEqual(apps)
+  for (const app of apps) {
+    expect(existsSync(join(result.project.path, 'apps', app.name, 'package.json'))).toBe(true)
+  }
+}, 600_000)
+
+test('an app name the CLI refuses comes back as invalid_app', async () => {
+  const result = await createProject(
+    {
+      parent,
+      name: 'spec-refused',
+      apps: [
+        { name: 'web', type: 'web' },
+        { name: 'docs', type: 'site' },
+      ],
+      architecture: 'monorepo',
+      multiTenant: false,
+      mcp: false,
+      email: false,
+      social: [],
+    },
+    projects,
+    { cli },
+  )
+
+  expect(result).toMatchObject({ ok: false, code: 'invalid_app' })
+  if (!result.ok) expect(result.message).toContain('docs')
+  expect(projects.list()).toHaveLength(0)
+})
+
 test('an invalid name comes back as invalid_input, with the CLI’s message', async () => {
   const result = await createProject(
     {
       parent,
       name: 'Bad Name',
-      types: ['web'],
+      apps: [{ name: 'web', type: 'web' }],
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
@@ -122,7 +179,7 @@ test('an occupied folder comes back as target_not_empty', async () => {
     {
       parent,
       name: 'taken',
-      types: ['web'],
+      apps: [{ name: 'web', type: 'web' }],
       architecture: 'alone',
       multiTenant: false,
       mcp: false,

@@ -50,7 +50,7 @@ beforeAll(async () => {
     {
       parent,
       name: 'spec-api',
-      types: ['api'],
+      apps: [{ name: 'api', type: 'api' }],
       architecture: 'alone',
       multiTenant: false,
       mcp: false,

@@ -2,9 +2,11 @@
 // Forge copies that folder next to app.asar (extraResource), because spawn cannot run files inside the archive.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
-const VERSION = '0.5.1'
+const VERSION = '0.6.1'
+// A CLI not yet published, packed with `pnpm pack` in Prumo's cli/, to try the Desktop against before a release.
+const local = process.env.PRUMO_CLI_TARBALL
 const root = join(import.meta.dirname, '..')
 const target = join(root, 'resources', 'prumo')
 
@@ -21,19 +23,18 @@ const npmCli =
 if (!existsSync(npmCli)) throw new Error(`npm was not found beside this Node, at ${npmCli}.`)
 const npm = { command: process.execPath, args: [npmCli] }
 
-const tarball = execFileSync(
-  npm.command,
-  [...npm.args, 'pack', `@stjoseph/prumo@${VERSION}`, '--silent'],
-  {
-    cwd: join(root, 'resources'),
-    encoding: 'utf8',
-  },
-).trim()
+const tarball =
+  local === undefined
+    ? execFileSync(npm.command, [...npm.args, 'pack', `@stjoseph/prumo@${VERSION}`, '--silent'], {
+        cwd: join(root, 'resources'),
+        encoding: 'utf8',
+      }).trim()
+    : resolve(local)
 
 execFileSync('tar', ['-xzf', tarball, '-C', target, '--strip-components=1'], {
   cwd: join(root, 'resources'),
 })
-rmSync(join(root, 'resources', tarball))
+if (local === undefined) rmSync(join(root, 'resources', tarball))
 
 // Installing inside the package still resolves the peers of its devDependencies, though --omit=dev never installs
 // them, and npm 11 exits 1 without a message when one cannot be placed (0.5.1's @yarnpkg/extensions wants
@@ -52,4 +53,7 @@ execFileSync(
   },
 )
 
-console.log(`Embedded @stjoseph/prumo@${VERSION}:`, readdirSync(target).join(', '))
+console.log(
+  `Embedded ${local === undefined ? `@stjoseph/prumo@${VERSION}` : basename(local)}:`,
+  readdirSync(target).join(', '),
+)

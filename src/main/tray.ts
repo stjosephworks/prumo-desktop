@@ -78,7 +78,7 @@ export function createTray({ apps, projects, show, icon, words }: Wiring): {
           submenu: [
             ...parts.map(
               (part): MenuItemConstructorOptions => ({
-                label: part.type,
+                label: part.name,
                 type: 'checkbox',
                 checked: isRunning(partId(project, part)),
                 click: async () => {
@@ -88,7 +88,7 @@ export function createTray({ apps, projects, show, icon, words }: Wiring): {
                     await apps.stop(id)
                     return
                   }
-                  const check = await checkPort(project, part.type)
+                  const check = await checkPort(project, part.name)
                   if (!check.ok) {
                     show(project.path)
                     return

@@ -69,6 +69,14 @@ export const en = {
     fileManager: (platform: string): string =>
       platform === 'darwin' ? 'Finder' : platform === 'win32' ? 'File Explorer' : 'Files',
     apps: 'Apps',
+    addApp: 'Add app',
+    addAppType: 'Type',
+    addAppName: 'Name',
+    addAppHint:
+      'Left empty, the app is named after its type. It gets the next free port and its own pnpm script.',
+    addAppConfirm: 'Add',
+    adding: 'Adding…',
+    addingLabel: 'Adding the app',
     runAll: 'Run all',
     stopAll: 'Stop all',
     apiDocs: 'API docs',
@@ -113,8 +121,8 @@ export const en = {
   mcp: {
     intro:
       'AI assistants use this API through MCP, signed in as the user who consents on the web app.',
-    apiServes: 'api serves the MCP server',
-    webServes: 'web serves sign-in and consent',
+    apiServes: (app: string) => `${app} serves the MCP server`,
+    webServes: (app: string) => `${app} serves sign-in and consent`,
     startApi: 'Start the api to see the address its MCP server answers on.',
     server: 'Server',
     thenBefore: 'Then run',
@@ -174,7 +182,13 @@ export const en = {
     },
     shaped: 'How it is shaped',
     shape: 'Shape',
-    severalTypes: 'Several types always make a workspace.',
+    severalTypes: 'Several apps always make a workspace.',
+    advanced: 'Advanced options',
+    advancedHint:
+      'Rename an app, or add another web or site. Each name becomes its folder under apps/, its package and its pnpm script.',
+    appName: (type: string) => `Name of the ${type} app`,
+    addApp: (type: string) => `Add a ${type}`,
+    removeApp: 'Remove this app',
     tenancy: 'Tenancy',
     mcp: 'Let AI assistants use the API through MCP, signed in as the user.',
     emailTitle: 'Email',

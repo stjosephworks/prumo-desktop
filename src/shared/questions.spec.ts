@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest'
-import { allowsAlone, asksEmail, asksMcp, asksSocial, asksTenancy, newFlags } from './questions.ts'
+import {
+  allowsAlone,
+  asksEmail,
+  asksMcp,
+  asksSocial,
+  asksTenancy,
+  defaultApps,
+  newFlags,
+} from './questions.ts'
 
 test('tenancy is asked unless the project is only a site', () => {
   expect(asksTenancy(['site'])).toBe(false)
@@ -13,9 +21,10 @@ test('MCP is asked only with both api and web', () => {
   expect(asksMcp(['web'])).toBe(false)
 })
 
-test('alone is allowed for one type only', () => {
-  expect(allowsAlone(['web'])).toBe(true)
-  expect(allowsAlone(['api', 'web'])).toBe(false)
+test('alone is allowed for one app only, named after its type', () => {
+  expect(allowsAlone(defaultApps(['web']))).toBe(true)
+  expect(allowsAlone(defaultApps(['api', 'web']))).toBe(false)
+  expect(allowsAlone([{ name: 'admin', type: 'web' }])).toBe(false)
 })
 
 test('email is asked whenever there is an api', () => {
@@ -40,7 +49,7 @@ const answers = {
 }
 
 test('every question that applies gets exactly one flag', () => {
-  expect(newFlags({ ...answers, types: ['api', 'web'] })).toEqual([
+  expect(newFlags({ ...answers, apps: defaultApps(['api', 'web']) })).toEqual([
     '--types',
     'api,web',
     '--monorepo',
@@ -50,7 +59,12 @@ test('every question that applies gets exactly one flag', () => {
     '--no-social',
   ])
   expect(
-    newFlags({ ...answers, types: ['api', 'mobile'], email: true, social: ['apple', 'google'] }),
+    newFlags({
+      ...answers,
+      apps: defaultApps(['api', 'mobile']),
+      email: true,
+      social: ['apple', 'google'],
+    }),
   ).toEqual([
     '--types',
     'api,mobile',
@@ -66,7 +80,7 @@ test('a question that does not apply gets no flag, whatever the form held', () =
   expect(
     newFlags({
       ...answers,
-      types: ['site'],
+      apps: defaultApps(['site']),
       architecture: 'alone',
       multiTenant: true,
       mcp: true,
@@ -74,11 +88,42 @@ test('a question that does not apply gets no flag, whatever the form held', () =
       social: ['google'],
     }),
   ).toEqual(['--types', 'site', '--alone'])
-  expect(newFlags({ ...answers, types: ['api'], social: ['google'] })).toEqual([
+  expect(newFlags({ ...answers, apps: defaultApps(['api']), social: ['google'] })).toEqual([
     '--types',
     'api',
     '--monorepo',
     '--single-tenant',
     '--no-email',
+  ])
+})
+
+test('an app named on purpose is an --app, after the types that keep their names', () => {
+  expect(
+    newFlags({
+      ...answers,
+      apps: [
+        { name: 'server', type: 'api' },
+        { name: 'web', type: 'web' },
+        { name: 'backoffice', type: 'web' },
+      ],
+    }),
+  ).toEqual([
+    '--types',
+    'web',
+    '--app',
+    'server=api',
+    '--app',
+    'backoffice=web',
+    '--monorepo',
+    '--single-tenant',
+    '--no-mcp',
+    '--no-email',
+    '--no-social',
+  ])
+  expect(newFlags({ ...answers, apps: [{ name: 'admin', type: 'web' }] })).toEqual([
+    '--app',
+    'admin=web',
+    '--monorepo',
+    '--single-tenant',
   ])
 })

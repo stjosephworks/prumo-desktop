@@ -2,8 +2,9 @@
 
 import type { BrowserWindow } from 'electron'
 import { clipboard, dialog, ipcMain, shell } from 'electron'
-import type { PortAnswer, Project, ProjectConfig } from '../shared/ipc.ts'
+import type { PortAnswer, Project } from '../shared/ipc.ts'
 import {
+  type AddApp,
   type AppUpdate,
   CHANNELS,
   type CliStatus,
@@ -12,6 +13,7 @@ import {
   type StartApp,
 } from '../shared/ipc.ts'
 import { isLocale, type Locale, type LocaleState } from '../shared/locales.ts'
+import { addApp } from './add.ts'
 import { createProject } from './create.ts'
 import {
   createDatabase,
@@ -132,6 +134,12 @@ export function register({
       onLog: (chunk) => send(CHANNELS.projectsCreateLog, chunk),
     }),
   )
+  handle(CHANNELS.projectsAddApp, (_event, path: string, input: AddApp) =>
+    addApp(path, input, projects, {
+      cli: cli(),
+      onLog: (chunk) => send(CHANNELS.projectsAddLog, chunk),
+    }),
+  )
   handle(CHANNELS.docsRead, async (_event, project: string, document?: string) => {
     try {
       return { ok: true as const, text: await readDocument(project, document) }
@@ -163,10 +171,8 @@ export function register({
   handle(CHANNELS.databaseOpenDocker, () => openDocker())
 
   handle(CHANNELS.list, () => apps.list())
-  handle(
-    CHANNELS.checkPort,
-    (_event, project: Project, type: ProjectConfig['types'][number], answer?: PortAnswer) =>
-      checkPort(project, type, answer),
+  handle(CHANNELS.checkPort, (_event, project: Project, app: string, answer?: PortAnswer) =>
+    checkPort(project, app, answer),
   )
   handle(CHANNELS.health, (_event, port: number) => apiHealth(port))
   handle(CHANNELS.start, (_event, app: StartApp) => apps.start(app))
