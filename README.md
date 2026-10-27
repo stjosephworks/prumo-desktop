@@ -41,8 +41,10 @@ to English's shape with no change. The release notes stay in English.
 
 ## Branches
 
-One chain, and nothing skips a step: a branch of your own → `dev` → `alpha` → `main`. Nobody pushes to those three;
-a ruleset refuses it, and `.github/workflows/flow.yml` refuses a pull request that skips a step.
+One chain, and nothing skips a step: a `task/`, `fix/`, `chore/`, `docs/` or `refactor/` branch → `dev` → `staging` →
+`main`. Large work goes `task/<name>` → `project/<name>` → `dev`, and reaches `dev` only once it is decided to ship.
+Nobody pushes to `main`, `staging`, `dev` or a `project/` branch; a ruleset refuses it, and
+`.github/workflows/flow.yml` refuses a pull request that skips a step.
 
 ## Working on it
 
