@@ -23,6 +23,13 @@ test('the local address wins over the network one printed after it', () => {
   expect(browserUrl(next)).toBe('http://localhost:3200')
 })
 
+test('reads the address Astro prints, beside a network line that holds none', () => {
+  const astro =
+    ' astro  v7.4.2 ready in 12 ms\n┃ Local    http://localhost:4321/\n┃ Network  use --host to expose\n'
+
+  expect(browserUrl(astro)).toBe('http://localhost:4321')
+})
+
 test('a network address is still offered when it is the only one', () => {
   expect(browserUrl('ready on http://192.168.0.4:3200\n')).toBe('http://192.168.0.4:3200')
 })

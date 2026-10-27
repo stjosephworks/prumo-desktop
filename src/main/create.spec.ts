@@ -42,8 +42,9 @@ test('creates a project, and it is in the list without anyone adding it', async 
 
   expect(existsSync(join(parent, 'spec-web', '.prumo', 'config.json'))).toBe(true)
   expect(result.project.config).toEqual({
-    prumo: '0.6.1',
+    prumo: '0.8.0',
     types: ['web'],
+    apps: [{ name: 'web', type: 'web', framework: 'vite' }],
     architecture: 'alone',
     multiTenant: false,
     mcp: false,
@@ -98,9 +99,9 @@ test.each([
 
 test('apps named on purpose are created under their names, and listed in the config', async () => {
   const apps = [
-    { name: 'web', type: 'web' },
-    { name: 'backoffice', type: 'web' },
-    { name: 'blog', type: 'site' },
+    { name: 'web', type: 'web', framework: 'vite' },
+    { name: 'backoffice', type: 'web', framework: 'vite' },
+    { name: 'blog', type: 'web', framework: 'next' },
   ] as const
   const result = await createProject(
     {
@@ -133,7 +134,7 @@ test('an app name the CLI refuses comes back as invalid_app', async () => {
       name: 'spec-refused',
       apps: [
         { name: 'web', type: 'web' },
-        { name: 'docs', type: 'site' },
+        { name: 'docs', type: 'web', framework: 'astro' },
       ],
       architecture: 'monorepo',
       multiTenant: false,

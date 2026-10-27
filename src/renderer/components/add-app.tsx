@@ -1,8 +1,8 @@
 import { Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { AppType, Project } from '../../shared/ipc.ts'
+import type { AppType, Project, WebFramework } from '../../shared/ipc.ts'
 import { partsFor } from '../../shared/parts.ts'
-import { REPEATABLE } from '../../shared/questions.ts'
+import { REPEATABLE, WEB_FRAMEWORKS } from '../../shared/questions.ts'
 import { useT } from '../i18n/i18n.tsx'
 import { refreshProjects } from '../use-projects.ts'
 import {
@@ -15,11 +15,11 @@ import {
   useOutputPanel,
 } from './ui.tsx'
 
-const TYPES: AppType[] = ['api', 'web', 'mobile', 'site']
+const TYPES: AppType[] = ['api', 'web', 'mobile']
 
 /**
- * `prumo add` for a workspace: a type, and a name when it is not the type's own. Which types are offered follows
- * the CLI's rule (web and site repeat, api and mobile only when missing); every other judgement, the name and the
+ * `prumo add` for a workspace: a type, its framework when it is web, and a name when it is not the type's own. Which
+ * types are offered follows the CLI's rule (web repeats, api and mobile only when missing); every other judgement, the name and the
  * version that may add to this project, is the CLI's, and its answer is shown here.
  */
 export function AddApp({ project }: { project: Project }) {
@@ -31,6 +31,7 @@ export function AddApp({ project }: { project: Project }) {
   const [open, setOpen] = useState(false)
   // web always repeats, so it is always offered.
   const [type, setType] = useState<AppType>('web')
+  const [framework, setFramework] = useState<WebFramework>('vite')
   const [name, setName] = useState('')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string>()
@@ -46,6 +47,7 @@ export function AddApp({ project }: { project: Project }) {
   const close = () => {
     setOpen(false)
     setType('web')
+    setFramework('vite')
     setName('')
     setError(undefined)
     setLog('')
@@ -59,6 +61,7 @@ export function AddApp({ project }: { project: Project }) {
     const trimmed = name.trim()
     const result = await window.prumo.projects.addApp(project.path, {
       type,
+      ...(type === 'web' ? { framework } : {}),
       ...(trimmed === '' ? {} : { name: trimmed }),
     })
 
@@ -100,6 +103,23 @@ export function AddApp({ project }: { project: Project }) {
             ))}
           </select>
         </div>
+        {type === 'web' && (
+          <div>
+            <Label>{t.project.addAppFramework}</Label>
+            <select
+              aria-label={t.project.addAppFramework}
+              value={framework}
+              onChange={(event) => setFramework(event.target.value as WebFramework)}
+              className={`${INPUT} w-40`}
+            >
+              {WEB_FRAMEWORKS.map((each) => (
+                <option key={each} value={each} title={t.newProject.frameworks[each].hint}>
+                  {t.newProject.frameworks[each].label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="min-w-48 flex-1">
           <Label>{t.project.addAppName}</Label>
           <input
@@ -119,6 +139,9 @@ export function AddApp({ project }: { project: Project }) {
           </Button>
         </div>
       </fieldset>
+      {type === 'web' && (
+        <p className="mt-2 text-xs text-ink/75">{t.newProject.frameworks[framework].hint}.</p>
+      )}
       <p className="mt-2 text-xs text-muted-foreground">{t.project.addAppHint}</p>
       {error !== undefined && <p className="mt-3 text-sm text-destructive">{error}</p>}
       {log !== '' && (

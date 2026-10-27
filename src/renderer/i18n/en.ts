@@ -71,6 +71,7 @@ export const en = {
     apps: 'Apps',
     addApp: 'Add app',
     addAppType: 'Type',
+    addAppFramework: 'Framework',
     addAppName: 'Name',
     addAppHint:
       'Left empty, the app is named after its type. It gets the next free port and its own pnpm script.',
@@ -178,14 +179,26 @@ export const en = {
       api: 'An HTTP API, with sign-in and a database',
       web: 'An app in the browser, signed in',
       mobile: 'An Expo app for iOS and Android',
-      site: 'A public site, for pages anyone reads',
+    },
+    framework: 'Web framework',
+    frameworkHint: 'The same sign-in on each; the choice is what the web app is for.',
+    frameworks: {
+      vite: { label: 'Vite + React', hint: 'An app behind a sign-in, fastest to develop; no SEO' },
+      next: {
+        label: 'Next.js',
+        hint: 'SEO and a full app: public pages rendered on the server, React throughout',
+      },
+      astro: {
+        label: 'Astro + React',
+        hint: 'Content first, as in a blog, docs or marketing, with little JavaScript',
+      },
     },
     shaped: 'How it is shaped',
     shape: 'Shape',
     severalTypes: 'Several apps always make a workspace.',
     advanced: 'Advanced options',
     advancedHint:
-      'Rename an app, or add another web or site. Each name becomes its folder under apps/, its package and its pnpm script.',
+      'Rename an app, or add another web app on any framework. Each name becomes its folder under apps/, its package and its pnpm script.',
     appName: (type: string) => `Name of the ${type} app`,
     addApp: (type: string) => `Add a ${type}`,
     removeApp: 'Remove this app',
@@ -212,7 +225,7 @@ export const en = {
     notReady: 'Not ready',
     checking: 'Checking…',
     nodeMissing:
-      'Node was not found. Install Node 22.18 or later, then reopen Prumo Desktop, or choose where it is.',
+      'Node was not found. Install Node 22.23.4 or later, then reopen Prumo Desktop, or choose where it is.',
     chooseNode: 'Choose Node…',
     pathProblem:
       'Windows did not give the PATH from the registry, so a tool marked missing below may be installed after all. Reopen Prumo Desktop to try again.',

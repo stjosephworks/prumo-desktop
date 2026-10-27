@@ -15,7 +15,14 @@ import {
   X,
 } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import type { App, AppType, Project, ProjectConfig, SocialProvider } from '../../shared/ipc.ts'
+import type {
+  App,
+  AppType,
+  Project,
+  ProjectConfig,
+  SocialProvider,
+  WebFramework,
+} from '../../shared/ipc.ts'
 import { typesOf } from '../../shared/parts.ts'
 import {
   allowsAlone,
@@ -26,6 +33,7 @@ import {
   defaultApps,
   REPEATABLE,
   SOCIAL_PROVIDERS,
+  WEB_FRAMEWORKS,
 } from '../../shared/questions.ts'
 import {
   Button,
@@ -48,7 +56,6 @@ const TYPES: { value: AppType; icon: LucideIcon }[] = [
   { value: 'api', icon: Server },
   { value: 'web', icon: Globe },
   { value: 'mobile', icon: Smartphone },
-  { value: 'site', icon: Globe },
 ]
 
 const ICON = Object.fromEntries(TYPES.map((type) => [type.value, type.icon])) as Record<
@@ -56,7 +63,7 @@ const ICON = Object.fromEntries(TYPES.map((type) => [type.value, type.icon])) as
   LucideIcon
 >
 
-/** A second web or site, added in the advanced options; the id keeps its row while its name is typed. */
+/** Another web app, added in the advanced options; the id keeps its row while its name is typed. */
 type Extra = App & { id: number }
 
 /**
@@ -69,6 +76,7 @@ function AppNames({
   onRename,
   onAdd,
   onRemove,
+  onFramework,
   problem,
 }: {
   apps: App[]
@@ -76,6 +84,7 @@ function AppNames({
   onRename: (index: number, name: string) => void
   onAdd: (type: AppType) => void
   onRemove: (id: number) => void
+  onFramework: (id: number, framework: WebFramework) => void
   problem?: string
 }) {
   const t = useT()
@@ -99,9 +108,23 @@ function AppNames({
                 aria-label={t.newProject.appName(app.type)}
                 value={app.name}
                 onChange={(event) => onRename(index, event.target.value)}
-                placeholder={app.type === 'site' ? 'blog' : 'backoffice'}
+                placeholder="backoffice"
                 className={`${INPUT} max-w-64 font-mono`}
               />
+              {extra?.framework !== undefined && (
+                <select
+                  aria-label={t.newProject.framework}
+                  value={extra.framework}
+                  onChange={(event) => onFramework(extra.id, event.target.value as WebFramework)}
+                  className={`${INPUT} w-40`}
+                >
+                  {WEB_FRAMEWORKS.map((framework) => (
+                    <option key={framework} value={framework}>
+                      {t.newProject.frameworks[framework].label}
+                    </option>
+                  ))}
+                </select>
+              )}
               {extra !== undefined && (
                 <Button
                   variant="danger"
@@ -234,6 +257,8 @@ export function NewProject() {
   const [parent, setParent] = useState<string>()
   const [name, setName] = useState('')
   const [types, setTypes] = useState<AppType[]>(['api', 'web'])
+  // The framework of the web app the types give; another web app added below chooses its own.
+  const [framework, setFramework] = useState<WebFramework>('vite')
   // The advanced options: closed, every app is named after its type, as the CLI names it by default.
   const [advanced, setAdvanced] = useState(false)
   const [names, setNames] = useState<Partial<Record<AppType, string>>>({})
@@ -259,14 +284,14 @@ export function NewProject() {
   useEffect(() => logEnd.current?.scrollIntoView({ block: 'end' }), [log, logOpen])
 
   const named: App[] = [
-    ...types.map((type) => ({ name: names[type] ?? type, type })),
-    ...extras.map(({ name, type }) => ({ name, type })),
+    ...defaultApps(types, framework).map((app) => ({ ...app, name: names[app.type] ?? app.type })),
+    ...extras.map(({ id: _, ...app }) => app),
   ]
   // Several apps always make a workspace, whatever was picked while there was one. Names are a workspace's, so
   // alone, every app keeps its type's.
-  const alonePossible = allowsAlone(advanced ? named : defaultApps(types))
+  const alonePossible = allowsAlone(advanced ? named : defaultApps(types, framework))
   const shape = alonePossible ? architecture : 'monorepo'
-  const apps = advanced && shape === 'monorepo' ? named : defaultApps(types)
+  const apps = advanced && shape === 'monorepo' ? named : defaultApps(types, framework)
   const chosen = typesOf(apps)
   const unnamed = apps.some((app) => app.name.trim() === '')
 
@@ -284,7 +309,16 @@ export function NewProject() {
 
   const addExtra = (type: AppType) => {
     nextExtra.current += 1
-    setExtras((current) => [...current, { id: nextExtra.current, name: '', type }])
+    setExtras((current) => [
+      ...current,
+      { id: nextExtra.current, name: '', type, ...(type === 'web' ? { framework: 'vite' } : {}) },
+    ])
+  }
+
+  const frameworkOf = (id: number, framework: WebFramework) => {
+    setExtras((current) =>
+      current.map((extra) => (extra.id === id ? { ...extra, framework } : extra)),
+    )
   }
 
   const toggle = (value: AppType) => {
@@ -426,6 +460,40 @@ export function NewProject() {
               )
             })}
           </div>
+
+          {types.includes('web') && (
+            <div className="mt-6">
+              <Field label={t.newProject.framework} hint={t.newProject.frameworkHint}>
+                <div className="grid grid-cols-3 gap-3">
+                  {WEB_FRAMEWORKS.map((each) => (
+                    <label
+                      key={each}
+                      className={cx(
+                        'flex cursor-pointer flex-col gap-1 rounded-md border bg-card p-3 transition-colors',
+                        framework === each
+                          ? 'border-navy shadow-[inset_0_0_0_1px_var(--navy)]'
+                          : 'border-rule hover:border-brass',
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="framework"
+                        className="sr-only"
+                        checked={framework === each}
+                        onChange={() => setFramework(each)}
+                      />
+                      <span className="font-serif font-semibold text-navy">
+                        {t.newProject.frameworks[each].label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {t.newProject.frameworks[each].hint}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            </div>
+          )}
         </Section>
 
         <Section title={t.newProject.shaped}>
@@ -534,6 +602,7 @@ export function NewProject() {
                     onRemove={(id) =>
                       setExtras((current) => current.filter((extra) => extra.id !== id))
                     }
+                    onFramework={frameworkOf}
                     problem={fieldError('invalid_app')}
                   />
                 </div>

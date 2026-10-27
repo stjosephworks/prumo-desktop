@@ -22,7 +22,7 @@
   },
   "packageManager": "pnpm@12.3.4",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.23.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",

@@ -104,7 +104,6 @@ const API_DISPLAY: Record<ApiStatus, Display> = {
 const ICON: Record<Part['type'], ReactNode> = {
   api: <Server />,
   web: <Globe />,
-  site: <Globe />,
   mobile: <Smartphone />,
 }
 
@@ -168,7 +167,7 @@ function PartPanel({
   const state = app?.state ?? 'stopped'
   const busy = state === 'running' || state === 'starting'
   // A page server's address opens in a browser; mobile answers on a phone, through Expo's address below.
-  const serves = part.type === 'web' || part.type === 'site'
+  const serves = part.type === 'web'
   // Page servers are read for the address to open, Expo for the one a phone scans.
   const output = useAppOutput(id, busy && (serves || part.type === 'mobile'))
   const url = serves ? browserUrl(output) : undefined
