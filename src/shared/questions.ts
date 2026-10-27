@@ -1,25 +1,35 @@
 // Which of `prumo new`'s questions apply to a set of types. The form uses it to show only what the CLI will ask,
 // and the main process to pass only the flags the CLI accepts. The rules are the CLI's (src/questions.ts in
 // Prumo); a change there is a change here.
-import type { App, AppType, ProjectConfig, SocialProvider } from './ipc.ts'
+import type { App, AppType, ProjectConfig, SocialProvider, WebFramework } from './ipc.ts'
 import { typesOf } from './parts.ts'
 
 type Types = AppType[]
 
-/** Only web and site may repeat in a workspace; it holds one api and one mobile. */
-export const REPEATABLE: AppType[] = ['web', 'site']
+/** Only web may repeat in a workspace, on any framework; it holds one api and one mobile. */
+export const REPEATABLE: AppType[] = ['web']
 
-/** An app named after its type, which is what `--types` gives each type. */
-export function defaultApps(types: Types): App[] {
-  return types.map((type) => ({ name: type, type }))
+/** The frameworks a web app is built with, in the order the CLI offers them, Vite its default. */
+export const WEB_FRAMEWORKS: WebFramework[] = ['vite', 'next', 'astro']
+
+/** An app named after its type, which is what `--types` gives each type; a web app on the framework chosen. */
+export function defaultApps(types: Types, framework: WebFramework = 'vite'): App[] {
+  return types.map((type) =>
+    type === 'web' ? { name: type, type, framework } : { name: type, type },
+  )
+}
+
+/** A type as `--types`, `--app` and `prumo add` take it: `web:<framework>` for a web app, its type otherwise. */
+export function typeFlag(app: { type: AppType; framework?: WebFramework }): string {
+  return app.type === 'web' ? `web:${app.framework ?? 'vite'}` : app.type
 }
 
 /** The providers the CLI offers, in its order. */
 export const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'apple']
 
-/** Tenancy shapes api, web and mobile; a project that is only a site is never asked. */
+/** Tenancy shapes every type, so it is asked of any project. */
 export function asksTenancy(types: Types): boolean {
-  return types.some((type) => type === 'api' || type === 'web' || type === 'mobile')
+  return types.length > 0
 }
 
 /** MCP authorizes through a sign-in page, which only a web app serves, so it needs both api and web. */
@@ -58,10 +68,10 @@ export function newFlags(input: {
   const types = typesOf(input.apps)
   const defaults = input.apps.filter((app) => app.name === app.type)
   const flags = [
-    ...(defaults.length > 0 ? ['--types', defaults.map((app) => app.type).join(',')] : []),
+    ...(defaults.length > 0 ? ['--types', defaults.map(typeFlag).join(',')] : []),
     ...input.apps
       .filter((app) => app.name !== app.type)
-      .flatMap((app) => ['--app', `${app.name}=${app.type}`]),
+      .flatMap((app) => ['--app', `${app.name}=${typeFlag(app)}`]),
     input.architecture === 'alone' ? '--alone' : '--monorepo',
   ]
 
