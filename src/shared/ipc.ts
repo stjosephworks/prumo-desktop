@@ -20,17 +20,23 @@ export type Environment = (
   pathProblem?: string
 }
 
-export type AppType = 'api' | 'web' | 'mobile' | 'site'
+export type AppType = 'api' | 'web' | 'mobile'
 
-/** An app of a workspace. Its directory under `apps/`, its package and its root script are all its name. */
-export type App = { name: string; type: AppType }
+/** What a web app is built with. A project written before 0.8.0 records none, and every web app there was Vite's. */
+export type WebFramework = 'vite' | 'next' | 'astro'
+
+/**
+ * An app of a workspace. Its directory under `apps/`, its package and its root script are all its name. Only a web
+ * app has a framework.
+ */
+export type App = { name: string; type: AppType; framework?: WebFramework }
 
 /** What `.prumo/config.json` holds. The Desktop reads it; only the CLI writes it. */
 export type ProjectConfig = {
   /** The Prumo version that generated the project; written since 0.1.1, so absent from an older project. */
   prumo?: string
   types: AppType[]
-  /** A workspace's apps, written since 0.6.0. Absent, they are one per type, named after it. */
+  /** A workspace's apps, written since 0.6.0, and every project's since 0.8.0. Absent, one per type, named after it. */
   apps?: App[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean
@@ -90,7 +96,7 @@ export type NewProject = {
 }
 
 /** The answers `prumo add` needs: the type, and a name when it is not the type's own. */
-export type AddApp = { type: AppType; name?: string }
+export type AddApp = { type: AppType; framework?: WebFramework; name?: string }
 
 /**
  * A failed `prumo add` carries the CLI's own error code: `invalid_app` for a name or type it refuses,

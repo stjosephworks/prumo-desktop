@@ -81,6 +81,7 @@ export const es: Dictionary = {
     apps: 'Apps',
     addApp: 'Añadir app',
     addAppType: 'Tipo',
+    addAppFramework: 'Framework',
     addAppName: 'Nombre',
     addAppHint:
       'Vacío, la app lleva el nombre de su tipo. Recibe el siguiente puerto libre y su propio script de pnpm.',
@@ -192,14 +193,29 @@ export const es: Dictionary = {
       api: 'Una API HTTP, con inicio de sesión y base de datos',
       web: 'Una app en el navegador, con inicio de sesión',
       mobile: 'Una app de Expo para iOS y Android',
-      site: 'Un sitio público, con páginas que cualquiera puede leer',
+    },
+    framework: 'Framework web',
+    frameworkHint: 'El mismo inicio de sesión en todos; se elige según para qué sirve la app web.',
+    frameworks: {
+      vite: {
+        label: 'Vite + React',
+        hint: 'Una app detrás de un inicio de sesión, la más rápida de desarrollar; sin SEO',
+      },
+      next: {
+        label: 'Next.js',
+        hint: 'SEO y una app completa: páginas públicas renderizadas en el servidor, React en todo',
+      },
+      astro: {
+        label: 'Astro + React',
+        hint: 'Contenido primero, como un blog, documentación o marketing, con poco JavaScript',
+      },
     },
     shaped: 'Cómo se organiza',
     shape: 'Forma',
     severalTypes: 'Varias apps siempre forman un workspace.',
     advanced: 'Opciones avanzadas',
     advancedHint:
-      'Cambia el nombre de una app, o añade otra web o site. Cada nombre es su carpeta en apps/, su paquete y su script de pnpm.',
+      'Cambia el nombre de una app, o añade otra app web en cualquier framework. Cada nombre es su carpeta en apps/, su paquete y su script de pnpm.',
     appName: (type: string) => `Nombre de la app ${type}`,
     addApp: (type: string) => `Añadir ${type}`,
     removeApp: 'Quitar esta app',
@@ -228,7 +244,7 @@ export const es: Dictionary = {
     notReady: 'No está lista',
     checking: 'Verificando…',
     nodeMissing:
-      'No se encontró Node. Instala Node 22.18 o posterior y vuelve a abrir Prumo Desktop, o elige dónde está.',
+      'No se encontró Node. Instala Node 22.23.4 o posterior y vuelve a abrir Prumo Desktop, o elige dónde está.',
     chooseNode: 'Elegir Node…',
     pathProblem:
       'Windows no entregó el PATH del registro, así que una herramienta marcada como faltante abajo podría estar instalada. Vuelve a abrir Prumo Desktop para intentarlo de nuevo.',
