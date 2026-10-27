@@ -50,7 +50,7 @@ permissions:
 
 jobs:
   decide:
-    # A run started by hand on another branch would release code that never went through dev and alpha.
+    # A run started by hand on another branch would release code that never went through dev and staging.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:

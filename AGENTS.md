@@ -41,12 +41,18 @@ it is used, and anything recalled rather than read is marked as such in the text
 One chain, and nothing skips a step:
 
 ```
-a branch of your own → dev → alpha → main
+task/ fix/ chore/ docs/ refactor/  →  dev  →  staging  →  main
+task/<name>  →  project/<name>  →  dev                      large work
 ```
 
-- **Nobody pushes to `main`, `alpha` or `dev`**, the assistant included. A ruleset refuses it.
-- Every change arrives as a pull request, and `.github/workflows/flow.yml` refuses a pull request that skips a
-  step: `main` takes only `alpha`, `alpha` takes only `dev`, `dev` takes a branch of your own.
+- **Nobody pushes to `main`, `staging`, `dev` or a `project/` branch**, the assistant included. A ruleset refuses
+  it.
+- Every change arrives as a pull request, and `.github/workflows/flow.yml` refuses one that skips a step: `main`
+  takes only `staging`, `staging` takes only `dev`, `dev` takes a `project/` branch or one of the five prefixes
+  above, and a `project/` branch takes only `task/`, or `dev` to stay current. Any other prefix is refused.
+- **Large work gets a `project/<name>` branch**, created from `dev` and split into `task/` branches that land on
+  it, and takes `dev` by pull request to stay current. It opens into `dev` only once it is decided to ship, so a
+  smaller change is never stuck behind it.
 - The checks in `.github/workflows/ci.yml` are required, so a red branch does not land.
 - Commits are English, imperative mood, one decision per commit where possible.
 
