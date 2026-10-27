@@ -1,5 +1,6 @@
 // Adding an app to a workspace: `prumo add` does all of it, and the Desktop only asks and shows the log.
 import type { AddApp, AddResult } from '../shared/ipc.ts'
+import { typeFlag } from '../shared/questions.ts'
 import { CliError, type CliOptions, runCli } from './cli.ts'
 import type { Projects } from './projects.ts'
 
@@ -13,7 +14,7 @@ export async function addApp(
   projects: Projects,
   options: Omit<CliOptions, 'cwd'>,
 ): Promise<AddResult> {
-  const args = ['add', input.type, ...(input.name === undefined ? [] : [input.name])]
+  const args = ['add', typeFlag(input), ...(input.name === undefined ? [] : [input.name])]
 
   try {
     const { envelope } = await runCli(args, { ...options, cwd: path })

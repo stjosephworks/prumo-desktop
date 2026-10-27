@@ -15,5 +15,5 @@ Prumo Desktop does not update itself on Linux: when a newer version is out, it s
 so at the foot of its sidebar, with a link to the release. Install the new package over the old one; your projects
 and settings stay where they are.
 
-Prumo Desktop needs Node 22.18 or later, pnpm 10.26 or later and git. Docker (Docker Desktop or Docker Engine) is
+Prumo Desktop needs Node 22.23.4 or later, pnpm 10.26 or later and git. Docker (Docker Desktop or Docker Engine) is
 needed only for an API's database.

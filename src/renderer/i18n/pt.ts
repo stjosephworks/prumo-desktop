@@ -75,6 +75,7 @@ export const pt: Dictionary = {
     apps: 'Apps',
     addApp: 'Adicionar app',
     addAppType: 'Tipo',
+    addAppFramework: 'Framework',
     addAppName: 'Nome',
     addAppHint:
       'Vazio, o app leva o nome do tipo. Ele ganha a próxima porta livre e um script do pnpm próprio.',
@@ -186,14 +187,29 @@ export const pt: Dictionary = {
       api: 'Uma API HTTP, com login e banco de dados',
       web: 'Um app no navegador, com login',
       mobile: 'Um app Expo para iOS e Android',
-      site: 'Um site público, para páginas que qualquer um lê',
+    },
+    framework: 'Framework web',
+    frameworkHint: 'O mesmo login em todos; a escolha é para que serve o app web.',
+    frameworks: {
+      vite: {
+        label: 'Vite + React',
+        hint: 'Um app atrás de login, o mais rápido de desenvolver; sem SEO',
+      },
+      next: {
+        label: 'Next.js',
+        hint: 'SEO e app completo: páginas públicas renderizadas no servidor, React em tudo',
+      },
+      astro: {
+        label: 'Astro + React',
+        hint: 'Conteúdo primeiro, como blog, documentação ou marketing, com pouco JavaScript',
+      },
     },
     shaped: 'Como ele é organizado',
     shape: 'Forma',
     severalTypes: 'Vários apps sempre formam um workspace.',
     advanced: 'Opções avançadas',
     advancedHint:
-      'Renomeie um app, ou adicione outro web ou site. Cada nome vira a pasta em apps/, o pacote e o script do pnpm.',
+      'Renomeie um app, ou adicione outro app web em qualquer framework. Cada nome vira a pasta em apps/, o pacote e o script do pnpm.',
     appName: (type: string) => `Nome do app ${type}`,
     addApp: (type: string) => `Adicionar ${type}`,
     removeApp: 'Remover este app',
@@ -220,7 +236,7 @@ export const pt: Dictionary = {
     notReady: 'Não está pronta',
     checking: 'Verificando…',
     nodeMissing:
-      'O Node não foi encontrado. Instale o Node 22.18 ou mais novo e reabra o Prumo Desktop, ou escolha onde ele está.',
+      'O Node não foi encontrado. Instale o Node 22.23.4 ou mais novo e reabra o Prumo Desktop, ou escolha onde ele está.',
     chooseNode: 'Escolher o Node…',
     pathProblem:
       'O Windows não entregou o PATH do registro, então uma ferramenta marcada como ausente abaixo pode estar instalada. Reabra o Prumo Desktop para tentar de novo.',

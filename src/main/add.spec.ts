@@ -41,7 +41,9 @@ test('adds a second web app, and the project read again lists it', async () => {
 }, 600_000)
 
 test('a name the CLI refuses comes back as invalid_app, with its message', async () => {
-  const result = await addApp(path, { type: 'site', name: 'docs' }, projects, { cli })
+  const result = await addApp(path, { type: 'web', framework: 'astro', name: 'docs' }, projects, {
+    cli,
+  })
 
   expect(result).toMatchObject({ ok: false, code: 'invalid_app' })
   if (!result.ok) expect(result.message).toContain('docs')

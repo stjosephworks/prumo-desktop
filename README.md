@@ -85,7 +85,7 @@ version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locall
 
 ## Requirements (for users)
 
-Node 22.18 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
+Node 22.23.4 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
 `prumo doctor`; it never installs them.
 
 ## License
