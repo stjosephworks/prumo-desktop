@@ -1,4 +1,4 @@
-// Finding the address an app printed. The Desktop keeps no copy of any template's port: Vite, Next and Expo all
+// Finding the address an app printed. The Desktop keeps no copy of any template's port: Vite, Next, Astro and Expo all
 // announce where they are listening, and that announcement is the only source.
 
 // Built from the character code: an escape inside a regular expression is a control character, which the linter

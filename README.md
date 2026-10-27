@@ -9,8 +9,8 @@ It is a **consumer** of Prumo, never a second implementation of it. The Desktop 
 
 ## Status
 
-**Version 0.0.5 runs on macOS, Linux and Windows, unsigned.** It creates and lists projects, with apps named on purpose
-when asked, adds an app to a workspace, runs their apps and their database, and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
+**Version 0.0.6 runs on macOS, Linux and Windows, unsigned.** It creates and lists projects, with apps named on purpose
+when asked and each web app on Vite, Next or Astro, adds an app to a workspace, runs their apps and their database, and reads their `.prumo/`. A throwaway spike, on the `spike` branch, proved the risky parts before any of it
 was built.
 
 Next is the first signed and notarised macOS build, well before any public release. Every technology choice must
@@ -85,7 +85,7 @@ version is out, with a link to it (`src/main/updates.ts`). `pnpm package` locall
 
 ## Requirements (for users)
 
-Node 22.18 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
+Node 22.23.4 or later and pnpm 10.26 or later, the floors of the Prumo CLI it ships. The Desktop checks them through
 `prumo doctor`; it never installs them.
 
 ## License

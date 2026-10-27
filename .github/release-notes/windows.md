@@ -24,5 +24,5 @@
 - Prumo Desktop does not update itself on Windows: when a newer version is out, it says so at the foot of its
   sidebar, with a link to the release. Run the newer Setup.exe; your projects and settings stay where they are.
 
-Prumo Desktop needs Node 22.18 or later, pnpm 10.26 or later and git, installed for Windows itself; projects inside
+Prumo Desktop needs Node 22.23.4 or later, pnpm 10.26 or later and git, installed for Windows itself; projects inside
 WSL are not supported. Docker Desktop is needed only for an API's database.

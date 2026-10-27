@@ -1,7 +1,7 @@
 {
   "name": "prumo-desktop",
   "productName": "Prumo Desktop",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "repository": "github:stjosephworks/prumo-desktop",
   "private": true,
   "description": "Desktop app for Prumo: create, follow and run Prumo projects",
@@ -22,7 +22,7 @@
   },
   "packageManager": "pnpm@12.3.4",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.23.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
