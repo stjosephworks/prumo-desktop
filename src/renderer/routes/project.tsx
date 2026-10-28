@@ -195,8 +195,12 @@ function PartPanel({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-serif text-base font-semibold text-navy">{part.name}</span>
-              {/* An app named on purpose still says what it is. */}
-              {part.name !== part.type && <Tag>{part.type}</Tag>}
+              {/* An app named on purpose still says what it is; a web app says its framework, Vite's before 0.8.0. */}
+              {part.type === 'web' ? (
+                <Tag>{t.newProject.frameworks[part.framework ?? 'vite'].label}</Tag>
+              ) : (
+                part.name !== part.type && <Tag>{part.type}</Tag>
+              )}
               <span className={cx('flex items-center gap-1.5 text-xs', display.tone)}>
                 <StatusDot state={display.dot} />
                 {display.label(t)}
