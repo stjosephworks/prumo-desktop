@@ -42,7 +42,7 @@ test('creates a project, and it is in the list without anyone adding it', async 
 
   expect(existsSync(join(parent, 'spec-web', '.prumo', 'config.json'))).toBe(true)
   expect(result.project.config).toEqual({
-    prumo: '0.8.0',
+    prumo: '0.8.1',
     types: ['web'],
     apps: [{ name: 'web', type: 'web', framework: 'vite' }],
     architecture: 'alone',
