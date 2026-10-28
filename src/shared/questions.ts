@@ -1,7 +1,14 @@
 // Which of `prumo new`'s questions apply to a set of types. The form uses it to show only what the CLI will ask,
 // and the main process to pass only the flags the CLI accepts. The rules are the CLI's (src/questions.ts in
 // Prumo); a change there is a change here.
-import type { App, AppType, ProjectConfig, SocialProvider, WebFramework } from './ipc.ts'
+import type {
+  App,
+  AppType,
+  ProjectConfig,
+  SignInMethod,
+  SocialProvider,
+  WebFramework,
+} from './ipc.ts'
 import { typesOf } from './parts.ts'
 
 type Types = AppType[]
@@ -24,6 +31,9 @@ export function typeFlag(app: { type: AppType; framework?: WebFramework }): stri
   return app.type === 'web' ? `web:${app.framework ?? 'vite'}` : app.type
 }
 
+/** The ways in the CLI offers, in its order; a password is its default. */
+export const SIGN_IN_METHODS: SignInMethod[] = ['password', 'email-code', 'phone-code']
+
 /** The providers the CLI offers, in its order. */
 export const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'apple']
 
@@ -37,9 +47,14 @@ export function asksMcp(types: Types): boolean {
   return types.includes('api') && types.includes('web')
 }
 
-/** Verification and password reset belong to the API: the CLI refuses `--email` without it. */
-export function asksEmail(types: Types): boolean {
+/** How people sign in is the API's to offer: the CLI refuses `--sign-in` without it. */
+export function asksSignIn(types: Types): boolean {
   return types.includes('api')
+}
+
+/** Verification and password reset belong to a password account: the CLI refuses `--email` without one. */
+export function asksEmail(types: Types, signIn: SignInMethod[]): boolean {
+  return asksSignIn(types) && signIn.includes('password')
 }
 
 /** A provider sends the user back to a screen, so social sign-in needs the API and a web or mobile app. */
@@ -62,6 +77,7 @@ export function newFlags(input: {
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
   mcp: boolean
+  signIn: SignInMethod[]
   email: boolean
   social: SocialProvider[]
 }): string[] {
@@ -77,7 +93,12 @@ export function newFlags(input: {
 
   if (asksTenancy(types)) flags.push(input.multiTenant ? '--multi-tenant' : '--single-tenant')
   if (asksMcp(types)) flags.push(input.mcp ? '--mcp' : '--no-mcp')
-  if (asksEmail(types)) flags.push(input.email ? '--email' : '--no-email')
+  if (asksSignIn(types)) {
+    const signIn = SIGN_IN_METHODS.filter((method) => input.signIn.includes(method))
+    flags.push('--sign-in', signIn.join(','))
+  }
+
+  if (asksEmail(types, input.signIn)) flags.push(input.email ? '--email' : '--no-email')
 
   if (asksSocial(types)) {
     const social = SOCIAL_PROVIDERS.filter((provider) => input.social.includes(provider))

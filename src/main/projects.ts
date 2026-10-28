@@ -71,6 +71,7 @@ export class Projects {
         config: {
           ...config,
           mcp: config.mcp ?? false,
+          signIn: config.signIn ?? ['password'],
           email: config.email ?? false,
           social: config.social ?? [],
         },

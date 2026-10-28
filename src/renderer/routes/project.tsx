@@ -363,6 +363,9 @@ export function ProjectScreen() {
                 <Tag>{project.config.architecture}</Tag>
                 {project.config.multiTenant && <Tag>multi-tenant</Tag>}
                 {project.config.mcp && <Tag tone="brass">MCP</Tag>}
+                {/* Without an API there is nothing to sign in to, whatever the config reads. */}
+                {project.config.types.includes('api') &&
+                  project.config.signIn.map((method) => <Tag key={method}>{method}</Tag>)}
                 {project.config.email && <Tag>email</Tag>}
                 {project.config.social.map((provider) => (
                   <Tag key={provider}>{provider}</Tag>
