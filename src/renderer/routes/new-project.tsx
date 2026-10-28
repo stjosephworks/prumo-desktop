@@ -200,7 +200,7 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <Label>{label}</Label>
       {children}
       {hint !== undefined && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
@@ -469,7 +469,7 @@ export function NewProject() {
                     <label
                       key={each}
                       className={cx(
-                        'flex cursor-pointer flex-col gap-1 rounded-md border bg-card p-3 transition-colors',
+                        'relative flex cursor-pointer flex-col gap-1 rounded-md border bg-card p-3 transition-colors',
                         framework === each
                           ? 'border-navy shadow-[inset_0_0_0_1px_var(--navy)]'
                           : 'border-rule hover:border-brass',
@@ -488,6 +488,9 @@ export function NewProject() {
                       <span className="text-xs text-muted-foreground">
                         {t.newProject.frameworks[each].hint}
                       </span>
+                      {framework === each && (
+                        <Check className="absolute right-3 top-3 size-4 text-brass-ink" />
+                      )}
                     </label>
                   ))}
                 </div>
