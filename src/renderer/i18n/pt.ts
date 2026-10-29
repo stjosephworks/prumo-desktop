@@ -215,10 +215,24 @@ export const pt: Dictionary = {
     removeApp: 'Remover este app',
     tenancy: 'Tenancy',
     mcp: 'Deixar assistentes de IA usarem a API por MCP, logados como o usuário.',
+    signInTitle: 'Login',
+    signIn: 'Como as pessoas entram na conta. Marque um ou mais.',
+    signInNone: 'Marque ao menos uma forma de entrar.',
+    methods: {
+      password: { label: 'Senha', hint: 'Um email e uma senha, escolhida no cadastro.' },
+      'email-code': {
+        label: 'Código por email',
+        hint: 'Um código de 6 dígitos enviado por email; o primeiro cria a conta.',
+      },
+      'phone-code': {
+        label: 'Código por SMS',
+        hint: 'Um código de 6 dígitos enviado por SMS; em produção, pede um provedor de SMS pago.',
+      },
+    },
     emailTitle: 'Email',
     email: 'Verificar endereços de email e redefinir senhas, com um código que a API envia.',
     socialTitle: 'Login social',
-    social: 'Entrar por um provedor, além de email e senha. Nenhum marcado significa nenhum.',
+    social: 'Entrar por um provedor, além das formas acima. Nenhum marcado significa nenhum.',
     providers: { google: 'Google', apple: 'Apple' },
     createdWithWarnings: (name: string) =>
       `${name} foi criado. Leia o que o Prumo avisa antes de seguir:`,

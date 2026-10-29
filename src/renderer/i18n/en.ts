@@ -204,10 +204,24 @@ export const en = {
     removeApp: 'Remove this app',
     tenancy: 'Tenancy',
     mcp: 'Let AI assistants use the API through MCP, signed in as the user.',
+    signInTitle: 'Sign-in',
+    signIn: 'How people get into their account. Tick one or more.',
+    signInNone: 'Tick at least one way to sign in.',
+    methods: {
+      password: { label: 'Password', hint: 'An email and a password, chosen at sign-up.' },
+      'email-code': {
+        label: 'Email code',
+        hint: 'A 6-digit code sent by email; the first one creates the account.',
+      },
+      'phone-code': {
+        label: 'Phone code',
+        hint: 'A 6-digit code sent by SMS; needs a paid SMS provider in production.',
+      },
+    },
     emailTitle: 'Email',
     email: 'Verify email addresses and reset passwords, with a code the API sends.',
     socialTitle: 'Social sign-in',
-    social: 'Sign in through a provider, besides email and password. None ticked means none.',
+    social: 'Sign in through a provider, besides the ways above. None ticked means none.',
     providers: { google: 'Google', apple: 'Apple' },
     createdWithWarnings: (name: string) =>
       `Created ${name}. Read what Prumo warns about before going on:`,

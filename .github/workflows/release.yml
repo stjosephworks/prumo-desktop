@@ -179,7 +179,8 @@ jobs:
   linux:
     needs: decide
     if: needs.decide.outputs.release == 'true'
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04, as the CI's packaged-linux: rpm 6 on 26.04 breaks the rpm maker's spec.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4

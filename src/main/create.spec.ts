@@ -30,6 +30,7 @@ test('creates a project, and it is in the list without anyone adding it', async 
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },
@@ -42,12 +43,13 @@ test('creates a project, and it is in the list without anyone adding it', async 
 
   expect(existsSync(join(parent, 'spec-web', '.prumo', 'config.json'))).toBe(true)
   expect(result.project.config).toEqual({
-    prumo: '0.8.1',
+    prumo: '0.9.0',
     types: ['web'],
     apps: [{ name: 'web', type: 'web', framework: 'vite' }],
     architecture: 'alone',
     multiTenant: false,
     mcp: false,
+    signIn: ['password'],
     email: false,
     social: [],
   })
@@ -77,6 +79,7 @@ test.each([
         architecture: 'monorepo',
         multiTenant: false,
         mcp,
+        signIn: ['password'],
         email,
         social,
       },
@@ -97,6 +100,39 @@ test.each([
   600_000,
 )
 
+// Without a password the CLI refuses --email, so this passing proves the flag is left out; the config holds the ways in.
+test('an api signed in to by code alone: --sign-in reaches the CLI, and --email does not', async () => {
+  const result = await createProject(
+    {
+      parent,
+      name: 'spec-codes',
+      apps: [
+        { name: 'api', type: 'api' },
+        { name: 'web', type: 'web' },
+      ],
+      architecture: 'monorepo',
+      multiTenant: false,
+      mcp: false,
+      signIn: ['phone-code', 'email-code'],
+      email: true,
+      social: [],
+    },
+    projects,
+    { cli },
+  )
+
+  expect(result).toMatchObject({ ok: true })
+  if (!result.ok) return
+
+  expect(result.project.config).toMatchObject({
+    signIn: ['email-code', 'phone-code'],
+    email: false,
+  })
+  expect(existsSync(join(result.project.path, '.prumo', 'codes'))).toBe(true)
+  // Codes texted to a phone go to the countries in SMS_COUNTRIES, which the CLI says to set before going live.
+  expect(result.warnings.some((warning) => warning.includes('SMS_COUNTRIES'))).toBe(true)
+}, 600_000)
+
 test('apps named on purpose are created under their names, and listed in the config', async () => {
   const apps = [
     { name: 'web', type: 'web', framework: 'vite' },
@@ -111,6 +147,7 @@ test('apps named on purpose are created under their names, and listed in the con
       architecture: 'monorepo',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },
@@ -139,6 +176,7 @@ test('an app name the CLI refuses comes back as invalid_app', async () => {
       architecture: 'monorepo',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },
@@ -160,6 +198,7 @@ test('an invalid name comes back as invalid_input, with the CLI’s message', as
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },
@@ -184,6 +223,7 @@ test('an occupied folder comes back as target_not_empty', async () => {
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },

@@ -62,7 +62,10 @@ jobs:
     # The same path on Linux, from the package a user installs: the deb and the rpm the release ships, made and read
     # back, then the deb installed and its app run under a virtual display with the bare system PATH, which it must
     # extend from the login shell as fix-path does.
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04, not ubuntu-latest: 26.04 ships rpm 6, and from rpm 4.20 %install starts in a per-build directory
+    # one level below the files, where electron-installer-redhat's spec copies `usr/*` from and finds nothing
+    # (electron-installer-redhat#343, open; 4.0.0 has the same spec).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
