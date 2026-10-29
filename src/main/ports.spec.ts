@@ -62,6 +62,7 @@ beforeAll(async () => {
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     },

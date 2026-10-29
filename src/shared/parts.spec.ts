@@ -16,6 +16,7 @@ test('a workspace has one part per type, each with its own root script', () => {
       architecture: 'monorepo',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     }),
@@ -35,6 +36,7 @@ test('an alone project is one part, started by pnpm dev', () => {
       architecture: 'alone',
       multiTenant: false,
       mcp: false,
+      signIn: ['password'],
       email: false,
       social: [],
     }),
@@ -54,6 +56,7 @@ test('a workspace whose apps were named on purpose has one part per app, found u
     architecture: 'monorepo',
     multiTenant: false,
     mcp: false,
+    signIn: ['password'],
     email: false,
     social: [],
   })

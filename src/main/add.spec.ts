@@ -14,7 +14,15 @@ let path = ''
 
 beforeAll(async () => {
   const parent = mkdtempSync(join(tmpdir(), 'prumo-desktop-add-'))
-  const flags = ['--monorepo', '--single-tenant', '--no-mcp', '--no-email', '--no-social']
+  const flags = [
+    '--monorepo',
+    '--single-tenant',
+    '--no-mcp',
+    '--sign-in',
+    'password',
+    '--no-email',
+    '--no-social',
+  ]
 
   await runCli(['new', 'spec-add', '--types', 'api,web', ...flags, '--skip-install'], {
     cli,
