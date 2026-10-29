@@ -42,11 +42,16 @@ export type ProjectConfig = {
   multiTenant: boolean
   /** An MCP server on the api. A project from a CLI older than 0.1.0 has no such field, and is read as false. */
   mcp: boolean
+  /** How people sign in. Written since 0.9.0; an older project signed in by password, and is read so. */
+  signIn: SignInMethod[]
   /** Email verification and password reset. Written since 0.4.0; an older project is read as false. */
   email: boolean
   /** The social sign-in providers. Written since 0.4.0; an older project is read as none. */
   social: SocialProvider[]
 }
+
+/** The ways in `prumo new --sign-in` accepts. */
+export type SignInMethod = 'password' | 'email-code' | 'phone-code'
 
 /** The providers `prumo new --social` accepts. */
 export type SocialProvider = 'google' | 'apple'
@@ -89,7 +94,9 @@ export type NewProject = {
   multiTenant: boolean
   /** Only asked, and only passed, when the types hold both api and web. */
   mcp: boolean
-  /** Only asked, and only passed, when the types hold api. */
+  /** Only asked, and only passed, when the types hold api; at least one. */
+  signIn: SignInMethod[]
+  /** Only asked, and only passed, when the types hold api and people sign in with a password. */
   email: boolean
   /** Only asked, and only passed, when the types hold api and a web or mobile app; empty means none. */
   social: SocialProvider[]

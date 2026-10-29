@@ -1,8 +1,10 @@
 import { expect, test } from 'vitest'
+import type { SignInMethod } from './ipc.ts'
 import {
   allowsAlone,
   asksEmail,
   asksMcp,
+  asksSignIn,
   asksSocial,
   asksTenancy,
   defaultApps,
@@ -38,9 +40,12 @@ test('alone is allowed for one app only, named after its type', () => {
   expect(allowsAlone([{ name: 'admin', type: 'web' }])).toBe(false)
 })
 
-test('email is asked whenever there is an api', () => {
-  expect(asksEmail(['api'])).toBe(true)
-  expect(asksEmail(['web', 'mobile'])).toBe(false)
+test('sign-in is asked whenever there is an api, and email only with a password among its ways', () => {
+  expect(asksSignIn(['api'])).toBe(true)
+  expect(asksSignIn(['web', 'mobile'])).toBe(false)
+  expect(asksEmail(['api'], ['password', 'email-code'])).toBe(true)
+  expect(asksEmail(['api'], ['email-code', 'phone-code'])).toBe(false)
+  expect(asksEmail(['web', 'mobile'], ['password'])).toBe(false)
 })
 
 test('social sign-in is asked with an api and a web or mobile app', () => {
@@ -54,6 +59,7 @@ const answers = {
   architecture: 'monorepo' as const,
   multiTenant: false,
   mcp: false,
+  signIn: ['password'] as SignInMethod[],
   email: false,
   social: [],
 }
@@ -65,6 +71,8 @@ test('every question that applies gets exactly one flag', () => {
     '--monorepo',
     '--single-tenant',
     '--no-mcp',
+    '--sign-in',
+    'password',
     '--no-email',
     '--no-social',
   ])
@@ -72,6 +80,7 @@ test('every question that applies gets exactly one flag', () => {
     newFlags({
       ...answers,
       apps: defaultApps(['api', 'mobile']),
+      signIn: ['phone-code', 'password'],
       email: true,
       social: ['apple', 'google'],
     }),
@@ -80,6 +89,8 @@ test('every question that applies gets exactly one flag', () => {
     'api,mobile',
     '--monorepo',
     '--single-tenant',
+    '--sign-in',
+    'password,phone-code',
     '--email',
     '--social',
     'google,apple',
@@ -103,7 +114,29 @@ test('a question that does not apply gets no flag, whatever the form held', () =
     'api',
     '--monorepo',
     '--single-tenant',
+    '--sign-in',
+    'password',
     '--no-email',
+  ])
+})
+
+test('without a password among the ways in, email is not asked, since the CLI refuses --email then', () => {
+  expect(
+    newFlags({
+      ...answers,
+      apps: defaultApps(['api', 'web']),
+      signIn: ['email-code'],
+      email: true,
+    }),
+  ).toEqual([
+    '--types',
+    'api,web:vite',
+    '--monorepo',
+    '--single-tenant',
+    '--no-mcp',
+    '--sign-in',
+    'email-code',
+    '--no-social',
   ])
 })
 
@@ -127,6 +160,8 @@ test('an app named on purpose is an --app, after the types that keep their names
     '--monorepo',
     '--single-tenant',
     '--no-mcp',
+    '--sign-in',
+    'password',
     '--no-email',
     '--no-social',
   ])

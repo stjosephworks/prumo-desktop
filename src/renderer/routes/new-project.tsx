@@ -6,8 +6,10 @@ import {
   Folder,
   Globe,
   KeyRound,
+  LockKeyhole,
   type LucideIcon,
   Mail,
+  MessageSquareText,
   Plus,
   Server,
   Smartphone,
@@ -20,6 +22,7 @@ import type {
   AppType,
   Project,
   ProjectConfig,
+  SignInMethod,
   SocialProvider,
   WebFramework,
 } from '../../shared/ipc.ts'
@@ -28,10 +31,12 @@ import {
   allowsAlone,
   asksEmail,
   asksMcp,
+  asksSignIn,
   asksSocial,
   asksTenancy,
   defaultApps,
   REPEATABLE,
+  SIGN_IN_METHODS,
   SOCIAL_PROVIDERS,
   WEB_FRAMEWORKS,
 } from '../../shared/questions.ts'
@@ -51,6 +56,12 @@ import {
 } from '../components/ui.tsx'
 import { useT } from '../i18n/i18n.tsx'
 import { refreshProjects } from '../use-projects.ts'
+
+const METHOD_ICONS: Record<SignInMethod, LucideIcon> = {
+  password: LockKeyhole,
+  'email-code': Mail,
+  'phone-code': MessageSquareText,
+}
 
 const TYPES: { value: AppType; icon: LucideIcon }[] = [
   { value: 'api', icon: Server },
@@ -267,6 +278,8 @@ export function NewProject() {
   const [architecture, setArchitecture] = useState<ProjectConfig['architecture']>('monorepo')
   const [multiTenant, setMultiTenant] = useState(false)
   const [mcp, setMcp] = useState(false)
+  // The CLI's own default: a password, which a person may untick for a code.
+  const [signIn, setSignIn] = useState<SignInMethod[]>(['password'])
   const [email, setEmail] = useState(false)
   const [social, setSocial] = useState<SocialProvider[]>([])
   // A project the CLI created with warnings: they are read here before going on, since the list would hide them.
@@ -294,6 +307,8 @@ export function NewProject() {
   const apps = advanced && shape === 'monorepo' ? named : defaultApps(types, framework)
   const chosen = typesOf(apps)
   const unnamed = apps.some((app) => app.name.trim() === '')
+  // The CLI refuses an API nobody can sign in to.
+  const noWayIn = asksSignIn(chosen) && signIn.length === 0
 
   const rename = (index: number, name: string) => {
     const type = types[index]
@@ -327,6 +342,10 @@ export function NewProject() {
     )
   }
 
+  const toggleMethod = (method: SignInMethod, on: boolean) => {
+    setSignIn((current) => (on ? [...current, method] : current.filter((one) => one !== method)))
+  }
+
   const toggleProvider = (provider: SocialProvider, on: boolean) => {
     setSocial((current) =>
       on ? [...current, provider] : current.filter((one) => one !== provider),
@@ -334,7 +353,7 @@ export function NewProject() {
   }
 
   const create = async () => {
-    if (parent === undefined || name === '' || apps.length === 0 || unnamed) return
+    if (parent === undefined || name === '' || apps.length === 0 || unnamed || noWayIn) return
 
     setCreating(true)
     setError(undefined)
@@ -347,7 +366,8 @@ export function NewProject() {
       architecture: shape,
       multiTenant: asksTenancy(chosen) && multiTenant,
       mcp: asksMcp(chosen) && mcp,
-      email: asksEmail(chosen) && email,
+      signIn,
+      email: asksEmail(chosen, signIn) && email,
       social: asksSocial(chosen) ? social : [],
     })
 
@@ -531,7 +551,50 @@ export function NewProject() {
             )}
           </div>
 
-          {(asksMcp(chosen) || asksEmail(chosen)) && (
+          {asksSignIn(chosen) && (
+            <div className="mt-6">
+              <Field label={t.newProject.signInTitle} hint={t.newProject.signIn}>
+                <div className="grid grid-cols-3 gap-3">
+                  {SIGN_IN_METHODS.map((method) => {
+                    const Icon = METHOD_ICONS[method]
+
+                    return (
+                      <label
+                        key={method}
+                        className={cx(
+                          'flex cursor-pointer items-start gap-2 rounded-md border bg-card px-3 py-2 text-sm transition-colors',
+                          signIn.includes(method)
+                            ? 'border-brass bg-brass/[0.06]'
+                            : 'border-rule hover:border-brass',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={signIn.includes(method)}
+                          onChange={(event) => toggleMethod(method, event.target.checked)}
+                        />
+                        <span>
+                          <span className="flex items-center gap-1.5">
+                            <Icon className="size-3.5 text-brass-ink" />
+                            {t.newProject.methods[method].label}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {t.newProject.methods[method].hint}
+                          </span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+                {noWayIn && (
+                  <p className="mt-1.5 text-xs text-destructive">{t.newProject.signInNone}</p>
+                )}
+              </Field>
+            </div>
+          )}
+
+          {(asksMcp(chosen) || asksEmail(chosen, signIn)) && (
             <div className="mt-6 space-y-3">
               {asksMcp(chosen) && (
                 <Toggle
@@ -542,7 +605,7 @@ export function NewProject() {
                   onChange={setMcp}
                 />
               )}
-              {asksEmail(chosen) && (
+              {asksEmail(chosen, signIn) && (
                 <Toggle
                   icon={Mail}
                   title={t.newProject.emailTitle}
@@ -625,7 +688,8 @@ export function NewProject() {
             parent === undefined ||
             name === '' ||
             apps.length === 0 ||
-            unnamed
+            unnamed ||
+            noWayIn
           }
           className="h-9 px-5"
         >

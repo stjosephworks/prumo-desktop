@@ -38,11 +38,13 @@ test('adds a folder and reads what the project says about itself', () => {
   const added = projects.add(path)
 
   expect(added.found).toBe(true)
+  // What the config leaves out, an older CLI never asked: no MCP, a password, no email, no provider.
   expect(added.config).toEqual({
     types: ['api'],
     architecture: 'alone',
     multiTenant: false,
     mcp: false,
+    signIn: ['password'],
     email: false,
     social: [],
   })
@@ -103,6 +105,7 @@ test('a project that changed on disk is read again, not remembered', () => {
       architecture: 'monorepo',
       multiTenant: true,
       mcp: true,
+      signIn: ['password', 'email-code'],
       email: true,
       social: ['apple'],
     }),
@@ -113,6 +116,7 @@ test('a project that changed on disk is read again, not remembered', () => {
     architecture: 'monorepo',
     multiTenant: true,
     mcp: true,
+    signIn: ['password', 'email-code'],
     email: true,
     social: ['apple'],
   })
