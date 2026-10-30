@@ -40,6 +40,10 @@ export type ProjectConfig = {
   apps?: App[]
   architecture: 'alone' | 'monorepo'
   multiTenant: boolean
+  /** Whether it speaks from messages, or one language written in place. Written since 0.10.0; read as false before. */
+  multiLanguage: boolean
+  /** The languages it speaks, its base first. Written since 0.10.0; an older project spoke English. */
+  languages: ProjectLanguage[]
   /** An MCP server on the api. A project from a CLI older than 0.1.0 has no such field, and is read as false. */
   mcp: boolean
   /** How people sign in. Written since 0.9.0; an older project signed in by password, and is read so. */
@@ -49,6 +53,9 @@ export type ProjectConfig = {
   /** The social sign-in providers. Written since 0.4.0; an older project is read as none. */
   social: SocialProvider[]
 }
+
+/** The languages `prumo new --languages` accepts: the ones Prumo translates its templates into. */
+export type ProjectLanguage = 'en' | 'pt-BR' | 'es-419'
 
 /** The ways in `prumo new --sign-in` accepts. */
 export type SignInMethod = 'password' | 'email-code' | 'phone-code'
@@ -92,6 +99,10 @@ export type NewProject = {
   apps: App[]
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
+  /** Asked of every project, as tenancy is. */
+  multiLanguage: boolean
+  /** Exactly one when `multiLanguage` is false; otherwise the base first, then any others. */
+  languages: ProjectLanguage[]
   /** Only asked, and only passed, when the types hold both api and web. */
   mcp: boolean
   /** Only asked, and only passed, when the types hold api; at least one. */
