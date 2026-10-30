@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 
-const VERSION = '0.9.0'
+const VERSION = '0.10.0'
 // A CLI not yet published, packed with `pnpm pack` in Prumo's cli/, to try the Desktop against before a release.
 const local = process.env.PRUMO_CLI_TARBALL
 const root = join(import.meta.dirname, '..')

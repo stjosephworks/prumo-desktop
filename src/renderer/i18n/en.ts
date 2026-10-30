@@ -89,6 +89,7 @@ export const en = {
     stopIt: 'Stop it',
     moveApp: 'Move this app',
     madeBefore: (version: string) => `made before Prumo ${version}`,
+    base: 'base',
     madeBeforeTitle: (since: string, current: string) =>
       `Prumo records its version since ${since}; this app runs ${current}.`,
     older: (made: string, current: string) => `Prumo ${made} · this app runs ${current}`,
@@ -203,6 +204,16 @@ export const en = {
     addApp: (type: string) => `Add a ${type}`,
     removeApp: 'Remove this app',
     tenancy: 'Tenancy',
+    languages: 'Languages',
+    languagesHint:
+      'One language writes its words where they are shown; several keep them in messages, one file per language.',
+    language: 'Language',
+    baseLanguage: 'Base language',
+    baseLanguageHint:
+      "What every other one is checked against, and spoken when none of a person's fits.",
+    otherLanguages: 'Other languages',
+    otherLanguagesHint:
+      'None ticked is the base alone for now: another is a file and its translation later.',
     mcp: 'Let AI assistants use the API through MCP, signed in as the user.',
     signInTitle: 'Sign-in',
     signIn: 'How people get into their account. Tick one or more.',
