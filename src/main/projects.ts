@@ -70,6 +70,8 @@ export class Projects {
         found: true,
         config: {
           ...config,
+          multiLanguage: config.multiLanguage ?? false,
+          languages: config.languages ?? ['en'],
           mcp: config.mcp ?? false,
           signIn: config.signIn ?? ['password'],
           email: config.email ?? false,

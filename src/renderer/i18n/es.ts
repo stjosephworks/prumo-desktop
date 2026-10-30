@@ -99,6 +99,7 @@ export const es: Dictionary = {
     stopIt: 'Detener el proceso',
     moveApp: 'Mover esta app a otro puerto',
     madeBefore: (version) => `hecho antes de Prumo ${version}`,
+    base: 'base',
     madeBeforeTitle: (since, current) =>
       `Prumo registra su versión desde la ${since}; esta app usa la ${current}.`,
     older: (made, current) => `Prumo ${made} · esta app usa la ${current}`,
@@ -220,6 +221,16 @@ export const es: Dictionary = {
     addApp: (type: string) => `Añadir ${type}`,
     removeApp: 'Quitar esta app',
     tenancy: 'Tenancy',
+    languages: 'Idiomas',
+    languagesHint:
+      'Un idioma escribe sus textos donde se muestran; varios los guardan en mensajes, un archivo por idioma.',
+    language: 'Idioma',
+    baseLanguage: 'Idioma base',
+    baseLanguageHint:
+      'Con el que se comparan los demás, y el que se habla cuando ninguno de los de la persona encaja.',
+    otherLanguages: 'Otros idiomas',
+    otherLanguagesHint:
+      'Ninguno marcado es solo la base por ahora: otro idioma después es un archivo y su traducción.',
     mcp: 'Permitir que los asistentes de IA usen la API por MCP, con la sesión del usuario.',
     signInTitle: 'Inicio de sesión',
     signIn: 'Cómo entran las personas en su cuenta. Marca una o más.',

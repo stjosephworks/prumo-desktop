@@ -5,6 +5,7 @@ import type {
   App,
   AppType,
   ProjectConfig,
+  ProjectLanguage,
   SignInMethod,
   SocialProvider,
   WebFramework,
@@ -30,6 +31,13 @@ export function defaultApps(types: Types, framework: WebFramework = 'vite'): App
 export function typeFlag(app: { type: AppType; framework?: WebFramework }): string {
   return app.type === 'web' ? `web:${app.framework ?? 'vite'}` : app.type
 }
+
+/** The languages the CLI offers, in its order, each by its own name, which is how a speaker looks for it. */
+export const PROJECT_LANGUAGES: { tag: ProjectLanguage; name: string }[] = [
+  { tag: 'en', name: 'English' },
+  { tag: 'pt-BR', name: 'Português (Brasil)' },
+  { tag: 'es-419', name: 'Español (Latinoamérica)' },
+]
 
 /** The ways in the CLI offers, in its order; a password is its default. */
 export const SIGN_IN_METHODS: SignInMethod[] = ['password', 'email-code', 'phone-code']
@@ -76,6 +84,8 @@ export function newFlags(input: {
   apps: App[]
   architecture: ProjectConfig['architecture']
   multiTenant: boolean
+  multiLanguage: boolean
+  languages: ProjectLanguage[]
   mcp: boolean
   signIn: SignInMethod[]
   email: boolean
@@ -92,6 +102,9 @@ export function newFlags(input: {
   ]
 
   if (asksTenancy(types)) flags.push(input.multiTenant ? '--multi-tenant' : '--single-tenant')
+  // Every project speaks at least one language, whatever its types; the base is first.
+  flags.push(input.multiLanguage ? '--multi-language' : '--single-language')
+  flags.push('--languages', input.languages.join(','))
   if (asksMcp(types)) flags.push(input.mcp ? '--mcp' : '--no-mcp')
   if (asksSignIn(types)) {
     const signIn = SIGN_IN_METHODS.filter((method) => input.signIn.includes(method))

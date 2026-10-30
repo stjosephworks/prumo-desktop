@@ -362,6 +362,14 @@ export function ProjectScreen() {
                 ))}
                 <Tag>{project.config.architecture}</Tag>
                 {project.config.multiTenant && <Tag>multi-tenant</Tag>}
+                {/* Each language it speaks; of several, the base first and marked. */}
+                {project.config.languages.map((language, index) => (
+                  <Tag key={language}>
+                    {project.config?.multiLanguage === true && index === 0
+                      ? `${language} · ${t.project.base}`
+                      : language}
+                  </Tag>
+                ))}
                 {project.config.mcp && <Tag tone="brass">MCP</Tag>}
                 {/* Without an API there is nothing to sign in to, whatever the config reads. */}
                 {project.config.types.includes('api') &&

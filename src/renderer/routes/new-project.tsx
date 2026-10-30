@@ -22,10 +22,12 @@ import type {
   AppType,
   Project,
   ProjectConfig,
+  ProjectLanguage,
   SignInMethod,
   SocialProvider,
   WebFramework,
 } from '../../shared/ipc.ts'
+import { LOCALES } from '../../shared/locales.ts'
 import { typesOf } from '../../shared/parts.ts'
 import {
   allowsAlone,
@@ -35,6 +37,7 @@ import {
   asksSocial,
   asksTenancy,
   defaultApps,
+  PROJECT_LANGUAGES,
   REPEATABLE,
   SIGN_IN_METHODS,
   SOCIAL_PROVIDERS,
@@ -54,7 +57,7 @@ import {
   TerminalToggle,
   useOutputPanel,
 } from '../components/ui.tsx'
-import { useT } from '../i18n/i18n.tsx'
+import { useLocale, useT } from '../i18n/i18n.tsx'
 import { refreshProjects } from '../use-projects.ts'
 
 const METHOD_ICONS: Record<SignInMethod, LucideIcon> = {
@@ -277,6 +280,13 @@ export function NewProject() {
   const nextExtra = useRef(0)
   const [architecture, setArchitecture] = useState<ProjectConfig['architecture']>('monorepo')
   const [multiTenant, setMultiTenant] = useState(false)
+  const { locale } = useLocale()
+  // One language, as the CLI offers first; and the Desktop's own as the base, which is whose words its user reads.
+  const [multiLanguage, setMultiLanguage] = useState(false)
+  const [base, setBase] = useState<ProjectLanguage>(
+    LOCALES.find((one) => one.code === locale)?.tag ?? 'en',
+  )
+  const [otherLanguages, setOtherLanguages] = useState<ProjectLanguage[]>([])
   const [mcp, setMcp] = useState(false)
   // The CLI's own default: a password, which a person may untick for a code.
   const [signIn, setSignIn] = useState<SignInMethod[]>(['password'])
@@ -342,6 +352,18 @@ export function NewProject() {
     )
   }
 
+  // The base is never among the others: choosing one as the base takes it out of them.
+  const chooseBase = (language: ProjectLanguage) => {
+    setBase(language)
+    setOtherLanguages((current) => current.filter((one) => one !== language))
+  }
+
+  const toggleLanguage = (language: ProjectLanguage, on: boolean) => {
+    setOtherLanguages((current) =>
+      on ? [...current, language] : current.filter((one) => one !== language),
+    )
+  }
+
   const toggleMethod = (method: SignInMethod, on: boolean) => {
     setSignIn((current) => (on ? [...current, method] : current.filter((one) => one !== method)))
   }
@@ -365,6 +387,16 @@ export function NewProject() {
       apps: apps.map((app) => ({ ...app, name: app.name.trim() })),
       architecture: shape,
       multiTenant: asksTenancy(chosen) && multiTenant,
+      multiLanguage,
+      // In the CLI's order after the base, which is how the project lists them.
+      languages: multiLanguage
+        ? [
+            base,
+            ...PROJECT_LANGUAGES.map((one) => one.tag).filter((tag) =>
+              otherLanguages.includes(tag),
+            ),
+          ]
+        : [base],
       mcp: asksMcp(chosen) && mcp,
       signIn,
       email: asksEmail(chosen, signIn) && email,
@@ -547,6 +579,55 @@ export function NewProject() {
                     { value: true, label: 'multi-tenant' },
                   ]}
                 />
+              </Field>
+            )}
+
+            <Field label={t.newProject.languages}>
+              <Segmented
+                name="languages"
+                value={multiLanguage}
+                onChange={setMultiLanguage}
+                options={[
+                  { value: false, label: 'single-language' },
+                  { value: true, label: 'multi-language' },
+                ]}
+              />
+            </Field>
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">{t.newProject.languagesHint}</p>
+
+          <div className="mt-6 flex flex-wrap gap-x-10 gap-y-6">
+            <Field
+              label={multiLanguage ? t.newProject.baseLanguage : t.newProject.language}
+              hint={multiLanguage ? t.newProject.baseLanguageHint : undefined}
+            >
+              <select
+                value={base}
+                onChange={(event) => chooseBase(event.target.value as ProjectLanguage)}
+                className={`${INPUT} w-64`}
+              >
+                {PROJECT_LANGUAGES.map((language) => (
+                  <option key={language.tag} value={language.tag}>
+                    {language.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {multiLanguage && (
+              <Field label={t.newProject.otherLanguages} hint={t.newProject.otherLanguagesHint}>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1.5">
+                  {PROJECT_LANGUAGES.filter((language) => language.tag !== base).map((language) => (
+                    <label key={language.tag} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={otherLanguages.includes(language.tag)}
+                        onChange={(event) => toggleLanguage(language.tag, event.target.checked)}
+                      />
+                      {language.name}
+                    </label>
+                  ))}
+                </div>
               </Field>
             )}
           </div>
