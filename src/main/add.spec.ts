@@ -17,6 +17,9 @@ beforeAll(async () => {
   const flags = [
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--no-mcp',
     '--sign-in',
     'password',

@@ -47,7 +47,18 @@ beforeAll(async () => {
   const parent = mkdtempSync(join(tmpdir(), 'prumo-desktop-ports-'))
   // ports.mjs is plain Node, so the project needs no install to answer.
   await runCli(
-    ['new', 'spec-ports', '--types', 'web', '--alone', '--single-tenant', '--skip-install'],
+    [
+      'new',
+      'spec-ports',
+      '--types',
+      'web',
+      '--alone',
+      '--single-tenant',
+      '--single-language',
+      '--languages',
+      'en',
+      '--skip-install',
+    ],
     {
       cli,
       cwd: parent,
@@ -61,6 +72,8 @@ beforeAll(async () => {
       types: ['web'],
       architecture: 'alone',
       multiTenant: false,
+      multiLanguage: false,
+      languages: ['en'],
       mcp: false,
       signIn: ['password'],
       email: false,

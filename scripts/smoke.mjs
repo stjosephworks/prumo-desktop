@@ -197,6 +197,8 @@ try {
       apps: [{ name: 'web', type: 'web' }],
       architecture: 'alone',
       multiTenant: false,
+      multiLanguage: false,
+      languages: ['en'],
       mcp: false,
       email: false,
       social: [],

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { SignInMethod } from './ipc.ts'
+import type { ProjectLanguage, SignInMethod } from './ipc.ts'
 import {
   allowsAlone,
   asksEmail,
@@ -58,6 +58,8 @@ test('social sign-in is asked with an api and a web or mobile app', () => {
 const answers = {
   architecture: 'monorepo' as const,
   multiTenant: false,
+  multiLanguage: false,
+  languages: ['en'] as ProjectLanguage[],
   mcp: false,
   signIn: ['password'] as SignInMethod[],
   email: false,
@@ -70,6 +72,9 @@ test('every question that applies gets exactly one flag', () => {
     'api,web:vite',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--no-mcp',
     '--sign-in',
     'password',
@@ -89,6 +94,9 @@ test('every question that applies gets exactly one flag', () => {
     'api,mobile',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--sign-in',
     'password,phone-code',
     '--email',
@@ -104,16 +112,29 @@ test('a question that does not apply gets no flag, whatever the form held', () =
       apps: defaultApps(['web'], 'next'),
       architecture: 'alone',
       multiTenant: true,
+      multiLanguage: false,
+      languages: ['en'],
       mcp: true,
       email: true,
       social: ['google'],
     }),
-  ).toEqual(['--types', 'web:next', '--alone', '--multi-tenant'])
+  ).toEqual([
+    '--types',
+    'web:next',
+    '--alone',
+    '--multi-tenant',
+    '--single-language',
+    '--languages',
+    'en',
+  ])
   expect(newFlags({ ...answers, apps: defaultApps(['api']), social: ['google'] })).toEqual([
     '--types',
     'api',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--sign-in',
     'password',
     '--no-email',
@@ -133,6 +154,9 @@ test('without a password among the ways in, email is not asked, since the CLI re
     'api,web:vite',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--no-mcp',
     '--sign-in',
     'email-code',
@@ -159,6 +183,9 @@ test('an app named on purpose is an --app, after the types that keep their names
     'backoffice=web:astro',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
     '--no-mcp',
     '--sign-in',
     'password',
@@ -170,5 +197,19 @@ test('an app named on purpose is an --app, after the types that keep their names
     'admin=web:vite',
     '--monorepo',
     '--single-tenant',
+    '--single-language',
+    '--languages',
+    'en',
   ])
+})
+
+test('a project speaks one language, or several with its base first', () => {
+  const flagsOf = (input: Partial<typeof answers>) =>
+    newFlags({ ...answers, apps: defaultApps(['web']), architecture: 'alone', ...input })
+
+  expect(flagsOf({ languages: ['pt-BR'] })).toContain('--single-language')
+  expect(flagsOf({ languages: ['pt-BR'] }).join(' ')).toContain('--languages pt-BR')
+  expect(flagsOf({ multiLanguage: true, languages: ['es-419', 'en'] }).join(' ')).toContain(
+    '--multi-language --languages es-419,en',
+  )
 })
